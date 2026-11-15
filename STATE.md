@@ -6,6 +6,30 @@ branch `block-3`, and the rebuilt question bank (judgment and prediction, not tr
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
 
+## Report for the player (Block 5, the Coach, 2026-11-15)
+
+Block 5 is built and tested against a pretend GitHub: what cannot be tested from here is your own private repository and a real weekly run, so the
+exit test's "first weekly letter built from your real data" waits on you (below).
+
+**What's there.** The Coach tab can connect to a private repository (you paste `your-name/Predict-data` and a token). The record goes there one file a day
+and only ever adds: a second push writes nothing, a second phone's events come back, a public repository or a token that cannot write is refused. When the
+weekly review has written `coach/latest.json` the app shows its letter and drill set on the Coach tab (Today shows a card until you open it), three ideas for the
+day on the journal's write screen (tapping one starts the claim), Predict's read of a resolved card in its case file, Predict's outside-view number as a card's
+baseline when it arrived before the due day, and, for world cards, what Predict looked up with the page it read (you still press Resolve, and the page is saved
+with your answer). Anything without a source link, or not https, is not shown. Ask Predict on the Coach tab copies a message with your week's numbers.
+`topups.json` is the place the weekly review's verified questions land.
+
+**The review itself** is a scheduled task: its prompt, the file's shape and the setup are in `design/coach.md`. `tools/weekly_packet.py` builds its inputs from your
+record, `tools/coach_validate.py` says what the app would drop, `tools/merge_topups.py` turns proposed questions into the shipped file.
+
+**Tests:** `python3 tools/test_coach.py` (the app's reading of the file against independent Python rules, the packet, the top-up merge); 23 new engine tests
+(95 in all); a browser phase `b5` against a pretend GitHub (token only on the phone and only to api.github.com, wrong token, public repo, offline, disconnect, erase,
+the letter, ideas, baselines, the source link). All the suites pass: engine 95, `test_pwa.py` 33, `test_flow.py` 166, `test_blocks.py` 238.
+
+**What you need to do (about ten minutes, see `design/coach.md`):** make the private repository `Predict-data` (with a README), make a fine-grained token for it
+(Contents: read and write, 90 days), paste both into the Coach tab, write `coach/context.md`, and say whether you want the weekly review scheduled from here (it needs
+read and write access to that repository). Until then everything works without it.
+
 ## Report for the player (Block 4, the Lesson Engine, 2026-11-15)
 
 Block 4 passes its exit test (`data/build_blocks.csv`, row BL4). A synthetic overconfident history fires L01 and a
@@ -221,6 +245,8 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
   level, streak and seven-day score. A resolved card's case file has its five lenses; lens 4 is your pattern.
 - **Path and lessons.** The units, the Unit 1 exam card (Not open yet, Ready, In progress, Repair first, Passed, Rust), the
   four Unit 1 lesson cards (numbers computed from the payout table), and each pattern flag with where it stands.
+- **Coach (Block 5).** Weekly letter and drill set, a private-repository card (connect, sync now, disconnect), Ask Predict (copies this week's numbers),
+  today's three ideas on the journal write screen, a check with its source on a due world card, Predict's read in the case file, Predict's baseline on a card.
 - **Lesson engine (Block 4).** Pattern flags (`#/flag/<id>`): evidence, the lesson, the drill, re-test progress. Drills in the
   gym (`#/gym/drill-<id>`) and the rewrite drill (`#/rewrite/<id>`). The sealed exam (`#/exam/<id>`) with verdict, bands and
   repair. The autopsy (`#/autopsy/<id>`). Minimum session when days are missed. The help screen explains all of it.
@@ -358,6 +384,21 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **Belts:** a passed Unit 1 exam counts as the U1 gate. Other gates still wait for their blocks.
 - **Icons:** regenerated clean; a test scans every app file for the banned word.
 
+## Block 5 assumptions
+
+- **One file a day** (`record/<day>.jsonl`) rather than one file or one file per event: a day's file is small, a union by event id is cheap, and a second device
+  only touches the days it played.
+- **A day is pushed again when its event count changes**, not by hashing: the log only grows, so a changed count is a changed day.
+- **The token is stored in the phone's own `meta` store**, which an Export never reads and Erase clears. A fine-grained token with Contents on one repository is the
+  smallest grant GitHub offers; a leaked token could read and write that repository, which is why a public repository is refused.
+- **The coach's file is data, not code:** text only (set as text, never as markup), https links only, the builder's name refused, limits on every field.
+  Whatever fails is dropped and counted; nothing is repaired.
+- **A coach baseline** counts if it was written on or before the due day and the card is unresolved; the first one adopted wins; the locked baseline stays as `b0`.
+- **A checked outcome** is a suggestion: it is shown with its page and date, never pre-selected, and its source is stored only if the player used it and agreed.
+- **Top-ups** are `sourced` questions only (documented facts about the world), ids start `top-`, and they ship through the normal deploy after `check_data.py`.
+- **Auto-sync** runs a few seconds after the record changes and when the phone comes online, only when connected; there is no background sync while the app is closed.
+- **Not proven:** the unattended weekly run (needs the player's repository), and GitHub's behaviour with a real token (the pretend GitHub follows the documented contents API).
+
 ## Decisions
 
 2026-11-14
@@ -460,6 +501,6 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - The coach is called Predict everywhere the player can see it: the button says "Ask Predict". The builder's
   own name never appears in the app (the tests check every screen and every file).
 - Never commit the player's record, a backup, a token or personal question text to the public repo.
-- Relative URLs only; routes live in the hash; no requests to other sites while the app runs.
+- Relative URLs only; routes live in the hash; no requests to other sites while the app runs, except api.github.com after the player connects a private repository (`sync.js`).
 - A button that sits where the next screen's button will appear ignores taps for `gym.tap_guard_ms`.
 - An event never stores an undefined field: what is saved and what is exported must be the same record.

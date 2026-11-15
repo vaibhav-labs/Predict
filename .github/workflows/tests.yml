@@ -39,6 +39,8 @@ jobs:
         run: python3 tools/check_data.py
       - name: Check the scoring, the record and the question draw
         run: node --test tools/test_engine.mjs
+      - name: Check the coach file reader, the weekly packet and question top-ups
+        run: python3 tools/test_coach.py
       - name: Install Playwright and Chromium
         run: |
           python3 -m pip install "playwright==${PLAYWRIGHT_VERSION}"

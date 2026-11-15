@@ -61,9 +61,13 @@ export function helpScreen(ctx) {
       p('Edge', 'what your journal prediction scores against that baseline, not just whether you were right. Beating the baseline is the point; a confident guess that only matches it earns nothing.')),
 
     section('Coach',
+      p('Weekly letter', 'once a week Predict reads your record and writes you a short letter, a drill set and three ideas for a prediction each day. They appear here and on Today. They come from your private repository, so they only appear once you have connected one.'),
+      p('Private repository', 'a repository only you can see, on GitHub, that holds a copy of your record. You paste its name and a token that can write to it. The token stays on this phone. The app refuses a public repository, and it contacts GitHub only after you connect.'),
+      p('Ask Predict', 'copies a short message with this week’s numbers for you to paste into a chat with Predict. Nothing is sent from the app.'),
+      p('Predict’s number and checks', 'when Predict writes an outside-view number for one of your open cards before it is due, that number becomes its baseline and the card says so. For world questions Predict may look up what happened and give the page it read: you still press the button, and the page is saved with your answer.'),
       p('Export, Import, Erase', 'back up your whole record to a file, restore it (the same file twice counts once), or wipe this phone clean.'),
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 exam counts toward the first one, and the later units come with their own exams. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 exam counts toward the first one, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }
