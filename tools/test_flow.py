@@ -237,10 +237,12 @@ def shot(S, name):
 
 
 def tab(page, name):
-    """Open a tab the way a thumb does: tap it in the bottom bar (from a focus screen, by address)."""
-    link = page.query_selector(f".nav a[href='#/{name}']")
-    if link:
-        link.click()
+    """Open a tab the way a thumb does: tap it in the bottom bar (from a focus screen, by address).
+    Clicks by selector, not a cached element handle: the route can replace the whole screen between
+    finding the link and clicking it, and a handle to the old one is then "not attached to the DOM"."""
+    sel = f".nav a[href='#/{name}']"
+    if page.query_selector(sel):
+        page.click(sel)
     else:
         page.evaluate("(h) => { location.hash = h; }", f"#/{name}")
     page.wait_for_selector(f".nav a[href='#/{name}'][aria-current='page']")
