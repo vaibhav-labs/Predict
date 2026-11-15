@@ -78,7 +78,7 @@ export function coachScreen(ctx) {
   const confirm = h('input', { class: 'field', id: 'erase-confirm', type: 'text', autocomplete: 'off', autocapitalize: 'characters', 'aria-label': 'Type ERASE to confirm' });
   const eraseGo = h('button', { class: 'ghost danger', type: 'button', id: 'erase-go', disabled: true }, 'Erase everything on this phone');
   const erasePanel = h('div', { class: 'stack', id: 'erase-panel', hidden: true },
-    h('p', { class: 'msg' }, 'This removes every call, session and lesson from this phone. Export first. Type ERASE to confirm.'), confirm, eraseGo);
+    h('p', { class: 'msg' }, 'This removes every call, prediction, session and lesson from this phone. Export first. Type ERASE to confirm.'), confirm, eraseGo);
   confirm.addEventListener('input', () => { eraseGo.disabled = confirm.value.trim() !== 'ERASE'; });
   eraseGo.addEventListener('click', async () => {
     eraseGo.disabled = true;

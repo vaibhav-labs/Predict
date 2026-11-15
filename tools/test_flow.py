@@ -72,6 +72,31 @@ TIMEOUT_S = CFG["gym"]["timeout_seconds"]
 GUARD_MS = CFG["gym"]["tap_guard_ms"]
 BASE_TOTAL, BASE_PER = int(UNITS["U0"]["practice_calls"]), int(UNITS["U0"]["drills_per_day"])
 PRACTICE_PER, PRACTICE_TOTAL = int(UNITS["U1"]["drills_per_day"]), int(UNITS["U1"]["practice_calls"])
+JCFG = CFG["journal"]
+CHECKER_RULES = [{**r, "re": re.compile(r["pattern"], re.IGNORECASE)} for r in csv.DictReader(open(os.path.join(REPO, "data", "checker_rules.csv"), encoding="utf-8"))]
+
+
+def check_claim(text):
+    """Mirrors app/js/engine/journal.js checkClaim: 'require' fires when the pattern is absent, 'forbid' when present."""
+    out = []
+    for r in CHECKER_RULES:
+        matched = bool(r["re"].search(text or ""))
+        if (r["sense"] == "require" and not matched) or (r["sense"] == "forbid" and matched):
+            out.append(r["flag"])
+    return out
+
+
+def journal_raw(c, outcome_yes):
+    return hit_pts(c) if outcome_yes else miss_pts(c)
+
+
+def journal_edge(c, b, outcome_yes):
+    return JCFG["edge_weight"] * (journal_raw(c, outcome_yes) - journal_raw(b, outcome_yes))
+
+
+def add_days(day_str, n):
+    y, m, d = (int(x) for x in day_str.split("-"))
+    return (datetime.date(y, m, d) + datetime.timedelta(days=n)).isoformat()
 BASE_SESSIONS = math.ceil(BASE_TOTAL / BASE_PER)
 TABS = [("today", "Today"), ("journal", "Journal"), ("mirror", "Mirror"), ("coach", "Coach"), ("path", "Path")]
 
@@ -499,7 +524,8 @@ def phase_shell(S):
         audit(S, f"tab {name}")
     check("each of the five tabs opens its own screen", not S.slips, "; ".join(S.slips))
     tab(page, "journal")
-    check("Journal says which block it arrives in", "Arrives in Block 2" in text(page, "main"))
+    check("Journal starts with a CTA to write today's prediction, nothing due or open yet",
+          text(page, "#write") == "Write today’s prediction" and text(page, ".top .date") == "Nothing due", text(page, ".top .date"))
     tab(page, "mirror")
     check("Mirror explains why there is no curve yet",
           text(page, "#curve-empty") == f"The curve needs at least {CFG['mirror']['min_calls_for_curve']} calls. You have 0. The baseline finishes at {BASE_TOTAL}.", text(page, "#curve-empty"))
@@ -1113,6 +1139,148 @@ def phase_zero_gap(S):
         ctx2.close()
 
 
+def phase_journal(S):
+    """Block 2, the Journal: the checker, Ask Predict as a copied message, writing the full chain, a
+    lock that refuses edits, a due card on the right day with a controlled clock, resolve, and the
+    outcome card's numbers against an independent computation."""
+    ctx2 = S.browser.new_context(viewport=VIEW, device_scale_factor=2, timezone_id="UTC", permissions=["clipboard-read", "clipboard-write"])
+    p2 = ctx2.new_page()
+    attach(S, p2)
+    S.page, keep = p2, S.page
+    try:
+        p2.clock.install()
+        p2.goto(BASE + "#/journal")
+        p2.wait_for_selector(".nav")
+        check("the Journal tab offers to write today's prediction when none exists yet", text(p2, "#write") == "Write today’s prediction")
+
+        p2.click("#write")
+        p2.wait_for_selector("#claim-text")
+        vague = "Our project will probably go a lot better soon"
+        p2.fill("#claim-text", vague)
+        p2.wait_for_timeout(80)
+        shown = sorted(t.strip() for t in p2.eval_on_selector_all("#flags .msg", "els => els.map(e => e.textContent)"))
+        expected = sorted(r["message"] for r in CHECKER_RULES if r["flag"] in check_claim(vague))
+        check("the checker flags a vague, dateless claim exactly as the rules in data/checker_rules.csv say", shown == expected, f"{shown} vs {expected}")
+
+        p2.click("#ask-predict")
+        p2.wait_for_timeout(80)
+        copied = p2.evaluate("() => navigator.clipboard.readText()")
+        check("Ask Predict copies a ready-made message naming Predict, with no link and no mention of this tool",
+              "Predict" in copied and "http" not in copied and "claude" not in copied.lower(), copied[:140])
+
+        claim = "By tomorrow, the vendor will confirm the November shipment in writing."
+        check("a sharp claim with a date clears every rule", check_claim(claim) == [], str(check_claim(claim)))
+        p2.fill("#claim-text", claim)
+        p2.wait_for_timeout(80)
+        check("the checker panel clears once the claim is sharp", p2.query_selector_all("#flags .msg") == [])
+        audit(S, "journal claim")
+        p2.set_viewport_size(SMALL)  # the four-chip due picker is the layout most likely to misbehave this narrow
+        audit(S, "journal claim")
+        p2.set_viewport_size(VIEW)
+
+        p2.click(".picker >> text=Work")
+        p2.click(".picker >> text=Tomorrow")
+        settle(p2)
+        p2.click("text=Next: the chain")
+        p2.wait_for_selector("#add-evidence")
+        texts = p2.query_selector_all("input.field[type=text]")
+        check("the chain step offers the outside view, the case against and the tripwire as text fields", len(texts) == 3, str(len(texts)))
+        audit(S, "journal chain")
+        texts[0].fill("Vendors in this category confirm a shipment by the stated date about 70% of the time.")
+        texts[1].fill("The vendor's team has been slow to answer email this month.")
+        texts[2].fill("No reply, or a request for more time, by end of day tomorrow.")
+        settle(p2)
+        p2.click("text=Next: your number")
+        p2.wait_for_selector("#prob")
+        audit(S, "journal lock")
+        p2.fill("#prob", "75")
+        p2.wait_for_timeout(50)
+        check("the probability readout tracks the slider", text(p2, ".big") == "75%")
+        settle(p2)
+        p2.click("#lock")
+        p2.wait_for_function("location.hash.startsWith('#/journal/') && location.hash !== '#/journal/write'", timeout=5000)
+        pred_hash = p2.evaluate("location.hash")
+        db = read_db(p2)
+        pred = next(e for e in db["events"] if e["type"] == "prediction")
+        today0 = pred["d"]
+        expected_due = add_days(today0, JCFG["due_offset_days"]["tomorrow"])
+        check("the locked card carries the domain, the due date (from data/scoring.json, not a hardcoded day count) and the probability",
+              pred["domain"] == "work" and pred["due"] == expected_due and pred["c"] == 0.75, str(pred)[:200])
+        check("the full chain was saved: outside view, case against and tripwire text", pred["chain"]["outsideView"]["text"].startswith("Vendors") and pred["chain"]["caseAgainst"]["text"] and pred["chain"]["tripwire"]["text"])
+        check("the lock records how long the full chain took to write, like a gym call's ms", isinstance(pred.get("ms"), int) and pred["ms"] > 0, str(pred.get("ms")))
+
+        editable = p2.query_selector_all("textarea, input.range, input[type=number], #claim-text")
+        check("a locked card's own page has no editable field anywhere: a lock is final", len(editable) == 0, str(len(editable)))
+        check("the baseline is revealed right after lock (mechanics.md 4.3 step 5), not withheld until resolution", "Baseline: 50%" in p2.inner_text("body"))
+        audit(S, "journal open card")
+
+        mutated = {**pred, "c": 0.99}
+        refused = p2.evaluate("""(e) => new Promise((resolve) => {
+          const open = indexedDB.open('predict-record');
+          open.onsuccess = () => {
+            const db = open.result;
+            const tx = db.transaction('events', 'readwrite');
+            tx.objectStore('events').add(e).onerror = (ev) => { ev.preventDefault(); resolve(true); };
+            tx.oncomplete = () => resolve(false);
+          };
+        })""", mutated)
+        check("the store itself refuses a second event under a locked prediction's id", refused)
+        still = next(e for e in read_db(p2)["events"] if e["type"] == "prediction")
+        check("and its probability on the phone is unchanged", still["c"] == 0.75, str(still["c"]))
+
+        # A second prediction the same day is logged but not scored (data/scoring.json journal.scored_predictions_per_day).
+        tab(p2, "journal")
+        p2.click("#write")
+        p2.wait_for_selector("#claim-text")
+        p2.fill("#claim-text", "By next week, the second vendor will reply with a firm date.")
+        p2.click(".picker >> text=Life")
+        p2.click(".picker >> text=This week")
+        settle(p2)
+        p2.click("text=Next: the chain")
+        p2.wait_for_selector("#add-evidence")
+        for f in p2.query_selector_all("input.field[type=text]"):
+            f.fill("x")
+        settle(p2)
+        p2.click("text=Next: your number")
+        p2.wait_for_selector("#prob")
+        settle(p2)
+        p2.click("#lock")
+        p2.wait_for_function("location.hash.startsWith('#/journal/') && location.hash !== '#/journal/write'", timeout=5000)
+        check("one scored card a day: the extra prediction is logged unscored", "Logged, unscored" in p2.inner_text("body"))
+
+        # A due card appears on the right day, and not before: a controlled clock, and a real route change to see it.
+        tab(p2, "journal")
+        check("before its due day, the first card sits in Open and the Due list is empty",
+              p2.query_selector("#due-list .lesson-link") is None and len(p2.query_selector_all("#open-list .lesson-link")) == 2)
+        audit(S, "journal list with cards")
+        p2.clock.fast_forward(24 * 3600 * 1000 + 5000)
+        tab(p2, "today")  # a real hashchange, never a no-op navigation to the page's current hash
+        tab(p2, "journal")
+        check("on its due day, the first card moves from Open to Due; the week-horizon second card stays Open",
+              len(p2.query_selector_all("#due-list .lesson-link")) == 1 and len(p2.query_selector_all("#open-list .lesson-link")) == 1)
+
+        p2.goto(BASE + pred_hash)
+        p2.wait_for_selector("#resolve")
+        audit(S, "journal due card")
+        settle(p2)
+        p2.click(".picker >> text=Happened")
+        p2.click("#resolve")
+        p2.wait_for_selector(".sumgrid")
+        audit(S, "journal outcome")
+        exp_raw, exp_edge = journal_raw(0.75, True), journal_edge(0.75, 0.5, True)
+        grid = [t.strip() for t in p2.eval_on_selector_all(".sumgrid .p b", "els => els.map(e => e.textContent)")]
+        body = p2.inner_text(".sumgrid")
+        check("the outcome card's baseline and edge match an independent computation from data/scoring.json",
+              grid == [pct(0.5), signed(exp_edge)] and f"raw {signed(exp_raw)}" in body,
+              f"{grid}, expected [{pct(0.5)}, {signed(exp_edge)}], raw {signed(exp_raw)} in {body!r}")
+        rows = p2.eval_on_selector_all(".tbl tbody tr", "els => els.map(e => [e.children[0].textContent, e.children[1].textContent])")
+        exp_rows = [[pct(c), signed(journal_edge(c, 0.5, True))] for c in STEPS]
+        check("the outcome card's table of other numbers matches an independent computation at all eleven steps", rows == exp_rows, f"{rows} vs {exp_rows}")
+    finally:
+        S.page = keep
+        ctx2.close()
+
+
 def phase_final(S):
     errs = [t for ph, t in S.console if not (ph == "offline" and "net::ERR" in t)]
     check("no script errors and no console errors in the whole run", not errs, "; ".join(errs[:3]))
@@ -1143,7 +1311,8 @@ PHASES = [
     ("8 questions used up, disputes", phase_reuse),
     ("9 the timeout", phase_timeout),
     ("10 a gap of zero", phase_zero_gap),
-    ("11 whole run", phase_final),
+    ("11 the journal", phase_journal),
+    ("12 whole run", phase_final),
 ]
 
 

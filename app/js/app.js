@@ -5,13 +5,14 @@ import { makeScoring } from './engine/scoring.js';
 import { parseTable } from './engine/csv.js';
 import { openStore } from './store.js';
 import { BUILD } from './build.js';
-import { tabFrame, soonCard } from './ui/common.js';
 import { todayScreen } from './ui/today.js';
 import { gymScreen, summaryScreen } from './ui/gym.js';
 import { mirrorScreen } from './ui/mirror.js';
 import { pathScreen } from './ui/path.js';
 import { lessonScreen } from './ui/lesson.js';
 import { coachScreen } from './ui/coach.js';
+import { journalScreen } from './ui/journal.js';
+import { compileCheckerRules } from './engine/journal.js';
 
 const root = document.getElementById('app');
 let routeId = 0;
@@ -32,13 +33,9 @@ function fatal(err) {
     h('button', { class: 'btn', type: 'button', onclick: () => location.reload() }, 'Try again'))));
 }
 
-function soon(tab, title, block, text) {
-  return tabFrame(tab, h('header', { class: 'top' }, h('span', { class: 'mark' }, title), h('span', { class: 'date' }, `Block ${block}`)), soonCard(block, text));
-}
-
 const routes = {
   today: (c) => todayScreen(c),
-  journal: (c) => soon('journal', 'Journal', 2, 'One real prediction a day about your work, your life or the world, written as a six-link chain and locked before the outcome is known. When it resolves, you get a case file that reads it back to you.'),
+  journal: (c, arg) => journalScreen(c, arg),
   mirror: (c) => mirrorScreen(c),
   coach: (c) => coachScreen(c),
   path: (c) => pathScreen(c),
@@ -63,11 +60,13 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, checkerText, journalBaselinesText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
       getOK('./content/questions/starter.json').then((r) => r.json()),
+      getOK('./data/checker_rules.csv').then((r) => r.text()),
+      getOK('./data/journal_baselines.csv').then((r) => r.text()),
     ]);
     const store = await openStore();
     const opens = ((await store.getMeta('opens')) || 0) + 1;
@@ -78,8 +77,11 @@ async function boot() {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
       gymMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').gym_min),
+      journalMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').journal_min),
       bank: bank.questions,
       bankById: new Map(bank.questions.map((q) => [q.id, q])),
+      checkerRules: compileCheckerRules(parseTable(checkerText)),
+      journalBaselines: parseTable(journalBaselinesText),
       updateReady: false,
       nav: (hash) => { location.hash = hash; },
       // Swap the current history entry for another screen, so Back from it never lands on a screen that acts on arrival.

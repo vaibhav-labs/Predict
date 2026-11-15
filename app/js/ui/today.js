@@ -12,10 +12,15 @@ export function todayScreen(ctx) {
   const plan = nextSessionPlan(ctx);
   const active = R.activeSession(events);
   const unit = unitRow(ctx, plan.mode === 'baseline' ? 'U0' : 'U1');
-  const day = R.dayNumber(events, R.localDay());
+  const today = R.localDay();
+  const day = R.dayNumber(events, today);
   const read = R.lessonsRead(events);
   const nextLesson = LESSONS.find((l) => !read.has(l.id));
   const gymMin = ctx.gymMinutes;
+  const predictions = R.predictionsOf(events, today);
+  const dueCount = R.dueList(predictions).length;
+  const writtenToday = predictions.some((p) => p.d === today);
+  const journalLine = writtenToday ? "Today's prediction written" : dueCount ? `${dueCount} due to resolve` : 'Write today’s prediction';
 
   const gymLine = active
     ? `Resume: ${active.calls.length} of ${active.size} done · ${active.mode === 'baseline' ? 'Baseline' : 'Unit 1 practice'}`
@@ -42,13 +47,13 @@ export function todayScreen(ctx) {
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Points'), h('span', { class: 'val num', id: 'stat-points' }, signed(sum.points)), h('span', { class: 'cap' }, sum.n ? `${signed(Math.round(sum.avgPoints))} a call · n=${sum.n}` : 'no calls yet')),
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('span', { class: 'val num', id: 'stat-base' }, base.complete ? 'Done' : `${base.done} of ${base.total}`), h('span', { class: 'bar' }, h('i', { style: `width:${Math.round((base.done / base.total) * 100)}%` })), h('span', { class: 'cap' }, base.complete ? 'Curve in Mirror' : 'calls so far'))),
     h('section', { class: 'card' },
-      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, 'Block 1 of 10 built')),
+      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, 'Block 2 of 10 built')),
       h('ol', { class: 'steps' },
         h('li', null, h('span', { class: 'n' }, '1'), h('span', { class: 't' }, h('b', null, 'Gym'), h('em', { id: 'gym-line' }, gymLine)), h('span', { class: 'm num' }, `${gymMin} min`)),
         h('li', { class: nextLesson ? '' : 'later' }, h('span', { class: 'n' }, '2'),
           h('span', { class: 't' }, h('b', null, 'Lesson'), h('em', null, nextLesson ? `Unit 1 · ${nextLesson.title}` : 'All four Unit 1 cards read')),
           nextLesson ? h('a', { class: 'link', href: `#/lesson/${nextLesson.id}`, 'aria-label': `Open the lesson ${nextLesson.title}` }, '1 min') : h('span', { class: 'm num' }, 'Done')),
-        h('li', { class: 'later' }, h('span', { class: 'n' }, '3'), h('span', { class: 't' }, h('b', null, 'Journal'), h('em', null, 'Arrives in Block 2')), h('span', { class: 'm' }, '')))),
+        h('li', null, h('span', { class: 'n' }, '3'), h('span', { class: 't' }, h('b', null, 'Journal'), h('em', { id: 'journal-line' }, journalLine)), h('a', { class: 'link', href: '#/journal', 'aria-label': 'Open the Journal' }, `${ctx.journalMinutes} min`)))),
     needsExport
       ? h('section', { class: 'card nudge' },
         h('span', { class: 'eyebrow' }, 'Back up your record'),
