@@ -1,0 +1,299 @@
+{
+  "_doc": "Predict attention economy for scripts/economy_sim.py. One step = one day. The scarce resource is the free minutes in a session (15 minus 6 fixed minutes for reveals, lesson and scoreboard). Each strategy is a way to spend them. 'resolved' is real predictions scored against reality; 100 of them is the first trustworthy bias map.",
+  "params": {
+    "free_minutes": 9,
+    "show_up": 0.9,
+    "gym_cost": 0.28,
+    "log_cost": 1.3,
+    "short_h": 1.5,
+    "week_h": 7,
+    "month_h": 30,
+    "cool": 0.5,
+    "map_target": 100,
+    "deep_cost": 3.9,
+    "deep_h": 12.8
+  },
+  "pools": {
+    "minutes": 0,
+    "played": 0,
+    "feedback": 0,
+    "open_short": 0,
+    "open_week": 0,
+    "open_month": 0,
+    "resolved": 0,
+    "reveals_today": 0,
+    "streak": 0,
+    "open_deep": 0
+  },
+  "flows": [
+    {
+      "name": "clear_reveals",
+      "from": "reveals_today",
+      "to": "drain",
+      "rate": "reveals_today"
+    },
+    {
+      "name": "clear_minutes",
+      "from": "minutes",
+      "to": "drain",
+      "rate": "minutes"
+    },
+    {
+      "name": "clear_played",
+      "from": "played",
+      "to": "drain",
+      "rate": "played"
+    },
+    {
+      "name": "show_up",
+      "from": "source",
+      "to": "played",
+      "rate": "1 if chance(show_up) else 0"
+    },
+    {
+      "name": "attention",
+      "from": "source",
+      "to": "minutes",
+      "rate": "free_minutes*played"
+    },
+    {
+      "name": "streak_up",
+      "from": "source",
+      "to": "streak",
+      "rate": "played"
+    },
+    {
+      "name": "streak_cool",
+      "from": "streak",
+      "to": "drain",
+      "rate": "(1-played)*ceil(streak*cool)"
+    },
+    {
+      "name": "count_short",
+      "from": "source",
+      "to": "reveals_today",
+      "rate": "open_short/short_h"
+    },
+    {
+      "name": "count_week",
+      "from": "source",
+      "to": "reveals_today",
+      "rate": "open_week/week_h"
+    },
+    {
+      "name": "count_month",
+      "from": "source",
+      "to": "reveals_today",
+      "rate": "open_month/month_h"
+    },
+    {
+      "name": "resolve_short",
+      "from": "open_short",
+      "to": "resolved",
+      "rate": "open_short/short_h"
+    },
+    {
+      "name": "resolve_week",
+      "from": "open_week",
+      "to": "resolved",
+      "rate": "open_week/week_h"
+    },
+    {
+      "name": "resolve_month",
+      "from": "open_month",
+      "to": "resolved",
+      "rate": "open_month/month_h"
+    },
+    {
+      "name": "reveal_feedback",
+      "from": "source",
+      "to": "feedback",
+      "rate": "reveals_today"
+    },
+    {
+      "name": "count_deep",
+      "from": "source",
+      "to": "reveals_today",
+      "rate": "open_deep/deep_h"
+    },
+    {
+      "name": "resolve_deep",
+      "from": "open_deep",
+      "to": "resolved",
+      "rate": "open_deep/deep_h"
+    }
+  ],
+  "converters": [
+    {
+      "name": "log_deep",
+      "when": "minutes >= deep_cost",
+      "consume": {
+        "minutes": "deep_cost"
+      },
+      "produce": {
+        "open_deep": 1
+      },
+      "max_per_step": 1
+    },
+    {
+      "name": "gym_question",
+      "when": "minutes >= gym_cost",
+      "consume": {
+        "minutes": "gym_cost"
+      },
+      "produce": {
+        "feedback": 1
+      },
+      "max_per_step": 18
+    }
+  ],
+  "strategies": {
+    "designed_session": {},
+    "journal_only": {
+      "converters": [
+        {
+          "name": "log_week",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_week": 1
+          },
+          "max_per_step": 1
+        }
+      ]
+    },
+    "gym_only": {
+      "converters": [
+        {
+          "name": "gym_question",
+          "when": "minutes >= gym_cost",
+          "consume": {
+            "minutes": "gym_cost"
+          },
+          "produce": {
+            "feedback": 1
+          },
+          "max_per_step": 32
+        }
+      ]
+    },
+    "all_month_journal": {
+      "converters": [
+        {
+          "name": "log_month",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_month": 1
+          },
+          "max_per_step": 1
+        },
+        {
+          "name": "gym_question",
+          "when": "minutes >= gym_cost",
+          "consume": {
+            "minutes": "gym_cost"
+          },
+          "produce": {
+            "feedback": 1
+          },
+          "max_per_step": 18
+        }
+      ]
+    },
+    "all_short_journal": {
+      "converters": [
+        {
+          "name": "log_short",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_short": 1
+          },
+          "max_per_step": 1
+        },
+        {
+          "name": "gym_question",
+          "when": "minutes >= gym_cost",
+          "consume": {
+            "minutes": "gym_cost"
+          },
+          "produce": {
+            "feedback": 1
+          },
+          "max_per_step": 18
+        }
+      ]
+    },
+    "weekend_binge": {
+      "params": {
+        "show_up": 0.286,
+        "free_minutes": 31.5
+      },
+      "converters": [
+        {
+          "name": "log_short",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_short": 1
+          },
+          "max_per_step": 1
+        },
+        {
+          "name": "log_week",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_week": 1
+          },
+          "max_per_step": 1
+        },
+        {
+          "name": "log_month",
+          "when": "minutes >= log_cost",
+          "consume": {
+            "minutes": "log_cost"
+          },
+          "produce": {
+            "open_month": 1
+          },
+          "max_per_step": 1
+        },
+        {
+          "name": "gym_question",
+          "when": "minutes >= gym_cost",
+          "consume": {
+            "minutes": "gym_cost"
+          },
+          "produce": {
+            "feedback": 1
+          },
+          "max_per_step": 63
+        }
+      ]
+    }
+  },
+  "end": [
+    {
+      "when": "resolved >= map_target",
+      "label": "map_ready"
+    }
+  ],
+  "track": [
+    "feedback",
+    "resolved",
+    "reveals_today",
+    "streak"
+  ]
+}

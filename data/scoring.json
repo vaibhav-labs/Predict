@@ -1,0 +1,224 @@
+{
+  "_doc": "Predict scoring parameters. Every tunable number lives here. The game and the simulator (sim/scoring_sim.py) both read this file, so a balance pass is a data edit, not a code edit. In every formula, p is the probability the player gave to what actually happened.",
+  "binary": {
+    "min_confidence": 0.5,
+    "max_confidence": 0.99,
+    "dial_steps": [
+      0.5,
+      0.55,
+      0.6,
+      0.65,
+      0.7,
+      0.75,
+      0.8,
+      0.85,
+      0.9,
+      0.95,
+      0.99
+    ],
+    "note_threshold": 0.8,
+    "core_rule": "brier_points",
+    "sharp_rule": "log_points",
+    "rules": {
+      "naive_linear": "100*(2*p-1)",
+      "brier_points": "100*(1-4*(1-p)**2)",
+      "log_points": "100*(1+log2(p))"
+    },
+    "rule_notes": {
+      "naive_linear": "What a home-made journal usually does: win your confidence, lose your confidence. NOT proper. Included only to show why it is rejected.",
+      "brier_points": "Core rule, Units 0-9. Quadratic (Brier) rule rescaled so 50% scores 0 and certainty scores +100. Bounded at -300.",
+      "log_points": "Sharp mode, Units 10-12. Logarithmic rule rescaled the same way. Unbounded below, so 100% is not allowed.",
+      "dial_steps": "The eleven confidence steps on the dial until Unit 10 (then 1% steps). A step is the probability given to the chosen side."
+    }
+  },
+  "interval": {
+    "coverage": 0.9,
+    "miss_multiplier": 20,
+    "note": "Interval (Winkler) score on a log10 or linear scale chosen per question: width + miss_multiplier * distance outside the range. miss_multiplier = 2 / (1 - coverage). Lower is better."
+  },
+  "journal": {
+    "scored_predictions_per_day": 1,
+    "trivial_band": [
+      0.05,
+      0.95
+    ],
+    "note": "Journal calls earn edge points = edge_weight * (points(your forecast) - points(baseline forecast)). edge_weight 2 makes an average real call worth about one gym call (sim F: 14.5 edge points x 2 = 29 vs 33.4 for a calibrated gym call). The baseline is recorded before you commit and shown only after. A call whose baseline is outside trivial_band does not count toward gates. One scored prediction a day, written with its full chain of reasoning; extra predictions are logged unscored. OPEN: tune edge_weight on real data in Block 2.",
+    "edge_weight": 2
+  },
+  "habit": {
+    "session_points": 60,
+    "streak_bonus_per_day": 6,
+    "streak_bonus_cap_days": 10,
+    "streak_cool_fraction": 0.5,
+    "note": "Flat habit points, never a multiplier on calls, so attendance can never make a bad call pay."
+  },
+  "gates": {
+    "calibration_index_tolerance": 0.05,
+    "calibration_exam_calls": 200,
+    "band_z_max": 2.5,
+    "band_min_items": 15,
+    "recert_index_tolerance": 0.03,
+    "recert_exam_calls": 400,
+    "range_exam_calls": 60,
+    "range_pass_hits": [
+      50,
+      58
+    ],
+    "top_band_trigger_window": 40,
+    "top_band_trigger_gap": 0.1,
+    "note": "A gate is a fixed exam of fresh calls, judged once at the end, never a rolling window: repeated looks at a rolling window let luck pass a miscalibrated player. Values chosen from sim/scoring_sim.py part D and G; see design/balance-report.md."
+  },
+  "sim": {
+    "seed": 20261114,
+    "draws": 120000,
+    "sessions": 6000,
+    "session_sizes": [
+      20,
+      50,
+      100,
+      150,
+      200,
+      400
+    ],
+    "gate_sizes": [
+      100,
+      150,
+      200,
+      300,
+      400
+    ],
+    "gate_tolerances": [
+      0.03,
+      0.04,
+      0.05
+    ],
+    "band_z_options": [
+      2.0,
+      2.5,
+      3.0
+    ],
+    "policies": {
+      "honest": {
+        "type": "logit_scale",
+        "factor": 1.0
+      },
+      "mild_overconfident": {
+        "type": "logit_scale",
+        "factor": 1.4
+      },
+      "overconfident": {
+        "type": "logit_scale",
+        "factor": 2.0
+      },
+      "underconfident": {
+        "type": "logit_scale",
+        "factor": 0.5
+      },
+      "always_50": {
+        "type": "constant",
+        "value": 0.5
+      },
+      "always_99": {
+        "type": "constant",
+        "value": 0.99
+      },
+      "round_to_10": {
+        "type": "round",
+        "step": 0.1
+      },
+      "three_words": {
+        "type": "snap",
+        "values": [
+          0.5,
+          0.75,
+          0.99
+        ]
+      },
+      "noisy": {
+        "type": "logit_noise",
+        "sd": 0.7
+      }
+    },
+    "policy_notes": {
+      "honest": "Says exactly what they believe.",
+      "mild_overconfident": "Stretches beliefs a little: says 82% when the truth is 75%.",
+      "overconfident": "The typical untrained pattern: says 90% when the truth is 75%.",
+      "underconfident": "Shrinks toward 50%: says 63% when the truth is 75%.",
+      "always_50": "Refuses to commit.",
+      "always_99": "Bluffs certainty on every call.",
+      "round_to_10": "Honest, but only uses 50, 60, 70, 80, 90, 99.",
+      "three_words": "Honest, but only uses 'toss-up', 'probably', 'certain' (50, 75, 99).",
+      "noisy": "Right on average, but sloppy call to call."
+    },
+    "question_mixes": {
+      "mixed": {
+        "type": "uniform",
+        "lo": 0.5,
+        "hi": 1.0
+      },
+      "hard": {
+        "type": "beta",
+        "a": 1,
+        "b": 2
+      },
+      "easy": {
+        "type": "beta",
+        "a": 2,
+        "b": 1
+      }
+    }
+  },
+  "levels": {
+    "model": "power",
+    "base": 140,
+    "exp": 1.2,
+    "assumed_points_per_minute": 52,
+    "table": "data/levels.csv"
+  },
+  "gym": {
+    "baseline_unit": "U0",
+    "practice_unit": "U1",
+    "baseline_spares": 4,
+    "timeout_seconds": 60,
+    "tap_guard_ms": 400,
+    "recent_window": 20,
+    "target_hit_rate": [
+      0.65,
+      0.85
+    ],
+    "difficulty_mix": {
+      "easy": 0.4,
+      "medium": 0.35,
+      "hard": 0.25
+    },
+    "mix_when_hit_rate_high": {
+      "easy": 0.2,
+      "medium": 0.35,
+      "hard": 0.45
+    },
+    "mix_when_hit_rate_low": {
+      "easy": 0.6,
+      "medium": 0.3,
+      "hard": 0.1
+    },
+    "note": "Gym session settings. Calls per session and total baseline calls come from data/units.csv (U0 and U1). The baseline is planned up front (half true, half false, spread across difficulty) and gives no feedback until the session ends; practice picks each question as you go and shifts the difficulty mix to hold the recent hit rate inside target_hit_rate. A question with no answer after timeout_seconds goes back to the pool unscored. A tap on Lock in, Next call or a summary button within tap_guard_ms of that screen appearing is ignored, so a double tap can never answer the next question or skip a reveal. OPEN: the mixes and the window are first guesses until real hit rates arrive in Block 1."
+  },
+  "mirror": {
+    "band_edges": [
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "thin_below": 10,
+    "min_calls_for_curve": 20,
+    "note": "The first calibration curve: five bands of ten points, with the number of calls under every point. A band with fewer than thin_below calls is greyed, never hidden. Block 3 adds error bars."
+  },
+  "record": {
+    "export_nudge_days": 7,
+    "export_nudge_min_calls": 10,
+    "note": "The app nudges an Export when the last one is older than export_nudge_days and the record holds at least export_nudge_min_calls calls."
+  }
+}

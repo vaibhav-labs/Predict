@@ -1,0 +1,11 @@
+Strategy comparison: 300 runs each, up to 90 steps
+
+strategy         map_ready   timeout    len  flags
+designed_session        0%      100%   90.0  NO ENDING
+journal_only            0%      100%   90.0  NO ENDING
+gym_only                0%      100%   90.0  FLAT,NO ENDING
+all_month_journa        0%      100%   90.0  NO ENDING
+all_short_journa        0%      100%   90.0  NO ENDING
+weekend_binge           0%      100%   90.0  NO ENDING,SWINGY
+
+Run with --strategy NAME for the full per-pool report of one strategy.

@@ -1,0 +1,8 @@
+.DS_Store
+site/
+node_modules/
+__pycache__/
+*.pyc
+# Three helper scripts copied from the game-design skill. Not published here;
+# keep them locally in sim/tools/ to run sim/run_all.sh.
+sim/tools/

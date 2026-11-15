@@ -1,0 +1,18 @@
+halve on a missed day (cool=0.5):
+Mean (p10..p90) of tracked pools at checkpoints (finished runs hold their last value):
+  step              feedback              resolved         reveals_today                streak
+     1         16.2 (18..18)            0.0 (0..0)            0.0 (0..0)            0.9 (1..1)
+    22      358.1 (324..396)          10.2 (9..11)            0.7 (1..1)          12.3 (5..22)
+    45      732.1 (684..774)         29.4 (27..31)            0.9 (1..1)          16.1 (7..28)
+    67    1088.1 (1026..1134)         49.0 (46..51)            0.9 (1..1)          16.9 (6..31)
+    90    1460.2 (1386..1530)         69.6 (66..73)            0.9 (1..1)          17.4 (6..31)
+
+hard reset (cool=1.0):
+Mean (p10..p90) of tracked pools at checkpoints (finished runs hold their last value):
+  step              feedback              resolved         reveals_today                streak
+     1         16.2 (18..18)            0.0 (0..0)            0.0 (0..0)            0.9 (1..1)
+    22      358.1 (324..396)          10.2 (9..11)            0.7 (1..1)           9.0 (1..22)
+    45      732.1 (684..774)         29.4 (27..31)            0.9 (1..1)           9.0 (1..21)
+    67    1088.1 (1026..1134)         49.0 (46..51)            0.9 (1..1)           8.6 (0..22)
+    90    1460.2 (1386..1530)         69.6 (66..73)            0.9 (1..1)           8.8 (1..21)
+

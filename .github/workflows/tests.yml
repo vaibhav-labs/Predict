@@ -1,0 +1,42 @@
+name: Browser tests
+
+# Plays the app in a real Chromium: install, offline, update, and the whole first-hour flow.
+# This never blocks a deploy. pages.yml deploys on its own after its own fast checks.
+# Open this run when a change looks wrong on the phone.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check the data tables and the question bank
+        run: python3 tools/check_data.py
+      - name: Check the scoring, the record and the question draw
+        run: node --test tools/test_engine.mjs
+      - name: Install Playwright and Chromium
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Install, offline and update tests
+        run: python3 tools/test_pwa.py
+      - name: Play-through tests
+        run: python3 tools/test_flow.py

@@ -1,0 +1,29 @@
+state,capital,statehood_date,statehood_year,population_2011,area_km2,use_capital,use_date,note
+Andhra Pradesh,Amaravati,1 November 1956,1956,49506799,162975,no,no,"Capital status has been contested; date is for the reorganised state"
+Arunachal Pradesh,Itanagar,20 February 1987,1987,1383727,83743,yes,yes,
+Assam,Dispur,26 January 1950,1950,31205576,78438,no,no,
+Bihar,Patna,NA,,104099452,94163,yes,no,
+Chhattisgarh,Raipur,1 November 2000,2000,25545198,135194,yes,yes,
+Goa,Panaji,30 May 1987,1987,1458545,3702,yes,yes,
+Gujarat,Gandhinagar,1 May 1960,1960,60439692,196024,yes,yes,
+Haryana,Chandigarh,1 November 1966,1966,25351462,44212,no,yes,"Chandigarh is shared with Punjab"
+Himachal Pradesh,Shimla,25 January 1971,1971,6864602,55673,yes,yes,
+Jharkhand,Ranchi,15 November 2000,2000,32988134,79714,yes,yes,
+Karnataka,Bengaluru,1 November 1956,1956,61095297,191791,yes,no,
+Kerala,Thiruvananthapuram,NA,,33406061,38863,yes,no,
+Madhya Pradesh,Bhopal,NA,,72626809,308252,yes,no,
+Maharashtra,Mumbai (summer) and Nagpur (winter),1 May 1960,1960,112374333,307713,no,yes,
+Manipur,Imphal,21 January 1972,1972,2855794,22327,yes,yes,
+Meghalaya,Shillong,NA,,2966889,22429,yes,no,
+Mizoram,Aizawl,20 February 1987,1987,1097206,21081,yes,yes,
+Nagaland,Kohima,1 December 1963,1963,1978502,16579,yes,yes,
+Odisha,Bhubaneswar,26 January 1950,1950,41974218,155707,yes,no,
+Punjab,Chandigarh,1 November 1966,1966,27743338,50362,no,no,"Chandigarh is shared with Haryana; Punjab was a state before the 1966 reorganisation"
+Rajasthan,Jaipur,26 January 1950,1950,68548437,342239,yes,no,
+Sikkim,Gangtok,16 May 1975,1975,610577,7096,yes,yes,
+Tamil Nadu,Chennai,1 November 1956,1956,72147030,130058,yes,no,
+Telangana,Hyderabad,2 June 2014,2014,35193978,112077,yes,yes,
+Tripura,Agartala,21 January 1972,1972,3673917,10491,yes,yes,
+Uttar Pradesh,Lucknow,26 January 1950,1950,199812341,240928,yes,no,
+Uttarakhand,Dehradun,9 November 2000,2000,10086292,53483,no,yes,"Has more than one seat of government"
+West Bengal,Kolkata,26 January 1950,1950,91276115,88752,yes,no,

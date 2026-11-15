@@ -1,0 +1,38 @@
+1. Unit pacing at 15 minutes a day (10% slack included)
+unit name              drill days evidence days unit days  start   end
+U0   Baseline                   3             0         4      1     4
+U1   Calibration               17             0        19      5    23
+U2   Sharp questions            5            10        11      5    15
+U3   Ranges                    10             0        11     24    34
+U4   Fermi                     18             0        20     35    54
+U5   Outside view              13            15        17     55    71
+U6   Updating                  14            24        27     72    98
+U7   Second opinions           10            14        16     99   114
+U8   Autopsy                   11            21        24    115   138
+U9   Decisions                 12            21        24    139   162
+U10  Fine grain                35             0        39    163   201
+U11  With the machine           0            56        62    163   224
+U12  Arena                      0           120       132    202   333
+
+2. Arc ends and belt evidence (resolved real predictions from the session-economy sim)
+  Yellow Calibrated  earliest day   61  needs  40 resolved, sim has    40  ok
+  Green  Analyst     earliest day  184  needs 150 resolved, sim has   151  ok
+  Brown  Judge       earliest day  351  needs 300 resolved, sim has   301  ok
+  Black  Contender   earliest day  351  needs   0 resolved, sim has   301  external evidence
+  Red    Elite       earliest day  566  needs   0 resolved, sim has   494  external evidence
+  Units 0 to 11 complete on day 224 (7.4 months) if every gate is passed first time.
+
+3. Session budget by arc (minutes, must total 15)
+  Arc I   reveals 2 min (13%), gym 5 min (33%), lesson 3 min (20%), journal 4 min (27%), scoreboard 1 min (7%)  total 15 ok
+  Arc II  reveals 2 min (13%), gym 4 min (27%), lesson 3 min (20%), journal 5 min (33%), scoreboard 1 min (7%)  total 15 ok
+  Arc III reveals 3 min (20%), gym 3 min (20%), lesson 2 min (13%), journal 6 min (40%), scoreboard 1 min (7%)  total 15 ok
+  Arc IV  reveals 3 min (20%), gym 4 min (27%), lesson 1 min (7%), journal 6 min (40%), scoreboard 1 min (7%)  total 15 ok
+
+4. Exact pass odds for k-of-n exams
+  Unit 4 Fermi (16 of 20)   skill 90%: 96%, skill 85%: 83%, skill 70%: 24%
+  Units 5-6 (32 of 40)      skill 90%: 98%, skill 85%: 86%, skill 70%: 11%
+  Unit 7 (22 of 28)         skill 90%: 98%, skill 85%: 88%, skill 70%: 22%
+  Units 8-9 (24 of 30)      skill 90%: 97%, skill 85%: 85%, skill 70%: 16%
+  Trigger L05 (fewer than 30 of 40 ranges hold): fires at true coverage 90%: 0.1%, 80%: 16.1%, 70%: 69.1%, 50%: 99.9%
+
+Wrote data/timeline.csv

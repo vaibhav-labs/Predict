@@ -1,0 +1,6 @@
+id,belt,title,after_unit,requirements,resolved_needed,evidence
+B1,Yellow,Calibrated,U3,Gates of Units 0 to 3; 40 resolved real predictions,40,Economy sim at one prediction a day: 40 resolved by day 61
+B2,Green,Analyst,U6,"Gates of Units 4 to 6; 150 resolved real predictions with total edge above zero, 20 of them month-horizon",150,Economy sim at one prediction a day: 151 resolved by day 184
+B3,Brown,Judge,U9,Gates of Units 7 to 9; 300 resolved real predictions with average confidence within 5 points of hit rate; memory drift within 5 points,300,"Sim D: over 300 calls a calibrated player passes 97%, a typical overconfident one 2.5%"
+B4,Black,Contender,U12,"Gates of Units 10 to 12, which includes 50 resolved public questions with a better-than-crowd score",0,External: Good Judgment Open Relative Brier Score or Metaculus Peer score
+B5,Red,Elite,U12,"Top 10%, then top 2%, on a public leaderboard across 100 or more questions and 12 months",0,The Good Judgment Project named its top 2% superforecasters; about 70% kept the rank the next year

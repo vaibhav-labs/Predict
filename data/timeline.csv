@@ -1,0 +1,29 @@
+id,kind,arc,name,start_day,end_day
+U0,unit,I,Baseline,1,4
+U1,unit,I,Calibration,5,23
+U2,unit,I,Sharp questions,5,15
+U3,unit,I,Ranges,24,34
+U4,unit,II,Fermi,35,54
+U5,unit,II,Outside view,55,71
+U6,unit,II,Updating,72,98
+U7,unit,III,Second opinions,99,114
+U8,unit,III,Autopsy,115,138
+U9,unit,III,Decisions,139,162
+U10,unit,IV,Fine grain,163,201
+U11,unit,IV,With the machine,163,224
+U12,unit,IV,Arena,202,333
+B1,belt,I,Yellow belt: Calibrated,61,61
+B2,belt,II,Green belt: Analyst,184,184
+B3,belt,III,Brown belt: Judge,351,351
+B4,belt,IV,Black belt: Contender,351,351
+B5,belt,IV,Red belt: Elite,566,566
+BL1,block,I,The Dial,1,1
+BL2,block,I,The Journal,5,5
+BL3,block,I,The Mirror,9,9
+BL4,block,I,The Lesson Engine,14,14
+BL5,block,I,The Coach,21,21
+BL6,block,I,Ranges,24,24
+BL7,block,II,Reasoning tools,35,35
+BL8,block,II,Updating,70,70
+BL9,block,III,Know yourself,97,97
+BL10,block,IV,Compete,161,161

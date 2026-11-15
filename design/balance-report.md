@@ -1,0 +1,274 @@
+# Predict: balance report (concept version 0.1)
+
+> **Summary.** Nine checks back the numbers in the plan. Honest reporting is the best strategy under the scoring rule, gates and lesson triggers are sized so luck rarely decides them, real predictions are scored on edge so sure things are worth nothing, and the 15-minute session, with one deep prediction a day, reaches a first journal bias map (100 resolved real predictions) in about 124 days. Four findings changed the design; they are listed first. Rebuild this file with `sh sim/run_all.sh`.
+
+## Changes the simulations forced
+
+| Finding | Change | Result |
+|---|---|---|
+| Gate with a fixed 10-point tolerance per band failed calibrated players 63% of the time at 150 calls | Bands are judged against their own sampling error (2.5 standard errors); exam is 200 calls | Calibrated pass rate 88%, typical overconfident 1% |
+| Overconfidence trigger at 30 calls and an 8-point gap fired falsely on 42% of calibrated players | 40 calls and a 10-point gap | False alarms 8%; typical overconfidence still caught in a median of 46 calls |
+| Raw points on real predictions made logging sure things the best strategy (88 against 26 a call) | Real predictions pay edge over a hidden baseline | Sure things earn 0; real forecasting earns 14.5 |
+| A rolling window gives a miscalibrated player many chances to pass by luck | Every gate is a fixed exam of fresh calls, judged once | Pass rates below apply once per attempt |
+
+## 1. Scoring rule: does honesty win?
+
+- **Intent:** the highest-scoring way to play must be to say what you believe.
+- **Method:** `python3 sim/scoring_sim.py`, 120,000 questions per policy and question set, seed 20261114. Rules are in `data/scoring.json`.
+
+Points for a hit and a miss:
+
+| You say | Home-made: hit | miss | Predict rule: hit | miss | Sharp rule: hit | miss |
+|---|---|---|---|---|---|---|
+| 50% | +0 | +0 | +0 | +0 | +0 | +0 |
+| 55% | +10 | -10 | +19 | -21 | +14 | -15 |
+| 60% | +20 | -20 | +36 | -44 | +26 | -32 |
+| 65% | +30 | -30 | +51 | -69 | +38 | -51 |
+| 70% | +40 | -40 | +64 | -96 | +49 | -74 |
+| 75% | +50 | -50 | +75 | -125 | +58 | -100 |
+| 80% | +60 | -60 | +84 | -156 | +68 | -132 |
+| 85% | +70 | -70 | +91 | -189 | +77 | -174 |
+| 90% | +80 | -80 | +96 | -224 | +85 | -232 |
+| 95% | +90 | -90 | +99 | -261 | +93 | -332 |
+| 99% | +98 | -98 | +100 | -292 | +99 | -564 |
+
+Expected points a call, mixed-difficulty set (true accuracy 75%):
+
+| Reporting style | Says on average | Home-made rule | Predict rule | Sharp rule |
+|---|---|---|---|---|
+| Honest | 75.0% | +33.4 | +33.4 | +27.9 |
+| Mildly overconfident (says 82% when 75% is true) | 79.9% | +38.5 | +32.2 | +25.9 |
+| Typical overconfident (says 90% when 75% is true) | 84.5% | +42.7 | +28.8 | +18.8 |
+| Underconfident (says 63% when 75% is true) | 65.3% | +21.5 | +28.8 | +22.8 |
+| Always 50% | 50.0% | +0.0 | +0.0 | +0.0 |
+| Always 99% | 99.0% | +49.0 | +2.0 | -67.1 |
+| Honest, rounded to tens | 74.9% | +33.3 | +33.1 | +27.4 |
+| Honest, three levels only (50, 75, 99) | 75.0% | +34.3 | +31.4 | +23.5 |
+| Right on average, sloppy call to call | 75.0% | +32.3 | +29.2 | +23.6 |
+
+- **Result:** best style under the Predict rule: mixed set: honest, hard set: honest, easy set: honest. Under the sharp rule: mixed: honest, hard: honest, easy: honest. Under the home-made rule: mixed: always_99, hard: always_99, easy: always_99.
+- Hard set: honest +16.7, typical overconfident +12.1. Easy set: honest +50.1, typical overconfident +45.6.
+- **Problems found:** none under the Predict and sharp rules. The home-made rule has a DOMINANT strategy (always 99%), so it is rejected.
+- **Note:** rounding to tens costs 0.3 points a call under the Predict rule and 0.5 under the sharp rule; three levels cost 2.0 and 4.4.
+
+## 2. Luck against skill
+
+- **Intent:** know how many calls it takes before skill, not luck, decides a comparison.
+- **Method:** 6,000 sessions; each policy faces the same questions with the same outcomes.
+
+| Calls | Typical overconfident twin outscores honest | Mildly overconfident twin outscores honest | Honest total is negative | Honest points a call | Spread of a session total (sd) |
+|---|---|---|---|---|---|
+| 20 | 30.4% | 40.5% | 3.9% | 33.2 | 347 |
+| 50 | 19.4% | 33.6% | 0.3% | 33.4 | 554 |
+| 100 | 10.2% | 26.2% | 0.0% | 33.3 | 783 |
+| 150 | 5.8% | 20.7% | 0.0% | 33.3 | 945 |
+| 200 | 3.3% | 18.1% | 0.0% | 33.3 | 1104 |
+| 400 | 0.4% | 9.4% | 0.0% | 33.3 | 1567 |
+
+- **Result:** one session is mostly luck. Typical overconfidence separates by 150 to 200 calls; mild overconfidence needs 400.
+- **Change made:** gates, belts and triggers are judged on 150 calls or more. The scoreboard shows a 7-day average beside the day's total.
+
+## 3. Gates
+
+- **Intent:** a calibrated player passes most of the time; a miscalibrated one almost never.
+- **Method:** same sessions; exact binomial for count-based exams.
+
+Unit 1 gate (|mean stated - hit rate| <= 0.05 overall AND no band with >= 15 items further than z standard errors from its stated confidence, z = 2.5):
+
+| Calls in the exam | Calibrated | Mildly overconfident | Typical overconfident | Underconfident | Always 99% |
+|---|---|---|---|---|---|
+| 100 | 75.5% | 43.5% | 7.5% | 12.2% | 0.0% |
+| 150 | 83.2% | 40.6% | 2.9% | 7.8% | 0.0% |
+| 200 (chosen) | 87.6% | 37.6% | 1.2% | 4.9% | 0.0% |
+| 300 | 92.0% | 29.9% | 0.2% | 1.5% | 0.0% |
+| 400 | 93.4% | 24.0% | 0.0% | 0.4% | 0.0% |
+
+Unit 10 gate (400 calls, average confidence within 3 points of hit rate): calibrated 85.7%, mildly overconfident 18.4%, typical overconfident 0.1%.
+
+Brown belt check (300 real predictions, within 5 points): calibrated 97.0%, typical overconfident 2.5%.
+
+Unit 3 range gate, chance of passing by the player's true coverage:
+
+| Exam | 50% | 70% | 80% | 90% (calibrated) | 99% (always wide) |
+|---|---|---|---|---|---|
+| 40 ranges, 33 to 38 hold | 0.0% | 5.5% | 43.6% | 87.8% | 6.1% |
+| 60 ranges, 50 to 58 hold (chosen) | 0.0% | 1.4% | 32.3% | 95.2% | 12.1% |
+| 80 ranges, 66 to 77 hold | 0.0% | 0.8% | 34.6% | 97.7% | 4.7% |
+
+Count-based exams (exact binomial):
+
+```
+  Unit 4 Fermi (16 of 20)   skill 90%: 96%, skill 85%: 83%, skill 70%: 24%
+  Units 5-6 (32 of 40)      skill 90%: 98%, skill 85%: 86%, skill 70%: 11%
+  Unit 7 (22 of 28)         skill 90%: 98%, skill 85%: 88%, skill 70%: 22%
+  Units 8-9 (24 of 30)      skill 90%: 97%, skill 85%: 85%, skill 70%: 16%
+  Trigger L05 (fewer than 30 of 40 ranges hold): fires at true coverage 90%: 0.1%, 80%: 16.1%, 70%: 69.1%, 50%: 99.9%
+```
+- **Problems found:** the first gate design failed calibrated players 63% of the time (see top table).
+- **Open risks:** a mildly overconfident player passes the Unit 1 gate about 4 times in 10. The Unit 10 gate and the belts on real predictions catch what Unit 1 lets through.
+
+## 4. Lesson trigger for overconfidence (L01)
+
+- **Intent:** fire on a real pattern within a week of play, and rarely on a calibrated player.
+- **Method:** 3,000 runs of 150 calls stated at 90 to 99%, trigger checked after every call.
+
+| Window and gap | False alarm on a calibrated player | Fires on mild overconfidence | median calls | Fires on typical overconfidence | median calls |
+|---|---|---|---|---|---|
+| 20 calls, 6 points | 71.9% | 99.6% | 26 | 100.0% | 20 |
+| 20 calls, 8 points | 66.7% | 96.5% | 36 | 99.9% | 22 |
+| 20 calls, 10 points | 50.3% | 96.0% | 37 | 99.9% | 22 |
+| 30 calls, 6 points | 48.8% | 96.9% | 38 | 100.0% | 30 |
+| 30 calls, 8 points | 41.5% | 90.9% | 47 | 99.5% | 30 |
+| 30 calls, 10 points | 18.8% | 72.5% | 65 | 99.0% | 33 |
+| 40 calls, 6 points | 35.0% | 92.0% | 49 | 99.9% | 40 |
+| 40 calls, 8 points | 16.5% | 82.6% | 60 | 99.0% | 40 |
+| 40 calls, 10 points (chosen) | 8.1% | 62.8% | 72 | 94.6% | 46 |
+
+- **Change made:** 40 calls and a 10-point gap. A typical overconfident player makes about 9 top-band calls a day, so 46 calls is about five days.
+
+## 5. Ranges
+
+- **Intent:** neither going wide nor going narrow may beat an honest 90% range.
+- **Method:** closed form; truth normally distributed around the player's best guess.
+
+| Range habit | True coverage | Home-made score (1 a hit) | Interval score (lower is better) | Against honest |
+|---|---|---|---|---|
+| Honest 90% range | 90.0% | 0.90 | 4.13 | 1.00x |
+| A bit narrow | 70.0% | 0.70 | 5.18 | 1.26x |
+| Narrow | 50.0% | 0.50 | 7.32 | 1.77x |
+| Wide | 99.0% | 0.99 | 5.22 | 1.26x |
+| Absurdly wide | 100.0% | 1.00 | 10.00 | 2.42x |
+
+- **Result:** the score is lowest at 90.0% coverage. A hit-counting rule would reward absurdly wide ranges.
+
+## 6. Real predictions: raw points against edge
+
+- **Intent:** logging sure things must not pay.
+- **Method:** 100,000 simulated predictions per profile under the Predict rule, before the edge weight.
+
+| Profile | Raw points a call | Edge points a call |
+|---|---|---|
+| Logs only sure things | +88.4 | +0.0 |
+| Real forecaster with private information | +26.3 | +14.5 |
+| Real forecaster, overconfident | +23.9 | +12.1 |
+| Copies the baseline | +11.8 | +0.0 |
+| Moves off the baseline for no reason | -2.2 | -14.0 |
+
+- **Result:** raw points have a DOMINANT strategy (sure things). Edge removes it. With edge weight 2, an average real call is worth 29 points against 33.4 for a calibrated gym call.
+
+## 7. Session economy
+
+- **Intent:** daily reveals from week one, a first calibration curve from the gym in the first week, a first journal bias map (100 resolved real predictions) in about four months at one prediction a day (inside two months at three a day), no dead way of playing hidden in the design.
+- **Method:** `economy_sim.py sim/session_economy.json --runs 500 --steps 180`; one step is a day; 90% attendance.
+
+| Way of playing | Days to 100 resolved real predictions | Scored calls by day 30 | Reveals a day, day 7 | Reveals a day, day 30 | Simulator flags |
+|---|---|---|---|---|---|
+| Designed session: 18 gym calls and 1 deep prediction a day (mixed horizons) | 124 | 488 | 0.3 | 0.8 | none |
+| One prediction a day, nothing else | 118 | 21 | 0.5 | 0.9 | none |
+| Gym only | never | 868 | 0.0 | 0.0 | FLAT, NO ENDING |
+| Gym plus one month-long prediction a day (the limit) | 141 | 498 | 0.2 | 0.6 | none |
+| Gym plus one next-day prediction a day (the limit) | 113 | 514 | 0.9 | 0.9 | none |
+| Two long sessions a week | 131 | 562 | 0.5 | 0.7 | SWINGY |
+
+Attendance sweep, designed session, days to 100 resolved real predictions:
+
+```
+Strategy comparison: 300 runs each, up to 240 steps; sweeping show_up
+
+strategy           value map_ready   timeout    len  flags
+designed_session     0.6      100%        0%  179.4  -
+designed_session    0.75      100%        0%  146.7  -
+designed_session     0.9      100%        0%  124.3  -
+designed_session       1      100%        0%  113.0  -
+
+Run with --strategy NAME for the full per-pool report of one strategy.
+```
+
+Streak at 90% attendance, halving on a missed day against a hard reset (last column, mean and p10..p90):
+
+```
+halve on a missed day (cool=0.5):
+Mean (p10..p90) of tracked pools at checkpoints (finished runs hold their last value):
+  step              feedback              resolved         reveals_today                streak
+     1         16.2 (18..18)            0.0 (0..0)            0.0 (0..0)            0.9 (1..1)
+    22      358.1 (324..396)          10.2 (9..11)            0.7 (1..1)          12.3 (5..22)
+    45      732.1 (684..774)         29.4 (27..31)            0.9 (1..1)          16.1 (7..28)
+    67    1088.1 (1026..1134)         49.0 (46..51)            0.9 (1..1)          16.9 (6..31)
+    90    1460.2 (1386..1530)         69.6 (66..73)            0.9 (1..1)          17.4 (6..31)
+
+hard reset (cool=1.0):
+Mean (p10..p90) of tracked pools at checkpoints (finished runs hold their last value):
+  step              feedback              resolved         reveals_today                streak
+     1         16.2 (18..18)            0.0 (0..0)            0.0 (0..0)            0.9 (1..1)
+    22      358.1 (324..396)          10.2 (9..11)            0.7 (1..1)           9.0 (1..22)
+    45      732.1 (684..774)         29.4 (27..31)            0.9 (1..1)           9.0 (1..21)
+    67    1088.1 (1026..1134)         49.0 (46..51)            0.9 (1..1)           8.6 (0..22)
+    90    1460.2 (1386..1530)         69.6 (66..73)            0.9 (1..1)           8.8 (1..21)
+```
+- **Problems found:** gym-only play is flagged FLAT and NO ENDING on real evidence: it never builds a bias map. Intended, and the reason the journal is not optional.
+- **Not dominant:** one next-day prediction a day reaches 100 fastest, but builds no week or month evidence. The Green belt requires 20 month-horizon results, so the mix stays.
+- **Limit of the model:** predictions resolve at a constant daily rate per horizon, not on exact due dates.
+
+## 8. Level curve
+
+- **Intent:** first level-up in minutes, a level every day or two early, no late grind.
+- **Method:** `xp_curve.py --model power --base 140 --exp 1.2 --levels 50 --xp-per-minute 52`.
+
+| Level | Career points | Day reached | Days that level took |
+|---|---|---|---|
+| 2 | 140 | 0.2 | 0.2 |
+| 5 | 1,724 | 2.2 | 0.9 |
+| 10 | 8,991 | 11.5 | 2.5 |
+| 15 | 22,823 | 29.3 | 4.3 |
+| 20 | 43,811 | 56.2 | 6.1 |
+| 25 | 72,401 | 92.8 | 8.1 |
+| 30 | 108,950 | 139.7 | 10.2 |
+| 40 | 207,095 | 265.5 | 14.6 |
+| 50 | 340,255 | 436.2 | 19.2 |
+
+- **Result:** the curve tool printed no warning (no dip, no six-figure costs, first level-up under 10 minutes, last level under 6 times a mid-game one).
+- **Open risk:** 52 points a minute is an assumption (18 calibrated gym calls, about 2.6 reveals, habit points). Re-fit after two weeks of real play.
+
+## 9. Unit pacing
+
+- **Intent:** every unit fits its drills and its real-world evidence into 15 minutes a day.
+- **Method:** `python3 sim/pacing.py` over `data/units.csv`, with 10% slack.
+
+```
+1. Unit pacing at 15 minutes a day (10% slack included)
+unit name              drill days evidence days unit days  start   end
+U0   Baseline                   3             0         4      1     4
+U1   Calibration               17             0        19      5    23
+U2   Sharp questions            5            10        11      5    15
+U3   Ranges                    10             0        11     24    34
+U4   Fermi                     18             0        20     35    54
+U5   Outside view              13            15        17     55    71
+U6   Updating                  14            24        27     72    98
+U7   Second opinions           10            14        16     99   114
+U8   Autopsy                   11            21        24    115   138
+U9   Decisions                 12            21        24    139   162
+U10  Fine grain                35             0        39    163   201
+U11  With the machine           0            56        62    163   224
+U12  Arena                      0           120       132    202   333
+
+2. Arc ends and belt evidence (resolved real predictions from the session-economy sim)
+  Yellow Calibrated  earliest day   61  needs  40 resolved, sim has    40  ok
+  Green  Analyst     earliest day  184  needs 150 resolved, sim has   151  ok
+  Brown  Judge       earliest day  351  needs 300 resolved, sim has   301  ok
+  Black  Contender   earliest day  351  needs   0 resolved, sim has   301  external evidence
+  Red    Elite       earliest day  566  needs   0 resolved, sim has   494  external evidence
+  Units 0 to 11 complete on day 224 (7.4 months) if every gate is passed first time.
+```
+
+Session budget check:
+
+```
+  Arc I   reveals 2 min (13%), gym 5 min (33%), lesson 3 min (20%), journal 4 min (27%), scoreboard 1 min (7%)  total 15 ok
+  Arc II  reveals 2 min (13%), gym 4 min (27%), lesson 3 min (20%), journal 5 min (33%), scoreboard 1 min (7%)  total 15 ok
+  Arc III reveals 3 min (20%), gym 3 min (20%), lesson 2 min (13%), journal 6 min (40%), scoreboard 1 min (7%)  total 15 ok
+  Arc IV  reveals 3 min (20%), gym 4 min (27%), lesson 1 min (7%), journal 6 min (40%), scoreboard 1 min (7%)  total 15 ok
+```
+
+## Open risks
+
+The fourteen OPEN values and the block that settles each are listed in `design/mechanics.md`, section 6.

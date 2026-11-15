@@ -1,0 +1,9 @@
+table,source_name,source_url,checked,how_read,note
+planets.csv,NASA Planetary Fact Sheet (metric),https://nssdc.gsfc.nasa.gov/planetary/factsheet/,2026-11-15,one page read,Primary source. Numbers copied as printed.
+mountains.csv,Wikipedia: List of highest mountains on Earth and linked mountain pages,https://en.wikipedia.org/wiki/List_of_highest_mountains_on_Earth,2026-11-15,one page read per row (page named in the table),Claims keep wide margins because pages differ by a few metres.
+countries.csv,Wikipedia: List of countries and dependencies by area,https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_area,2026-11-15,one page read,Claims keep wide margins; rows marked no are not used.
+india_states.csv,Wikipedia: States and union territories of India,https://en.wikipedia.org/wiki/States_and_union_territories_of_India,2026-11-15,one page read,Population is the 2011 census. Rows or columns marked no are not used.
+elements.csv,Wikipedia: List of chemical elements,https://en.wikipedia.org/wiki/List_of_chemical_elements,2026-11-15,one page read,Atomic numbers and symbols are stable.
+olympics.csv,Wikipedia: Summer Olympic Games and List of Olympic Games host cities,https://en.wikipedia.org/wiki/List_of_Olympic_Games_host_cities,2026-11-15,two pages read and they agree,
+worldcup.csv,Wikipedia: FIFA World Cup and List of FIFA World Cup finals,https://en.wikipedia.org/wiki/List_of_FIFA_World_Cup_finals,2026-11-15,two pages read and they agree,Only tournaments up to 2022 are used.
+events.csv,Wikipedia: one page per event (named in the table),see each row,2026-11-15,one page read per row,Claims use the year unless use_month is yes. Rows where pages disagree were left out (Aadhaar).

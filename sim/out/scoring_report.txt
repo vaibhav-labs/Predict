@@ -1,0 +1,142 @@
+PREDICT scoring simulation  (seed 20261114)
+
+A. Points for a hit / a miss at each stated confidence
+ conf | naive hit   miss | core hit   miss | sharp hit   miss
+  50% |        +0     +0 |       +0     +0 |        +0     +0
+  55% |       +10    -10 |      +19    -21 |       +14    -15
+  60% |       +20    -20 |      +36    -44 |       +26    -32
+  65% |       +30    -30 |      +51    -69 |       +38    -51
+  70% |       +40    -40 |      +64    -96 |       +49    -74
+  75% |       +50    -50 |      +75   -125 |       +58   -100
+  80% |       +60    -60 |      +84   -156 |       +68   -132
+  85% |       +70    -70 |      +91   -189 |       +77   -174
+  90% |       +80    -80 |      +96   -224 |       +85   -232
+  95% |       +90    -90 |      +99   -261 |       +93   -332
+  99% |       +98    -98 |     +100   -292 |       +99   -564
+
+   Expected points per call by what you SAY, when you are truly right 70% of the time:
+   said:    50    55    60    65    70    75    80    85    90    95    99
+   naive_    0     4     8    12    16    20    24    28    32    36    39
+   brier_    0     7    12    15    16    15    12     7    -0    -9   -18
+   log_po    0     5     9    11    12    11     8     1   -10   -35  -100
+
+B. Honesty test: expected points per question (mixed-difficulty questions)
+policy                 says  right |   naive    core    sharp
+honest                75.0%  75.0% |   +33.4   +33.4    +27.9
+mild_overconfident    79.9%  75.0% |   +38.5   +32.2    +25.9
+overconfident         84.5%  75.0% |   +42.7   +28.8    +18.8
+underconfident        65.3%  75.0% |   +21.5   +28.8    +22.8
+always_50             50.0%  75.0% |    +0.0    +0.0     +0.0
+always_99             99.0%  75.0% |   +49.0    +2.0    -67.1
+round_to_10           74.9%  75.0% |   +33.3   +33.1    +27.4
+three_words           75.0%  75.0% |   +34.3   +31.4    +23.5
+noisy                 75.0%  75.0% |   +32.3   +29.2    +23.6
+   best under naive_linear: always_99
+   best under brier_points: honest
+   best under log_points: honest
+   hard questions -> best policy: naive_linear=always_99, brier_points=honest, log_points=honest; honest core pts/q +16.7, overconfident +12.1
+   easy questions -> best policy: naive_linear=always_99, brier_points=honest, log_points=honest; honest core pts/q +50.1, overconfident +45.6
+
+C. Luck vs skill on the SAME questions (share of sessions where the policy outscores honest)
+  rule: brier_points
+     n honest pts/q sd/session  honest<0 | mild_over  overconf   under  always99  round10
+    20         33.2        347      3.9% |     40.5%     30.4%   24.2%      9.4%    42.5%
+    50         33.4        554      0.3% |     33.6%     19.4%   14.6%      1.8%    41.0%
+   100         33.3        783      0.0% |     26.2%     10.2%    7.2%      0.1%    36.2%
+   150         33.3        945      0.0% |     20.7%      5.8%    3.8%      0.0%    33.5%
+   200         33.3       1104      0.0% |     18.1%      3.3%    2.2%      0.0%    31.0%
+   400         33.3       1567      0.0% |      9.4%      0.4%    0.2%      0.0%    24.7%
+  rule: log_points
+     n honest pts/q sd/session  honest<0 | mild_over  overconf   under  always99  round10
+    20         27.7        319      5.4% |     40.4%     26.9%   23.0%      2.1%    43.8%
+    50         27.9        510      0.7% |     31.7%     13.8%   14.2%      0.1%    41.5%
+   100         27.8        720      0.0% |     23.0%      5.8%    7.3%      0.0%    36.5%
+   150         27.8        867      0.0% |     17.0%      2.4%    3.4%      0.0%    32.6%
+   200         27.8       1012      0.0% |     14.5%      1.1%    1.9%      0.0%    29.0%
+   400         27.8       1439      0.0% |      6.0%      0.0%    0.2%      0.0%    20.7%
+
+D. Calibration gate pass rates
+  index gate only: |mean stated - hit rate| <= tolerance
+  policy                  n tol 0.03 tol 0.04 tol 0.05
+  honest                100    54.3%    67.8%    78.4%
+  honest                150    64.2%    77.8%    86.8%
+  honest                200    70.4%    83.0%    91.9%
+  honest                300    80.8%    91.3%    97.0%
+  honest                400    85.7%    95.5%    98.6%
+  mild_overconfident    100    31.0%    41.0%    51.4%
+  mild_overconfident    150    28.1%    40.5%    52.8%
+  mild_overconfident    200    26.7%    39.1%    53.1%
+  mild_overconfident    300    21.3%    36.2%    52.8%
+  mild_overconfident    400    18.4%    34.1%    53.6%
+  overconfident         100     5.2%     8.6%    12.9%
+  overconfident         150     2.1%     4.5%     8.2%
+  overconfident         200     0.9%     2.4%     5.8%
+  overconfident         300     0.2%     0.8%     2.5%
+  overconfident         400     0.1%     0.4%     1.2%
+  underconfident        100     5.4%     8.4%    12.6%
+  underconfident        150     2.3%     4.5%     8.3%
+  underconfident        200     1.1%     2.7%     5.8%
+  underconfident        300     0.2%     0.8%     2.4%
+  underconfident        400     0.1%     0.3%     1.1%
+  composite gate: |mean stated - hit rate| <= 0.05 overall AND no band with >= 15 items further than z standard errors from its stated confidence
+  z = 2.0
+  policy               n=100  n=150  n=200  n=300  n=400 
+  honest                68.3%  74.0%  76.8%  79.6%  79.9%
+  mild_overconfident    35.7%  29.6%  26.2%  17.7%  12.1%
+  overconfident          5.5%   1.6%   0.5%   0.0%   0.0%
+  underconfident        10.8%   5.9%   3.2%   0.5%   0.1%
+  always_99              0.0%   0.0%   0.0%   0.0%   0.0%
+  round_to_10           69.7%  73.5%  75.7%  77.2%  77.7%
+  z = 2.5
+  policy               n=100  n=150  n=200  n=300  n=400 
+  honest                75.5%  83.2%  87.6%  92.0%  93.4%
+  mild_overconfident    43.5%  40.6%  37.6%  29.9%  24.0%
+  overconfident          7.5%   2.9%   1.2%   0.2%   0.0%
+  underconfident        12.2%   7.8%   4.9%   1.5%   0.4%
+  always_99              0.0%   0.0%   0.0%   0.0%   0.0%
+  round_to_10           75.9%  82.9%  87.4%  91.1%  92.1%
+  z = 3.0
+  policy               n=100  n=150  n=200  n=300  n=400 
+  honest                77.6%  85.7%  90.6%  95.7%  97.5%
+  mild_overconfident    47.6%  46.4%  44.5%  39.4%  34.6%
+  overconfident          9.3%   4.2%   2.1%   0.4%   0.1%
+  underconfident        12.6%   8.3%   5.7%   2.1%   0.9%
+  always_99              0.0%   0.0%   0.0%   0.0%   0.0%
+  round_to_10           77.7%  85.7%  90.7%  95.3%  97.1%
+
+  Top-band lesson trigger (stated 90-99): fires when mean stated - hit rate >= gap over last W calls
+  setting      | honest fires | mild fires  median | overconf fires  median
+  W20_gap6     |        71.9% |      99.6%    26.0 |         100.0%    20.0
+  W20_gap8     |        66.7% |      96.5%    36.0 |          99.9%    22.0
+  W20_gap10    |        50.3% |      96.0%    37.0 |          99.9%    22.0
+  W30_gap6     |        48.8% |      96.9%    38.0 |         100.0%      30
+  W30_gap8     |        41.5% |      90.9%    47.0 |          99.5%    30.0
+  W30_gap10    |        18.8% |      72.5%    65.0 |          99.0%      33
+  W40_gap6     |        35.0% |      92.0%    49.0 |          99.9%    40.0
+  W40_gap8     |        16.5% |      82.6%    60.0 |          99.0%      40
+  W40_gap10    |         8.1% |      62.8%      72 |          94.6%      46
+
+E. Ranges: expected interval score (lower is better), truth ~ N(0,1) around your best guess
+  policy         true cover naive pts interval score vs honest
+  honest_90           90.0%      0.90           4.13     1.00x
+  narrow_70           70.0%      0.70           5.18     1.26x
+  narrow_50           50.0%      0.50           7.32     1.77x
+  wide_99             99.0%      0.99           5.22     1.26x
+  absurdly_wide      100.0%      1.00          10.00     2.42x
+  score-minimising half-width: 1.645 sd = 90.0% coverage
+
+G. Range gate: chance of passing a 90%-range exam, by the player's true coverage (exact binomial)
+  exam                      50%    70%    80%    90%    99%
+  40 ranges, hits 33-38    0.0%   5.5%  43.6%  87.8%   6.1%
+  60 ranges, hits 50-58    0.0%   1.4%  32.3%  95.2%  12.1%
+  80 ranges, hits 66-77    0.0%   0.8%  34.6%  97.7%   4.7%
+
+F. Journal farming: raw points vs edge points per call (core rule)
+  profile                      raw    edge
+  farmer_sure_things         +88.4    +0.0
+  real_forecaster            +26.3   +14.5
+  real_but_overconfident     +23.9   +12.1
+  baseline_copier            +11.8    +0.0
+  fake_insight                -2.2   -14.0
+
+Wrote sim/out/scoring_results.json
