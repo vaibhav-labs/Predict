@@ -1,6 +1,6 @@
 import { h } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS } from '../lessons.js';
+import { cardList } from '../lessons.js';
 import { focusFrame } from './common.js';
 import { wheel } from './dial.js';
 
@@ -19,13 +19,15 @@ export function renderBlocks(blocks) {
 }
 
 export function lessonScreen(ctx, id) {
+  const LESSONS = cardList(id);
+  if (!LESSONS) { ctx.nav('#/path'); return document.createTextNode(''); }
   const idx = LESSONS.findIndex((l) => l.id === id);
-  if (idx < 0) { ctx.nav('#/path'); return document.createTextNode(''); }
   const lesson = LESSONS[idx];
   const next = LESSONS[idx + 1];
+  const unit = LESSONS[0].id === 'points' ? 'Unit 1 · Calibration' : 'Unit 3 · Ranges';
   const isRead = R.lessonsRead(ctx.store.events).has(id);
 
-  const body = renderBlocks(lesson.blocks(ctx.S));
+  const body = renderBlocks(lesson.blocks(ctx.S, ctx.cfg));
 
   const doneBtn = h('button', { class: 'btn', type: 'button', id: 'lesson-done' }, isRead ? (next ? 'Next card' : 'Back to Path') : 'Got it');
   doneBtn.addEventListener('click', async () => {
@@ -35,7 +37,7 @@ export function lessonScreen(ctx, id) {
   });
 
   return focusFrame({ title: `Card ${idx + 1} of ${LESSONS.length}`, closeTo: '#/path', closeLabel: 'Back to Path' },
-    h('section', null, h('div', { class: 'eyebrow' }, 'Unit 1 · Calibration'), h('h1', { class: 'title', id: 'lesson-title' }, lesson.title)),
+    h('section', null, h('div', { class: 'eyebrow' }, unit), h('h1', { class: 'title', id: 'lesson-title' }, lesson.title)),
     h('section', { class: 'card prose stack' }, body),
     h('div', { class: 'foot' }, doneBtn));
 }

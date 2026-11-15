@@ -3,6 +3,7 @@
 import * as R from './engine/record.js';
 import * as LE from './engine/lessons.js';
 import * as G from './engine/gate.js';
+import * as RG from './engine/range.js';
 import { unitRow } from './ui/common.js';
 
 // Called when a screen that shows lessons opens, and when a session ends. Asking twice in a row writes nothing the second time.
@@ -51,6 +52,24 @@ export async function judgeExam(ctx, attemptId) {
   await ctx.store.append(R.makeEvent('exam', {
     state: 'result', exam: attempt.id, pass: v.pass, n: v.n, index: v.index, meanConf: v.meanConf, hitRate: v.hitRate, reasons: v.reasons, worst: v.worst,
     bands: v.bands.map((b) => ({ lo: b.lo, hi: b.hi, n: b.n, meanConf: b.meanConf, hitRate: b.hitRate, z: b.z, checked: b.checked, off: b.off })),
+  }));
+  return true;
+}
+
+// Where the player stands on the Unit 3 gate (60 fresh ranges). It opens when Unit 1's gate is passed and the practice ranges are done.
+export function rangeGateState(ctx) {
+  const events = ctx.store.events;
+  const practice = R.rangesOf(events).filter((r) => r.mode === 'practice').length;
+  return RG.rangeGateStatus(events, ctx.cfg, { open: gateState(ctx).passed, practiceRanges: practice, practiceRequired: Number(unitRow(ctx, 'U3').practice_calls) });
+}
+
+// The Unit 3 exam is judged once, when its last range is in. Safe to call again: an exam that has its verdict is left alone.
+export async function judgeRangeExam(ctx, attemptId) {
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg, 'U3').find((a) => a.id === attemptId);
+  if (!attempt || attempt.result || attempt.calls.length < attempt.total) return false;
+  const v = RG.gateU3(attempt.calls, ctx.cfg.gates);
+  await ctx.store.append(R.makeEvent('exam', {
+    state: 'result', exam: attempt.id, unit: 'U3', pass: v.pass, n: v.n, hits: v.hits, coverage: v.coverage, meanRatio: v.meanRatio, points: v.points, reasons: v.reasons, dir: v.dir,
   }));
   return true;
 }

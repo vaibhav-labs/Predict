@@ -186,6 +186,30 @@ add(table(["Range habit", "True coverage", "Home-made score (1 a hit)", "Interva
     for k, x in E["policies"].items()]))
 add(f"\n- **Result:** the score is lowest at {pct(E['optimal_coverage'])} coverage. A hit-counting rule would reward absurdly wide ranges.")
 
+# 5b (Block 6): the range game on the real bank, from sim/range_sim.py --------------------------------------
+_rng = os.path.join(OUT, "range_results.json")
+if os.path.exists(_rng):
+    RS = json.load(open(_rng))
+    add("\n## 5b. Ranges on the real bank (Block 6)\n")
+    add("Section 5 is the closed form. This is the same game on the real range bank (`app/content/questions/ranges.json`, 200 practice and 180 exam ranges from the "
+        "committed records), with the real rules from `data/scoring.json`. `sim/range_sim.py` (20,000 runs a row): each player says the question's reference interval "
+        "stretched by a factor around its middle, and is judged on questions drawn at random.\n")
+    add(table(["Player", "Holds the truth", "Width against reference", "Points a range", "Exam pass (50 to 58 of 60)", "L05 fires", "L06 fires", "Re-test band met (33 to 38 of 40)"],
+              [[name, pct(r["coverage"]), f"{r['mean_ratio']:.2f}x", f"{r['points_per_range']:+.1f}", pct(r["exam_pass"]), pct(r["L05_fires"]), pct(r["L06_fires"]), pct(r["retest_band"])]
+               for name, r in RS.items()]))
+    rec = RS["the record 1.0x"]
+    add(f"\n- **The gate does its job.** A player who says the record's own middle 90% passes the exam {pct(rec['exam_pass'])} of the time; a player 20% too narrow "
+        f"{pct(RS['narrow 0.8x']['exam_pass'])}, 40% too narrow {pct(RS['narrow 0.4x']['exam_pass'])}; twice too wide {pct(RS['wide 2x']['exam_pass'])}, three times {pct(RS['padded 3x']['exam_pass'])}.")
+    add(f"- **L05 and L06 fire on the right people.** L05 fires on {pct(RS['narrow 0.6x']['L05_fires'])} of players at 0.6x and {pct(rec['L05_fires'])} of the record player; "
+        f"L06 only on the padded player ({pct(RS['padded 3x']['L06_fires'])} at 3x): a range 2x the reference is at the line, not over it.")
+    add(f"- **Points are flat near the best range, as a fair score is.** The record player earns {rec['points_per_range']:+.1f} a range and a player at 0.8x "
+        f"{RS['narrow 0.8x']['points_per_range']:+.1f}: the points barely tell them apart, but the exam does ({pct(rec['exam_pass'])} against {pct(RS['narrow 0.8x']['exam_pass'])}). "
+        f"Being worse on either side is charged steeply: {RS['narrow 0.4x']['points_per_range']:+.0f} at 0.4x, {RS['padded 3x']['points_per_range']:+.0f} at 3x.")
+    add("- **The offset 1.25.** On bell-shaped outcomes the honest range's expected interval score is 1.254 reference widths (section 5); on the real bank, with the floor at -400, "
+        "the record player averages -5.6 a range over all 380 questions, so knowing the record earns about 0. Some kinds (rain, life expectancy, child mortality) cost 2 to 3 "
+        "reference widths on a miss-heavy average and others (income per person) 1.0, so points swing by kind; the Mirror shows the split.")
+    add("- **Open risk:** the reference interval is the record's, so a player with knowledge the record lacks can beat it. That is the intent: it is the outside view, and beating it is the skill.")
+
 # 6 ------------------------------------------------------------------
 add("\n## 6. Real predictions: raw points against edge\n")
 add("- **Intent:** logging sure things must not pay.")

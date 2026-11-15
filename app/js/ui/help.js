@@ -43,6 +43,13 @@ export function helpScreen(ctx) {
       p('The exam', 'after 90 practice calls: 200 fresh calls in 10 sittings of 20, from questions practice never serves. Nothing is shown between calls and nothing is judged until the last one, so a lucky streak cannot pass you.'),
       p('The verdict', 'you pass when your average confidence is within 5 points of your hit rate and no band of 15 calls or more sits more than 2.5 standard errors off. A fail says why and sends you to a repair drill on the worst band before a new exam. A pass shows Rust on the Path if the habit it fixed comes back.')),
 
+    section('Ranges (Unit 3)',
+      p('What it is', 'a real situation and a quantity to guess: a day’s high, a flight’s delay, a country’s life expectancy a few years on, a year of stock prices. You give a low and a high you are 90% sure the truth sits between. It opens when you have passed the Unit 1 exam.'),
+      p('The score', 'the width of your range, plus 20 times how far the truth fell outside it, lower being better. Your points measure that against the reference: the width of the middle 90% of the other cases like this one in the record. Saying exactly the reference interval earns about nothing; a narrower range that still holds the truth earns more; a range that misses, or one far wider than needed, loses.'),
+      p('After each range', 'the reveal draws the truth, your range and the reference interval on one line, with the source. Ten ranges a session. A range you have seen in the last 90 days does not come back.'),
+      p('The exam', '60 fresh ranges in three sittings of 20, sealed until the last one. Between 50 and 58 must hold the truth: a true 90% range holds about 54. Fewer says too narrow, more says padded. A fail sends you to a repair drill first.'),
+      p('Range patterns', 'too narrow (fewer than 30 of your last 40 held the truth) and too wide (39 or 40 held it, at over twice the reference width) each get a lesson, a drill and two re-tests. The narrow drill builds a range one end at a time; the wide drill gives a width budget.')),
+
     section('The autopsy and the case file',
       p('Autopsy', 'a real prediction that missed at 85% or more, and one in five confident hits, gets a short autopsy before your next journal step: mark each link of your chain held up, weak or missed it, then say what you knew, what you missed, whether it was luck or judgment, and one rule for next time.'),
       p('The rule', 'sits above your next five journal cards and is checked at 3 and 10 days: did you use it?'),
@@ -52,7 +59,8 @@ export function helpScreen(ctx) {
       p('Calibration curve', 'plots how often you were actually right against how sure you said you were. A point on the dashed line means your X% calls were right about X% of the time; above it, too shy; below it, too sure. Every dot carries a bar for how far luck alone could move it, and the number of calls under it: a dot with few calls is drawn hollow and means little.'),
       p('Bias map', 'your gap split by topic for the gym, and by domain and horizon for the journal. A group with fewer than 10 calls says “too few” and claims nothing; a verdict (too sure, too shy) appears only when the whole bar sits on one side of zero.'),
       p('Level, streak, 7 days', 'Level comes from career points, which never go down. A streak counts days you played (a call, a locked prediction or a resolved one) and a missed day keeps half of it. 7 days is your average skill points on the days you played, so showing up cannot raise it.'),
-      p('Path', 'the units ahead, the Unit 1 exam, your patterns and where each one stands, and the lesson cards you have read.')),
+      p('Ranges on the Mirror', 'how many of your ranges held the truth, with the same kind of error bar, how wide they were against the reference, and the split by kind of question. Drill ranges do not count.'),
+      p('Path', 'the units ahead, the Unit 1 and Unit 3 exams, your patterns and where each one stands, and the lesson cards you have read.')),
 
     section('Points, gap and edge',
       p('Points', 'a formula scores every call so that saying what you actually believe is always the best strategy: a confident miss costs more than a confident hit pays.'),
@@ -69,5 +77,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 exam counts toward the first one, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 and Unit 3 exams count toward the first one, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

@@ -1,0 +1,79 @@
+{
+ "narrow 0.4x": {
+  "f": 0.4,
+  "coverage": 0.4111111111111111,
+  "mean_ratio": 0.4,
+  "points_per_range": -101.86295583333333,
+  "exam_pass": 0.0,
+  "mean_hits": 24.6606,
+  "L05_fires": 1.0,
+  "L06_fires": 0.0,
+  "retest_band": 0.0
+ },
+ "narrow 0.6x": {
+  "f": 0.6,
+  "coverage": 0.5666666666666667,
+  "mean_ratio": 0.5999999999999999,
+  "points_per_range": -39.677454166666664,
+  "exam_pass": 0.0,
+  "mean_hits": 34.0061,
+  "L05_fires": 0.97375,
+  "L06_fires": 0.0,
+  "retest_band": 0.00095
+ },
+ "narrow 0.8x": {
+  "f": 0.8,
+  "coverage": 0.7777777777777778,
+  "mean_ratio": 0.8,
+  "points_per_range": -5.361080833333333,
+  "exam_pass": 0.1421,
+  "mean_hits": 46.66485,
+  "L05_fires": 0.69485,
+  "L06_fires": 0.0,
+  "retest_band": 0.04335
+ },
+ "the record 1.0x": {
+  "f": 1.0,
+  "coverage": 0.9111111111111111,
+  "mean_ratio": 1.0,
+  "points_per_range": -2.270165,
+  "exam_pass": 0.9853,
+  "mean_hits": 54.66275,
+  "L05_fires": 0.00095,
+  "L06_fires": 0.0,
+  "retest_band": 0.9063
+ },
+ "a little wide 1.3x": {
+  "f": 1.3,
+  "coverage": 0.9444444444444444,
+  "mean_ratio": 1.3,
+  "points_per_range": -16.42944333333333,
+  "exam_pass": 0.90165,
+  "mean_hits": 56.6797,
+  "L05_fires": 0.0,
+  "L06_fires": 0.0,
+  "retest_band": 0.7317
+ },
+ "wide 2x": {
+  "f": 2.0,
+  "coverage": 0.9833333333333333,
+  "mean_ratio": 2.0,
+  "points_per_range": -79.14541916666667,
+  "exam_pass": 0.25465,
+  "mean_hits": 59.01095,
+  "L05_fires": 0.0,
+  "L06_fires": 0.0,
+  "retest_band": 0.10215
+ },
+ "padded 3x": {
+  "f": 3.0,
+  "coverage": 1.0,
+  "mean_ratio": 3.0,
+  "points_per_range": -175.0,
+  "exam_pass": 0.0,
+  "mean_hits": 60.0,
+  "L05_fires": 0.0,
+  "L06_fires": 1.0,
+  "retest_band": 0.0
+ }
+}

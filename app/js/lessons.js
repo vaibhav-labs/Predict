@@ -53,8 +53,69 @@ export const LESSONS = [
   },
 ];
 
-// The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), and one more card for soft questions.
-export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger' };
+// ---- Unit 3: the three range cards. Their numbers are worked out here from data/scoring.json, so the text cannot disagree with the game.
+const erf = (x) => { // Abramowitz and Stegun 7.1.26, good to about 1e-7: plenty for a table shown to two places
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+};
+const Phi = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
+const phi = (x) => Math.exp((-x * x) / 2) / Math.sqrt(2 * Math.PI);
+// Expected interval score of "your best guess plus or minus a standard deviations" when the outcome is bell-shaped around it.
+const winkler = (a, mult) => 2 * a + mult * 2 * (phi(a) - a * (1 - Phi(a)));
+const binom = (n, p, lo, hi) => {
+  let total = 0;
+  for (let k = lo; k <= hi; k++) { let c = 1; for (let i = 1; i <= k; i++) c = (c * (n - k + i)) / i; total += c * p ** k * (1 - p) ** (n - k); }
+  return total;
+};
+const pc = (x) => `${Math.round(x * 100)}%`;
+const f2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
+
+export const RANGE_LESSONS = [
+  {
+    id: 'ninety',
+    title: 'What a 90% range means',
+    blurb: 'Nine in ten, not ten in ten',
+    blocks: (S, cfg) => {
+      const g = cfg.gates, n = g.range_exam_calls, [lo, hi] = g.range_pass_hits;
+      return [
+        { p: ['A 90% range is a promise: a low and a high chosen so that the truth lands between them ', { b: 'nine times in ten' }, '. Not ten in ten. A range that never misses is too wide to tell anyone anything, and one that misses half the time is too narrow to trust.'] },
+        { table: { head: ['Out of 10 ranges', 'What it says'], rows: [['10 held it', 'Wider than you need'], ['9 held it', 'Honest'], ['7 held it', 'A 70% range'], ['5 held it', 'A coin flip']] } },
+        { p: [`The Unit 3 exam is ${n} fresh ranges. Between ${lo} and ${hi} of them must hold the truth. A player whose ranges really are 90% passes about `, { b: pc(binom(n, 0.9, lo, hi)) }, ' of the time. A player whose ranges are really 70% passes about ', { b: pc(binom(n, 0.7, lo, hi)) }, ', and one whose ranges hold 99% of the time about ', { b: pc(binom(n, 0.99, lo, hi)) }, '.'] },
+      ];
+    },
+  },
+  {
+    id: 'price',
+    title: 'The price of width',
+    blurb: 'Why wide is not safe',
+    blocks: (S, cfg) => {
+      const m = cfg.interval.miss_multiplier;
+      const honest = winkler(1.645, m);
+      const rows = [['Narrow: 50%', 0.674], ['Narrow: 70%', 1.036], ['Honest: 90%', 1.645], ['Wide: 99%', 2.576], ['Far too wide', 5]].map(([name, a]) => [name, pc(2 * Phi(a) - 1), f2(winkler(a, m) / honest)]);
+      return [
+        { p: [`A range is scored by its width plus ${m} times how far the truth fell outside it. A range 8 wide that holds the truth costs `, { b: '8' }, `. The same range missing by 1 costs 8 + ${m} = `, { b: String(8 + m) }, '. Lower is better.'] },
+        { p: [`So each end is a bet. Moving an end out by a little costs that little, and saves ${m} times it if the truth lands beyond. That pays only if the truth lands beyond the end more than 1 time in ${m}. This is why the honest ends sit 1 in 20 from the truth on each side.`] },
+        { table: { head: ['Range', 'Holds it', 'Score (honest = 1.00)'], rows } },
+        { p: ['Narrow and far-too-wide are both worse than honest. The score has no safe side.'] },
+      ];
+    },
+  },
+  {
+    id: 'ends',
+    title: 'Build it one end at a time',
+    blurb: 'Start from the record, then widen',
+    blocks: () => [
+      { p: ['Most people guess a middle and add a little on each side. In the classic studies, ranges built that way held the truth about 5 times in 10 when they were meant to hold it 9 in 10.'] },
+      { p: [{ b: 'Build each end alone.' }, ' Find a low end you would be surprised to see the truth fall under: about 1 time in 20. Then a high end the same way. Each end is its own question: would I bet 19 to 1 that the truth is above this number?'] },
+      { p: [{ b: 'Start outside.' }, ' The situation has cousins: how far did cases like it move, and how much did they vary? Take the spread of those, then adjust for what you know. The reveal after each range shows the record, so you can see how wide the cousins really were.'] },
+      { p: ['If you are not sure, widen first. Then narrow only while you can honestly say the truth would surprise you outside.'] },
+    ],
+  },
+];
+
+// The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), one more card for soft questions, and a Unit 3 card for each range pattern.
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price' };
 export const STRANGER = {
   id: 'stranger',
   title: 'Could a stranger score this?',
@@ -66,4 +127,6 @@ export const STRANGER = {
     { p: ['The checker catches the common ones: no date, a vague word such as better or soon, a feeling in place of an event. When it flags a claim, rewrite it until the clairvoyant could answer.'] },
   ],
 };
-export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.find((l) => l.id === FLAG_CARD[trigger]) || null);
+export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
+// Every card the Path can open, with the list it belongs to.
+export const cardList = (id) => (LESSONS.some((l) => l.id === id) ? LESSONS : RANGE_LESSONS.some((l) => l.id === id) ? RANGE_LESSONS : null);

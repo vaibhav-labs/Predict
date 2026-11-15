@@ -1036,9 +1036,9 @@ def phase_reuse(S):
     z = order[0]
     fake.append(dict(id="fake-d-0001", t=t0.strftime("%Y-%m-%dT%H:%M:%S.000Z"), d=t0.strftime("%Y-%m-%d"), type="dispute", q=z))
     # The calls above are a month old, so the missed-days flag (a 5-call minimum session) would open on the days since. Give the
-    # record that flag already opened and cleared two days ago, so this phase is about the bank, not about the habit.
+    # record that flag already opened and cleared yesterday, so this phase is about the bank, not about the habit.
     now = datetime.datetime.now(datetime.timezone.utc)
-    t_open, t_clear = now - datetime.timedelta(days=3), now - datetime.timedelta(days=2)
+    t_open, t_clear = now - datetime.timedelta(days=3), now - datetime.timedelta(days=1)  # one day back, so a browser a day ahead of UTC sees at most one missed day since
     stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%S.000Z")
     fake.append(dict(id="fake-f-0001", t=stamp(t_open), d=t_open.strftime("%Y-%m-%d"), type="flag", state="open", trigger="L15", fire=1, evidence=dict(missed=[], days=7), chain=1))
     fake.append(dict(id="fake-f-0002", t=stamp(t_clear), d=t_clear.strftime("%Y-%m-%d"), type="flag", state="cleared", flag="fake-f-0001", evidence=dict(days=5)))

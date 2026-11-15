@@ -1,10 +1,39 @@
 # Predict: build state
 
-Last updated: 2026-11-15 · Stage (Block 4 built on `block-4`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+Last updated: 2026-11-16 · Stage (Block 6 built on `block-6`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
 branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 6, Ranges, 2026-11-16)
+
+Unit 3 is built and tested. It opens when you pass the Unit 1 exam.
+
+**What's there.** A range question gives a real situation and a quantity (a day's high, a flight's delay, a country's life expectancy a few years on, a year of stock
+prices) and you type a low and a high you are 90% sure the truth sits between. After the range the screen draws the truth, your range and the reference interval on one line,
+with the source. Ten ranges a session, drawn so no kind of question fills more than a quarter of it. The score is the interval score (width plus 20 times the miss), measured
+against the width of the **reference interval**: the middle 90% of the other cases like this one in the record (the case itself left out). Saying exactly that interval earns about 0
+points a range, a narrower honest range earns more, and a range that is far too narrow or far too wide loses steeply. The bank is 380 ranges from the same real records
+(200 practice, 180 for the exam, never shared), and `tools/check_ranges.py` re-derives every reference interval with different code.
+
+**The gate.** 60 fresh ranges in three sittings of 20, sealed until the last, judged once: between 50 and 58 must hold the truth (a true 90% player passes about 95% of the
+time; on the real bank a player saying the record's own 90% passes 98.5%, a player 20% too narrow 14%, one twice too wide 26%). A fail says whether it was too narrow or padded and
+sends you to a repair drill (one end at a time, or under a width budget) before a new exam.
+
+**The two range patterns.** L05 (fewer than 30 of your last 40 held the truth) and L06 (39 or 40 held it and the ranges were over twice the reference width) each get a lesson card
+(Unit 3 has three: what a 90% range means, the price of width, build it one end at a time), a drill, and two re-tests (33 to 38 of the next 40). Their drills: the **stepwise** drill sets
+the low end first, then the high end; the **budget** drill refuses a range wider than 1.6 times the reference.
+
+**Where you see it.** Today gets a Ranges card once Unit 3 is open and a Unit 3 exam row in "Needs you"; the Path has Unit 3 as a unit, its three cards, a practice card and the exam card
+(with Rust if a range pattern returns after the pass); the Mirror has a Ranges card (how many held, with the same kind of error bar, width against the reference, and the split by
+kind). Ranges count as a played day and as skill points; the gym's calls, curve and bias map never read them.
+
+**Tests:** 24 new engine tests (119 in all) including the app against `tools/ref_range.py` on 3,040 ranges (hit, width, score, points); a browser phase `b6` (91 checks: closed until
+Unit 1 is passed, the card and lessons, validation, the reveal, a session against the independent points, stopping and resuming, a narrow and a wide player, both drills, the sealed exam,
+pass and both failures with their repair drills, rust). `sim/range_sim.py` runs the game on the real bank (balance report 5b).
+
+**Assumptions I made (see Block 6 assumptions below):** Unit 2's "10 journal predictions in a row accepted without edits" gate runs alongside and does not block Unit 3.
 
 ## Report for the player (Block 5, the Coach, 2026-11-15)
 
@@ -398,6 +427,19 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **Top-ups** are `sourced` questions only (documented facts about the world), ids start `top-`, and they ship through the normal deploy after `check_data.py`.
 - **Auto-sync** runs a few seconds after the record changes and when the phone comes online, only when connected; there is no background sync while the app is closed.
 - **Not proven:** the unattended weekly run (needs the player's repository), and GitHub's behaviour with a real token (the pretend GitHub follows the documented contents API).
+
+## Block 6 assumptions
+
+- **Unit 3 opens when the Unit 1 exam is passed.** Unit 2's own gate (10 journal predictions in a row accepted without edits) is shown nowhere yet and does not block Unit 3; it runs alongside.
+- **The reference interval is the middle 90% of the other comparable cases** (nearest-rank 5th and 95th percentile, the case left out), so a player who knows the record is a calibrated 90% player on this bank.
+  It holds the truth 88.5% (practice) and 91.1% (exam) of the time: not exactly 90 because the bank is a random draw (z -0.71 and +0.50).
+- **Points = round(100 x (1.25 - interval score / reference width)), never below -400.** 1.25 is the interval score of an honest range on bell-shaped outcomes (sim part E); on the real bank the reference player averages -5.6.
+- **A log question works in log10** (child mortality, CO2, income, the stock market): the width is a number of decades, and the app says "N times" for a range's width there.
+- **The width budget is shown to the player** (1.6 times the reference width): it gives the width, not the location, which is exactly the lesson of the drill.
+- **Range sessions use their own events** (`rsession`, `range`, `rsession_end`) so the gym's open-session logic, curve and points never see a range. Exam ranges carry `exam` and are sealed like calls.
+- **Range exams are drawn from the exam pool, no repeats within an attempt, fresh before reused;** a fourth attempt has to reuse the longest-ago ranges.
+- **Drill ranges pay points but never count toward a pattern or the Mirror's coverage.** The re-tests count practice and judged exam ranges.
+- **No spreadsheet export of ranges:** they are in the Export file (every event is); the CSV copy of calls is for calls only.
 
 ## Decisions
 

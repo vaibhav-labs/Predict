@@ -181,8 +181,17 @@ Every displayed resource has a source and a drain or converter.
   question: `score = width + 20 * distance outside the range` (lower is better).
 - **Balance evidence:** part E. The expected score is lowest at exactly 90% coverage; 50% coverage
   scores 1.77 times worse, absurdly wide 2.42 times worse.
-- **OPEN:** the mapping from interval score to points needs a per-question reference width
-  (Block 6).
+- **As built (Block 6).** Every question carries a reference interval: the nearest-rank 5th and 95th percentile of the other comparable cases in the record
+  (the case itself left out; log10 for a log question). Points = `round(100 * (1.25 - score / reference width))`, never below -400 (`interval.points` in
+  `data/scoring.json`). 1.25 is the expected score of an honest range in reference widths on bell-shaped outcomes (4.124 / 3.290 from part E); on the real bank
+  a reference-interval player averages -5.6 a range, so knowing the record earns about 0. This settles open value 6. A range *holds* when low <= truth <= high.
+- **Sessions:** ten ranges, drawn from the practice pool with no kind more than a quarter of a session and nothing seen in the last 90 days; the reveal draws the truth, the
+  player's range and the reference interval on one line and quotes the source. Events `rsession`, `range`, `rsession_end` (section 5).
+- **The Unit 3 gate:** 60 fresh ranges from the exam pool in three sittings of 20, sealed until the last, judged once: 50 to 58 hold the truth (table in sim part G; on the real
+  bank `sim/range_sim.py`, balance report 5b). Too few says too narrow, too many says padded; a fail leads to a 10-range repair drill (stepwise or width budget) before a new exam.
+  Rust: L05 or L06 coming back after the pass.
+- **Triggers (4.4):** L05 fewer than 30 of the last 40 hold; L06 39 or 40 of 40 hold and the average width is over twice the reference. Both clear on the next 40 ranges with 33 to 38 holding,
+  after the two re-test delays. Drills: `stepwise` (the low end is set before the high end appears) and `budget` (a range wider than 1.6 reference widths will not lock).
 
 ### 4.3 Journal prediction
 
@@ -412,6 +421,10 @@ question, claim text, domain, difficulty, side, confidence, truth, hit, points, 
 (a backup made). Events of a type the app does not know are kept and ignored, so a newer record never
 breaks an older app. An Export file is a header line followed by the events, one JSON object per line.
 
+**As built in Block 6.** Three more event types. `rsession` (mode practice, drill or exam; size; `plan`, the question ids in order; for a drill the flag or the exam it repairs; for an exam sitting the attempt, its number and
+how many sittings), `range` (session, mode, unit U3, exam, question id, kind, domain, claim, scale, low, high, truth, the reference interval, hit, width, reference width, ratio, interval score, points, milliseconds) and
+`rsession_end`. An `exam` start event carries `unit` (U1 or U3); its result for Unit 3 carries hits, coverage, mean width ratio, reasons and direction. Exam ranges are sealed like exam calls until the verdict.
+
 **As built in Blocks 2 and 3.** Two more event types. `prediction` (text, domain, due option and date,
 horizon, the chain, probability `c`, baseline `b` and where it came from, `scored`, milliseconds taken,
 `flags` the checker raised on the final wording, and `flagged`, whether it raised any while the card was
@@ -437,7 +450,7 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 3 | Edge weight (now 2) | Balances the worth and the swing of a real call | Block 2 real data |
 | 4 | Points a day (now assumed 780) | Drives every level date | Block 3, after two weeks of play |
 | 5 | Underconfidence trigger L02 threshold | Not yet simulated | Block 4 simulation |
-| 6 | Interval score to points mapping | Needs a reference width per question | Block 6 |
+| 6 | ~~Interval score to points mapping~~ | Settled in Block 6: points against the reference interval's width, offset 1.25 (section 4.2) | Done |
 | 7 | Chain-blindness trigger L07 threshold | Needs journal data | Block 7 |
 | 8 | Planning-fallacy trigger L08 threshold | Needs journal data | Block 7 |
 | 9 | Unit 4 gate: the factor-of-3 rule | Needs playtest data on Fermi problems | Block 7 |
@@ -480,3 +493,4 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 2026-11-15 | 4.8, 5, build blocks 1 and 4 | Player feedback ("not a test of mathematical knowledge or any core hardcore knowledge, rather judgement and prediction"): the gym question bank is rebuilt. Every question is a judgment call, a scene plus a claim about how it turns out, drawn from committed real records (Seattle weather, US flights, S&P 500 history, Our World in Data trends) or from 37 documented base rates with their evidence; arithmetic, chance puzzles and almanac facts are gone. New fields `lead`, `ask`, `base`, `n`; `verified` is `recorded` or `sourced`; the reveal adds the base rate and its number of cases. A 304-question Unit 1 exam pool is built beside the 240-question starter bank. `tools/check_questions.py` is rewritten to re-derive every answer with independent code, test fairness (z-test) and compare the files with the tables | Content change, not a rule change: scoring, gates and pacing numbers are unchanged. Difficulty is now how lopsided a claim's base rate is (recorded) or how far its threshold is from the documented value (sourced), so the 40/35/25 and 7/38/55 mixes mean something different from the old size-of-gap labels and stay first guesses until real hit rates arrive (STATE.md, "the question bank, rebuilt for judgment") |
 | 2026-11-15 | 4.4, 4.5, 4.9, 4.8, build block 4 | Block 4 built: the lesson engine and its screens. Pattern triggers L01 to L04 and L15 with flags, lessons, drills (wheel, forced, zone-locked, rewrite) and two re-tests; the instant note after a miss; the sealed 200-call Unit 1 exam with repair drill, retake and rust; the autopsy with its link audit, rule card and 3 and 10-day rechecks; the five-lens case file; the 90-day no-repeat rule and the 70/30 new-versus-review split; a passed Unit 1 gate counts toward the belts. Verified against independent Python references (`tools/ref_lessons.py`) and synthetic players | Build note, not a design change: every threshold is the one fixed in `data/scoring.json`. Readings taken where the docs left a choice (luck below 20%, exam sealing, the exam's 10 sittings, L15's minimum session) are listed under "Block 4 assumptions" in STATE.md. `design/balance-report.md` 4c adds the re-test pass rates and the honest cost of L02's re-test |
 | 2026-11-15 | 4.7, 4.3, 4.9, 4.8, platform, build block 5 | Block 5 built: the Coach. The record syncs to the player's private `Predict-data` repo through the GitHub contents API (one file a day, a union by event id, never an overwrite, refuses a public repo, the token stays on the phone). The weekly review's file `coach/latest.json` is read through a strict check and shown as the weekly letter, drill set, three ideas a day, Predict's read in the case file, Predict's baselines (adopted only if they arrive before the due day) and checked outcomes (only with an https source). Question top-ups load from `topups.json`. The review itself is a scheduled task described in `design/coach.md` with `tools/weekly_packet.py`, `coach_validate.py` and `merge_topups.py` | Build note, with one amendment: `platform.md`'s rule "no requests to other sites" now reads "none, except api.github.com after the player connects a private repository". No scoring or pacing number changed. The unattended loop (open risk: can the coach loop run unattended) cannot be proven from here: it needs the player's repo and token |
+| 2026-11-16 | 4.2, 4.4, 4.5, 5, 6, build block 6 | Block 6 built: ranges (Unit 3). The reference interval per question (middle 90% of the other comparable cases) and points against its width settle open value 6; the sealed 60-range exam (50 to 58 hold); triggers L05 and L06 with the stepwise and width-budget drills; events `rsession`, `range`, `rsession_end`; a range bank of 380 from the committed records, every reference interval re-derived by `tools/check_ranges.py`; `sim/range_sim.py` on the real bank | Roadmap |
