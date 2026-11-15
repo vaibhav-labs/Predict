@@ -26,6 +26,7 @@ import { decideScreen } from './ui/decide.js';
 import { fineScreen, fineSummaryScreen, fineExamScreen } from './ui/fine.js';
 import { multiScreen } from './ui/multi.js';
 import { worldScreen } from './ui/world.js';
+import { arenaScreen } from './ui/arena.js';
 import { runLessonEngine } from './flags.js';
 import * as SY from './sync.js';
 import { compileCheckerRules } from './engine/journal.js';
@@ -73,6 +74,7 @@ const routes = {
   fine: async (c, arg, token) => { await fineScreen(c, root, token, arg); return null; },
   multi: (c, arg) => multiScreen(c, arg),
   world: (c, arg) => worldScreen(c, arg),
+  arena: (c) => arenaScreen(c),
   fsummary: (c, arg) => fineSummaryScreen(c, arg),
   fexam: (c, arg) => fineExamScreen(c, arg),
   gym: async (c, arg, token) => { await gymScreen(c, root, token, arg); return null; },

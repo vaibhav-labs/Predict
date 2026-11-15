@@ -2,6 +2,7 @@
 // topic, domain and horizon, the journal-only record, level, streak, the seven-day score and the belts.
 // Every statistic shows its sample size, and a group too small to say anything says "too few".
 import { worldMirrorRows } from './world.js';
+import { arenaMirrorRows } from './arena.js';
 import { gateState, rangeGateState, problemGateState } from '../flags.js';
 import * as PB from '../engine/problem.js';
 import * as RS from '../engine/reasoning.js';
@@ -259,6 +260,16 @@ export function mirrorScreen(ctx) {
       row('Predict alone', `${signedPts(wg.machine, 0)} a question`, wg.final >= wg.machine ? 'your final is at least as good' : 'Predict alone is ahead'))),
     h('p', { class: 'cap' }, `The sharp rule on every number. ${wg.n < ctx.cfg.gates.world_resolved ? `A hint until ${ctx.cfg.gates.world_resolved} are settled.` : ''}`)) : null;
 
+  // ---- Arena (Unit 12): your points against the crowd's on settled public questions (self-reported numbers) ----
+  const ag = arenaMirrorRows(ctx);
+  const arenaCard = ag ? h('section', { class: 'card stack', id: 'arena-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Arena'), h('span', { class: 'cap num', id: 'ar-n' }, `n=${ag.n}`)),
+    h('table', { class: 'tbl', id: 'ar-table' }, h('tbody', null,
+      row('Your points', `${signedPts(ag.mine, 0)} a question`, ''),
+      row('The crowd\'s points', `${signedPts(ag.crowd, 0)} a question`, ''),
+      row('Edge over the crowd', `${signedPts(ag.edge, 0)} a question`, `ahead on ${ag.ahead} of ${ag.n}`))),
+    h('p', { class: 'cap' }, `Numbers you copied from the sites yourself. ${ag.n < ctx.cfg.gates.arena_resolved ? `A hint until ${ctx.cfg.gates.arena_resolved} are settled.` : ''}`)) : null;
+
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
@@ -283,7 +294,7 @@ export function mirrorScreen(ctx) {
         row('Points', sum.n ? signed(sum.points) : '–', sum.n ? `${signed(Math.round(sum.avgPoints))} a call` : ''))));
 
   return tabFrame('mirror', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Mirror'), h('span', { class: 'date' }, base.complete ? 'Baseline done' : `Baseline ${base.done} of ${base.total}`)),
-    standingCard, curveCard, biasCard, rangeCard, reasonCard, knowCard, worldCard, jcard, beltCard, stats);
+    standingCard, curveCard, biasCard, rangeCard, reasonCard, knowCard, worldCard, arenaCard, jcard, beltCard, stats);
 }
 
 function row(label, value, note) {

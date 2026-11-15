@@ -2636,6 +2636,77 @@ def verdict_player(E, want_pass):
         page.wait_for_selector("#dial")
         check("the repair drill is 20 calls and tagged Repair drill", text(page, ".cnt") == "1 of 20" and "Repair drill" in text(page, "#mode-tag"))
     E.ctx.close()
+def phase_b12(E):
+    """Unit 12, Arena: public questions on Good Judgment Open and Metaculus, your forecast and the crowd's, settled and scored against each other."""
+    import math as _m
+    page = open_app(E, "2026-12-01", synth.u10_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b12_closed.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U12-card")
+    check("before the Unit 10 exam is passed the Path says the Arena is not open", text(page, "#pgate-U12-status") == "Not open yet", text(page, "#pgate-U12-card")[:100])
+    go(page, "#/arena")
+    page.wait_for_function("location.hash === '#/path'", timeout=5000)
+    check("opening the Arena while closed sends you back to the Path", page.evaluate("location.hash") == "#/path")
+    E.ctx.close()
+
+    r = synth.u10_passed_player(U1_EXAM, start=START)
+    r._add("arena", "2026-11-20", 10, state="add", title="Will the benchmark index close above its November level?", url="https://www.metaculus.com/questions/9001/index-close/", platform="Metaculus", mine=0.2, crowd=0.4, closes="2026-11-30")
+    page = open_app(E, "2026-12-01", r.write(os.path.join(E.tmp, "b12_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u12-card")
+    check("the Arena is open: Today says one public question has closed", "1 closed" in text(page, "#u12-count"), text(page, "#u12-card")[:120])
+    F.audit(E, "today with Unit 12")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U12-card")
+    check("the Path shows the Arena collecting, 0 of 50", text(page, "#pgate-U12-status") == "Collecting" and "1 of 50" not in text(page, "#pgate-U12-card") and "0 of 50" in text(page, "#pgate-U12-card"), text(page, "#pgate-U12-card")[:120])
+    go(page, "#/arena")
+    page.wait_for_selector("#arena-form")
+    check("the page opens with the measure at 0 of 50, the closed question to settle and the form", "0 of 50" in text(page, "#arena-count") and page.query_selector("#arena-due") is not None and page.is_disabled("#arena-add"), text(page, "main")[:160])
+    F.audit(E, "arena")
+    shot(E, "b12-arena.png")
+    # a bad link, a closed question, a number out of range: each refused in words
+    page.fill("#arena-title", "Will the thing be true by the year end?")
+    page.fill("#arena-url", "https://example.org/q/1")
+    page.fill("#arena-mine", "40")
+    page.fill("#arena-crowd", "55")
+    page.fill("#arena-closes", "2026-12-31")
+    check("a link that is not Good Judgment Open or Metaculus is refused in words", "Good Judgment Open or Metaculus" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-url", "https://www.gjopen.com/questions/2500-the-thing")
+    page.fill("#arena-closes", "2026-11-30")
+    check("a question that has already closed is refused", "already closed" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-closes", "2026-12-31")
+    page.fill("#arena-mine", "100")
+    check("a forecast of 100 is refused", "1 to 99" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-mine", "40")
+    check("a good entry names its platform and opens the button", text(page, "#arena-msg") == "On Good Judgment Open." and not page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-title", "<img src=x onerror=alert(1)> Will the thing be true by the year end?")
+    page.wait_for_timeout(450)
+    page.click("#arena-add")
+    page.wait_for_selector("#arena-open", timeout=5000)
+    adds = [e for e in of_type(page, "arena") if e["state"] == "add"]
+    check("the entry is saved with the platform, both numbers and the closing day", len(adds) == 2 and adds[-1]["platform"] == "Good Judgment Open" and near(adds[-1]["mine"], 0.4) and near(adds[-1]["crowd"], 0.55) and adds[-1]["closes"] == "2026-12-31", str(adds[-1:]))
+    check("a title with markup is shown as text and never built into the page", page.query_selector("#arena-open img") is None and "<img" in text(page, "#arena-open"), text(page, "#arena-open")[:100])
+    check("question links open in a new tab with no opener", page.get_attribute("#arena-open a", "rel") == "noopener noreferrer" and page.get_attribute("#arena-open a", "target") == "_blank")
+    # settle the due one: you said 20, the crowd 40, it did not happen
+    due = page.query_selector("#arena-due")
+    page.click("#arena-due [data-value=no]")
+    page.wait_for_timeout(450)
+    page.click("#arena-due button[data-save]")
+    page.wait_for_selector("#arena-resolved", timeout=5000)
+    res = [e for e in of_type(page, "arena") if e["state"] == "resolve"]
+    check("the result is saved against the item", len(res) == 1 and res[0]["outcome"] == "no" and res[0]["item"] == adds[0]["id"], str(res))
+    pt = lambda q: round(100 * (1 + _m.log2(q)))
+    mine, crowd = pt(0.8), pt(0.6)
+    row = text(page, "#arena-resolved")
+    check("the settled row shows both numbers and the three scores", all(x in row for x in ("20%", "40%", signed(mine), signed(crowd), signed(mine - crowd))), row)
+    check("the measure reads 1 of 50 with the averages and 1 ahead", "1 of 50" in text(page, "#arena-count") and signed(mine - crowd) in text(page, "#arena-means") and "ahead on 1 of 1" in text(page, "#arena-means"), text(page, "#arena-gate"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#arena-record")
+    tbl = text(page, "#ar-table")
+    check("the Mirror has the Arena rows over the one settled question, flagged as self-reported and a hint", text(page, "#ar-n") == "n=1" and signed(mine) in tbl and signed(crowd) in tbl and signed(mine - crowd) in tbl and "yourself" in text(page, "#arena-record") and "hint" in text(page, "#arena-record"), tbl)
+    F.audit(E, "mirror with Unit 12")
+    check("the app never said Claude on an Arena screen", "claude" not in page.content().lower())
+    E.ctx.close()
+
 
 def put_meta(page, key, value):
     """Write a value into the phone's `meta` store (how the weekly review's file sits in the cache) straight through IndexedDB."""
@@ -2777,6 +2848,7 @@ PHASES = [
     ("b9", "Block 9: knowing yourself", phase_b9),
     ("b10", "Block 10: fine grain", phase_b10),
     ("b11", "Block 10: with the machine", phase_b11),
+    ("b12", "Block 10: arena", phase_b12),
 ]
 
 

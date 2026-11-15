@@ -17,6 +17,7 @@ import { decideTodayCard, dueDecisionRows } from './decide.js';
 import { recallTodayCard } from './recall.js';
 import { fineTodayCard } from './fine.js';
 import { worldTodayCard } from './world.js';
+import { arenaTodayCard } from './arena.js';
 
 // What needs the player before anything else: an autopsy that is due, the patterns in repair, the exam.
 function needsCard(ctx, ls, gate) {
@@ -123,6 +124,7 @@ export function todayScreen(ctx) {
     decideTodayCard(ctx),
     fineTodayCard(ctx),
     worldTodayCard(ctx),
+    arenaTodayCard(ctx),
     ...ls.rechecks.slice(0, 2).map((r) => recheckCard(ctx, r, () => ctx.refresh())),
     h('section', { class: 'card' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, `Block ${BLOCKS_BUILT} of 10 built`)),

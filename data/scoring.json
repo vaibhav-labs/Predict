@@ -186,6 +186,7 @@
     "streak_cool_fraction": 0.5,
     "note": "Flat habit points, never a multiplier on calls, so attendance can never make a bad call pay. A played day is a day with at least one call, locked prediction or resolve. It pays session_points plus streak_bonus_per_day for each streak day up to streak_bonus_cap_days, once per played day however many sessions it holds (at most 120 a day). A missed day keeps floor(streak * streak_cool_fraction) of the streak; today is never a miss while it is still going. Career points are a high-water mark of the running total of call points, journal edge points and habit points."
   },
+  "arena": {"title_min": 8, "title_max": 200},
   "gates": {
     "calibration_index_tolerance": 0.05,
     "calibration_exam_calls": 200,
@@ -267,6 +268,7 @@
     "memory_drift_max": 0.05,
     "fine_exam_calls": 400,
     "world_resolved": 60,
+    "arena_resolved": 50,
     "fine_index_tolerance": 0.03,
     "fine_sitting": 20,
     "fine_repair_calls": 20

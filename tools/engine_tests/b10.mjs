@@ -9,6 +9,7 @@ import * as FN from '../../app/js/engine/fine.js';
 import { summarize } from '../../app/js/engine/record.js';
 import { ledger } from '../../app/js/engine/progress.js';
 import * as WD from '../../app/js/engine/world.js';
+import * as AR from '../../app/js/engine/arena.js';
 
 const G = cfg.gates;
 let seq = 0;
@@ -205,4 +206,52 @@ test('world gate: needs 60 resolved, then final at least as good as first and as
   assert.equal(g.n, 60); assert.equal(g.voided, 1, 'void questions are counted apart and carry no points');
   const unresolved = { ...mk(1, 0.6, 0.7, 0.65), resolve: null };
   assert.equal(WD.worldGate(S, [unresolved], cfg.gates).n, 0);
+});
+
+// ---- Unit 12: the Arena tracker ---------------------------------------------------------------------------------------------------
+test('arena entry checks: only open Good Judgment Open and Metaculus questions, whole percents, a title', () => {
+  const ok = { title: 'Will the thing happen before 2027?', url: 'https://www.gjopen.com/questions/2345-thing', mine: '40', crowd: '55', closes: '2026-12-31' };
+  const today = '2026-12-01';
+  const good = AR.checkArena(ok, today, cfg);
+  assert.equal(good.ok, true); assert.equal(good.entry.platform, 'Good Judgment Open'); assert.equal(good.entry.mine, 0.4); assert.equal(good.entry.crowd, 0.55);
+  assert.equal(AR.checkArena({ ...ok, url: 'https://www.metaculus.com/questions/1/x/' }, today, cfg).entry.platform, 'Metaculus');
+  const bad = (o, why) => { const r = AR.checkArena({ ...ok, ...o }, today, cfg); assert.equal(r.ok, false, why); return r.error; };
+  bad({ url: 'http://www.gjopen.com/questions/1' }, 'http is refused');
+  bad({ url: 'https://example.org/q/1' }, 'another site is refused');
+  bad({ url: 'https://gjopen.com.evil.test/q' }, 'a look-alike host is refused');
+  bad({ url: 'javascript:alert(1)' });
+  bad({ mine: '0' }); bad({ mine: '100' }); bad({ mine: '4.5' }); bad({ crowd: '' }); bad({ crowd: 'x' });
+  bad({ title: 'short' }); bad({ title: 'x'.repeat(201) });
+  bad({ closes: '2026-11-30' }, 'a closed question is refused'); bad({ closes: 'tomorrow' }); bad({ closes: '2026-13-45' });
+  assert.equal(AR.checkArena({ ...ok, closes: '2026-12-01' }, today, cfg).ok, true, 'closing today is still open');
+});
+
+test('arena items: open, due, resolved; an item resolves once; edge is the player\'s points minus the crowd\'s', () => {
+  const ev = (state, rest) => ({ type: 'arena', state, t: '2026-12-01T10:00:00Z', d: '2026-12-01', ...rest });
+  const events = [ev('add', { id: 'i1', title: 'First question here', url: 'https://metaculus.com/q/1', platform: 'Metaculus', mine: 0.7, crowd: 0.6, closes: '2026-12-10' }),
+    ev('add', { id: 'i2', title: 'Second question here', url: 'https://metaculus.com/q/2', platform: 'Metaculus', mine: 0.2, crowd: 0.4, closes: '2026-12-02' }),
+    ev('resolve', { item: 'i2', outcome: 'no' }), ev('resolve', { item: 'i2', outcome: 'yes' }), ev('resolve', { item: 'nope', outcome: 'yes' })];
+  let items = AR.arenaItems(events, '2026-12-05');
+  assert.deepEqual(items.map((i) => [i.item, i.status]), [['i1', 'open'], ['i2', 'resolved']]);
+  assert.equal(items[1].resolve.outcome, 'no', 'the second resolve is ignored');
+  assert.equal(AR.arenaItems(events, '2026-12-11')[0].status, 'due');
+  const sc = AR.arenaScores(S, items[1]);
+  const pt = (q) => Math.round(100 * (1 + Math.log2(q)));
+  assert.deepEqual(sc, { mine: pt(0.8), crowd: pt(0.6), edge: pt(0.8) - pt(0.6) });
+  assert.equal(AR.arenaScores(S, { ...items[1], resolve: { outcome: 'void' } }), null);
+});
+
+test('arena gate: 50 resolved and a mean edge above zero over the crowd', () => {
+  const mk = (i, mine, crowd, outcome = 'yes') => ({ item: `a${i}`, mine, crowd, resolve: { outcome } });
+  const many = (n, m, c) => Array.from({ length: n }, (_, i) => mk(i, m, c));
+  let g = AR.arenaGate(S, many(49, 0.8, 0.6), cfg.gates);
+  assert.equal(g.ready, false); assert.equal(g.passed, false);
+  g = AR.arenaGate(S, many(50, 0.8, 0.6), cfg.gates);
+  assert.equal(g.passed, true); assert.equal(g.ahead, 50); assert.ok(g.edge > 0);
+  assert.equal(AR.arenaGate(S, many(50, 0.6, 0.6), cfg.gates).passed, false, 'a tie with the crowd is not better than it');
+  assert.equal(AR.arenaGate(S, many(50, 0.5, 0.6), cfg.gates).passed, false);
+  const mixed = [...many(25, 0.9, 0.6), ...many(25, 0.2, 0.6).map((x, i) => ({ ...x, item: `b${i}` }))];
+  const gm = AR.arenaGate(S, mixed, cfg.gates);
+  assert.equal(gm.n, 50); assert.equal(gm.ahead, 25);
+  assert.equal(AR.arenaGate(S, [...many(50, 0.8, 0.6), mk(99, 0.01, 0.99, 'void')], cfg.gates).voided, 1);
 });
