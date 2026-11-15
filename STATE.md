@@ -1,16 +1,16 @@
 # Predict: build state
 
-Last updated: 2026-11-15 · Stage: Block 1 (The Dial) is on `main` and live. Block 2 (The Journal) is
-built on branch `block-2` and passes all its tests in a desktop Chromium; it has not been tried on a
-phone yet · Next: the Block 2 phone check (below), then merge `block-2`; Block 3 (The Mirror) only when
-the player says so
+Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are both on `main`, merged and
+live at https://vaibhav-labs.github.io/Predict/ (commit `e6b8eb3`); `tests.yml`'s browser suite is green
+on that commit, on both `block-2` and `main`. Neither has been tried on a phone yet · Next: the Block 1
+and Block 2 phone checks (below); Block 3 (The Mirror) only when the player says so
 
 ## Report for the player (Block 2, 2026-11-15)
 
-Block 2, the Journal, is built on its own branch (`block-2`, not merged) and passes its exit test
+Block 2, the Journal, is merged into `main` and live and passes its exit test
 (`data/build_blocks.csv`, row BL2) in a desktop Chromium: `python3 tools/check_data.py`,
 `node --test tools/test_engine.mjs` (36 passed), `sh tools/build_site.sh`, `python3 tools/test_pwa.py`
-(33 passed), `python3 tools/test_flow.py` (161 passed, about 3 minutes). That run includes both worked
+(33 passed), `python3 tools/test_flow.py` (162 passed, about 3 minutes). That run includes both worked
 edge examples from `design/mechanics.md` (4.3 and 4.9) coming out exactly, a full write-check-chain-lock
 play-through, a locked card refusing every edit (in the UI and at the storage layer), a due card
 appearing on the right day under a controlled clock, and the outcome card's table of other numbers
@@ -66,7 +66,7 @@ The long goal is a public forecasting track record.
 
 ## What exists in the app today
 
-Blocks 1 and 2 are built (Block 2 on branch `block-2`). Five tabs: Today, Journal, Mirror, Coach, Path.
+Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirror, Coach, Path.
 
 - **The call.** A claim, Yes or No, and a dial of 11 steps from 50% to 99%. The points for a hit and a
   miss are shown before the call is locked, and come from `data/scoring.json`.
@@ -97,7 +97,7 @@ Blocks 1 and 2 are built (Block 2 on branch `block-2`). Five tabs: Today, Journa
 - **Install and offline.** The service worker installs all 40 files or none, opens with the server down
   and in airplane mode, and shows "A new version is ready" on Today after a deploy.
 - **Tests, all passing, all in Chromium:** `node --test tools/test_engine.mjs` (36), `python3 tools/test_pwa.py`
-  (33), `python3 tools/test_flow.py` (161, about 3 minutes), plus `python3 tools/check_data.py`, which also
+  (33), `python3 tools/test_flow.py` (162, about 3 minutes), plus `python3 tools/check_data.py`, which also
   rebuilds the question bank from its tables and works all 240 claims out again with independent code.
   A fresh copy of the repo (what GitHub will check out) passes the same. The play-through test covers the
   baseline, practice, reload and resume, offline play, the summary and Mirror numbers against independent
@@ -107,11 +107,14 @@ Blocks 1 and 2 are built (Block 2 on branch `block-2`). Five tabs: Today, Journa
   refusing edits, a due card on the right day under a controlled clock, resolve, and the outcome card's
   numbers against an independent computation.
 - **Workflows.** `pages.yml` deploys on every push to `main` after `check_data.py` and the engine tests;
-  green on the Block 1 push. `tests.yml` runs the three browser suites on pull requests and pushes and
-  never blocks a deploy; its first run (on the Block 1 push to `main`, commit `944ee64`) failed at the
-  play-through step even though the same suite passes clean here, so it needs a look on its own, on
-  `main`, separately from Block 2 (not investigated as part of this block: GitHub's job-log API refused
-  the download without an authenticated `gh` session).
+  green on both the Block 1 and the Block 2 push. `tests.yml` runs the three browser suites on pull
+  requests and pushes to `main` and `block-*`, and never blocks a deploy; a failing check now also
+  becomes a GitHub Actions annotation (`T.annotate_failure` in `tools/test_pwa.py`), readable from the
+  public API without a login, since the job log itself needs one. Its first run (the Block 1 push to
+  `main`, commit `944ee64`) failed at the play-through step with no annotation (added after) and no
+  accessible log; the very next run, on the Block 2 push to `block-2` (commit `e6b8eb3`), passed clean,
+  and so did `main`'s own run of the same commit after merging — so whatever `944ee64` hit did not
+  reproduce. Left as an unexplained one-off rather than investigated further.
 
 ## Not done, on purpose or not yet known
 
@@ -216,25 +219,25 @@ in Block 2's scope needed a decision only the player could make.
 ## Waiting on the player
 
 1. ~~The one-time GitHub setup.~~ Done: the repo is live at https://vaibhav-labs.github.io/Predict/,
-   commit `944ee64` on `main`.
+   now serving Block 2, commit `e6b8eb3` on `main`.
 2. The first phone check, about five minutes (`design/platform.md`, section 10): install from Safari,
    play from the icon, open it in airplane mode, read the "This device" card on the Coach tab. Day 1 is
-   the day Block 1 passes its exit test on the phone.
+   the day Block 1 passes its exit test on the phone. Block 2's phone check (above) is still open too.
 3. Look through the screens and say what feels wrong. One more, open value 13 in `design/mechanics.md`:
    belt evidence at one prediction a day (keep the 40, 150, 300 thresholds, or thin them).
 4. Before Block 5: create the private `Predict-data` repo and a fine-grained token for it, and write the context note.
-5. `tests.yml` failed its first real run on `main` (commit `944ee64`, "Play-through tests") even though
-   the same suite passes clean on this Mac; worth a look with `gh run view --log-failed` (not installed
-   here) before trusting that workflow. Separately: review and merge the `block-2` branch (Block 2, the
-   Journal) when its own phone check (above, under the Block 2 report) is done.
+5. ~~`tests.yml`'s first real run (commit `944ee64`) failed with no readable log.~~ Resolved: failing
+   checks now post a GitHub annotation, readable from the public API without a login
+   (`T.annotate_failure`); the `block-2` push (`e6b8eb3`) and `main`'s run of the same commit after
+   merging both came back green with none, so the original failure looks like a one-off, not a real bug.
 
 ## How to resume
 
 1. Read `design/platform.md`, then the plan doc's decisions table and any comments.
 2. Read `design/mechanics.md` (algorithms, data model, the 14 OPEN values) and the data tables. Unit, belt
    and block days are in `data/timeline.csv`: Units 0 to 11 end on day 224.
-3. Blocks 1 and 2 are done apart from the phone parts of their exit tests (`data/build_blocks.csv`);
-   Block 2 is on branch `block-2`, not yet merged. Build Block 3 (the Mirror) only when the player says to.
+3. Blocks 1 and 2 are done, merged into `main` and live, apart from the phone parts of their exit tests
+   (`data/build_blocks.csv`). Build Block 3 (the Mirror) only when the player says to.
 4. After every change under `app/`, all of these must pass: `python3 tools/check_data.py`,
    `node --test tools/test_engine.mjs`, `sh tools/build_site.sh`, `python3 tools/test_pwa.py`,
    `python3 tools/test_flow.py`. The last two need Playwright and Chromium.
