@@ -338,13 +338,14 @@ export async function problemScreen(ctx, root, token, arg) {
     const index = sess.probs.length + 1;
     const gain = ev.gain;
     const worth = Math.abs(q.truth - q.prior);
-    const moveWord = ev.moved === 0 ? 'You stayed at' : `You moved ${pctText(Math.abs(ev.moved))} points ${ev.moved > 0 ? 'up' : 'down'} from`;
-    const gainText = Math.abs(gain) < 0.05 ? 'Moving and staying put would have been equally close.' : gain > 0 ? `Moving helped: you ended ${pctText(gain)} points closer to the truth than staying at ${pctText(q.prior)} would have.` : `Moving cost you: staying at ${pctText(q.prior)} would have been ${pctText(-gain)} points closer.`;
+    const pts = (x) => `${Number(Math.abs(x).toFixed(1))} points`;
+    const moveWord = ev.moved === 0 ? `You stayed at ${pctText(q.prior)}` : `You moved ${pts(ev.moved)} ${ev.moved > 0 ? 'up' : 'down'}, from ${pctText(q.prior)} to ${pctText(ev.guess)}`;
+    const gainText = Math.abs(gain) < 0.05 ? 'Moving and staying put would have been equally close.' : gain > 0 ? `Moving helped: you ended ${pts(gain)} closer to the truth than staying at ${pctText(q.prior)} would have.` : `Moving cost you: staying at ${pctText(q.prior)} would have been ${pts(gain)} closer.`;
     mount(focusFrame(header(sess, index, index),
       h('section', { class: 'card' }, tags(sess, q), h('p', { class: 'claim long' }, h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask)), h('p', { class: 'muted' }, q.news),
         h('div', { class: 'rl-key' }, h('span', null, h('b', null, 'Before'), ` ${pctText(q.prior)}`), h('span', null, h('b', null, 'Truth'), ` ${pctText(q.truth)}`), h('span', null, h('b', null, 'You'), ` ${pctText(ev.guess)}`), q.n ? h('span', null, h('b', null, 'Cases'), ` ${Number(q.n).toLocaleString('en-US')}`) : null),
         resultRow(ev.hit, ev.points, 'Within 7', 'Outside'),
-        h('p', { class: 'note', id: 'pct-note' }, `The news was worth ${pctText(worth)} points. ${moveWord} ${pctText(q.prior)} to ${pctText(ev.guess)}; you were ${pctText(ev.miss)} points from the truth. `, h('span', { id: 'gain-note' }, gainText))),
+        h('p', { class: 'note', id: 'pct-note' }, `The news was worth ${pts(worth)}. ${moveWord}; you were ${pts(ev.miss)} from the truth. `, h('span', { id: 'gain-note' }, gainText))),
       answerCard(q), revealFoot(sess, q, index)));
   }
 

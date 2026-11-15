@@ -356,3 +356,8 @@ test('every update step has what the screens need, and no text names the assista
   const mids = all.filter((q) => Math.abs(q.truth - q.prior) >= 8).length / all.length;
   assert.ok(mids > 0.25 && mids < 0.55, `big moves are ${(mids * 100).toFixed(0)}% of steps`);
 });
+
+test('signed() rounds a fractional score for display (time-weighted edge) and never writes +0 or −0', async () => {
+  const { signed } = await import('../../app/js/engine/scoring.js');
+  assert.deepEqual([signed(56.888888), signed(-14.2222), signed(0.4), signed(-0.4), signed(7), signed(-7)], ['+57', '−14', '0', '0', '+7', '−7']);
+});

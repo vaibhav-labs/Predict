@@ -84,6 +84,9 @@ class Rec:
         return self._add("prediction", day, minute, text=text or f"By {due}, synthetic thing {self.counter + 1} will happen.", domain=domain, dueOption=due_option, due=due, horizon=horizon,
                          chain=chain, c=c, b=b, bSource=bsource, scored=scored, ms=200000, flags=list(flags), flagged=flagged)
 
+    def update(self, pred, day, minute, c, prev, reason="New information."):
+        return self._add("update", day, minute, prediction=pred["id"], c=c, prev=prev, reason=reason)
+
     def resolve(self, pred, day, minute, outcome, note=None):
         if outcome == "void":
             return self._add("resolve", day, minute, prediction=pred["id"], outcome="void", note=note, raw=None, edge=None)
@@ -453,6 +456,49 @@ def u5_ready_player(exam_bank, seed=31, start="2026-09-01"):
         for i, q in enumerate(qs):
             prob_rate(r, sid, add_days(day1, k), 1 + i, q, off=(0 if i % 3 else 5))
         prob_end(r, sid, add_days(day1, k), 20)
+    return r
+
+
+def prob_update(r, sid, day, minute, step, off=0.0, mode="practice", exam=None, unit="U6"):
+    """One update step (a dict from engine stepsOf: id, prior, truth, ...) answered `off` points from the truth; the rules are written out here, apart from the app's."""
+    g = min(100.0, max(0.0, step["truth"] + off))
+    miss = abs(g - step["truth"])
+    pts_ = max(-100, round(100 * (1 - miss / 7)))
+    return r._add("prob", day, minute, session=sid, mode=mode, unit=unit, family="update", exam=exam, q=step["id"], kind=step["kind"], jdomain=step["jdomain"], guess=g, truth=step["truth"], prior=step["prior"],
+                  miss=miss, signed=g - step["truth"], hit=miss <= 7 + 1e-9, points=pts_, gain=abs(step["prior"] - step["truth"]) - miss, moved=g - step["prior"], news=step["news"], claim=f"{step['lead']} {step['ask']}", ms=9000)
+
+
+def update_steps(pool):
+    """Every step of every stream in a pool of updates.json, as the problem screen asks it (ids 'upd-…#0', 'upd-…#1')."""
+    out = []
+    for q in _bank("updates.json"):
+        if q["pool"] != pool:
+            continue
+        for i, s in enumerate(q["steps"]):
+            out.append({"id": f"{q['id']}#{i}", "stream": q["id"], "kind": q["kind"], "jdomain": q["jdomain"], "lead": q["lead"], "ask": q["ask"], "news": s["news"], "prior": s["prior"], "truth": s["truth"]})
+    return out
+
+
+def u5_passed_player(exam_bank, seed=37, start="2026-09-01"):
+    """Unit 5 passed (a recorded pass of a 40-problem exam) on top of u5_ready_player: Unit 6 opens."""
+    r = u5_ready_player(exam_bank, seed, start)
+    day = add_days(start, 45)
+    att = r._add("exam", day, 5, state="start", unit="U5", n=40)["id"]
+    r._add("exam", add_days(day, 1), 5, state="result", exam=att, unit="U5", **{"pass": True}, n=40, hits=36, coverage=0.9, points=0, reasons=[], dir=None, meanMiss=3.0, bias=0.5, within=36)
+    return r
+
+
+def u6_ready_player(exam_bank, seed=41, start="2026-09-01"):
+    """Unit 5 passed, then 30 practice update steps (five sessions of six): the Unit 6 exam is open."""
+    r = u5_passed_player(exam_bank, seed, start)
+    steps = update_steps("practice")
+    day0 = add_days(start, 48)
+    for k in range(5):
+        qs = steps[k * 6:(k + 1) * 6]
+        sid = prob_session(r, add_days(day0, k), 0, "update", "U6", [q["id"] for q in qs])
+        for i, q in enumerate(qs):
+            prob_update(r, sid, add_days(day0, k), 1 + i, q, off=(0 if i % 3 else 4))
+        prob_end(r, sid, add_days(day0, k), 20)
     return r
 
 

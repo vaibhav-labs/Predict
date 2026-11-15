@@ -209,7 +209,7 @@ export function mirrorScreen(ctx) {
       rates.length ? row('Lean', `${rtd.bias > 0 ? '+' : rtd.bias < 0 ? '−' : ''}${Math.abs(rtd.bias).toFixed(1)} pts`, rtd.thin ? 'too few to say' : rtd.bias > 3 ? 'too high' : rtd.bias < -3 ? 'too low' : 'about even') : null,
       updSteps.length ? row('Update steps within 7', `${ud.within} of ${ud.n} (${pct(ud.rate)})`, ud.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
       updSteps.length ? row('Gain over staying put', `${ud.meanGain >= 0 ? '+' : '−'}${Math.abs(ud.meanGain).toFixed(1)} pts`, ud.thin ? 'too few to say' : ud.meanGain >= 0 ? 'your moves help' : 'your moves cost') : null,
-      ud.moveShare !== null && ud.bigN ? row('Share of a big move taken', `${Math.round(ud.moveShare * 100)}%`, `${ud.bigN} steps where the truth sat 8 or more points away`) : null,
+      ud.moveShare !== null && ud.bigN ? row('Share of a big move taken', `${Math.round(ud.moveShare * 100)}%`, `${ud.bigN} ${ud.bigN === 1 ? 'step' : 'steps'} where the truth sat 8 or more points away`) : null,
       uv.n ? row('What your updates added', `${uv.mean >= 0 ? '+' : '−'}${Math.abs(uv.mean).toFixed(1)} edge a card`, `n=${uv.n} resolved updated cards${uv.n < cfg.thin_below ? ': a hint' : ''}`) : null,
       updatedCards ? row('Open or resolved cards updated with a reason', String(updatedCards), `of ${ctx.cfg.problems.update.update_rule.cards_needed || 12} the unit asks for`) : null,
       classes.length ? row('Right reference group', `${classes.filter((p) => p.hit).length} of ${classes.length}`, '') : null,

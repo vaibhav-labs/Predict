@@ -71,7 +71,7 @@ function lensLuck(ctx, p, env) {
       : h('div', { class: 'sumgrid' },
         h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('b', { class: 'num' }, pct(p.b)), h('span', { class: 'cap' }, baselineCaption(p))),
         h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Your edge'), h('b', { class: `num${!p.scored || p.edge < 0 ? ' bad' : ''}` }, p.scored ? signed(p.edge) : 'Unscored'), h('span', { class: 'cap' }, p.scored ? `raw ${signed(p.raw)}` : 'extra prediction'))),
-    p.scored && typeof p.edge0 === 'number' && p.outcome !== 'void' ? h('p', { id: 'luck-updates' }, `Scored over ${p.days || 'its'} days at the number in force each day. The locked ${pct(p.c)} alone would have earned ${signed(p.edge0)}; with your updates the card earned ${signed(p.edge)}: ${p.edge - p.edge0 >= 0 ? 'your updates added' : 'your updates cost'} ${Math.abs(Math.round((p.edge - p.edge0) * 10) / 10)}.`) : null,
+    p.scored && typeof p.edge0 === 'number' && p.outcome !== 'void' ? h('p', { id: 'luck-updates' }, `Scored over ${p.days || 'its'} days at the number in force each day. The locked ${pct(p.c)} alone would have earned ${signed(Math.round(p.edge0))}; with your updates the card earned ${signed(Math.round(p.edge))}: ${p.edge - p.edge0 >= 0 ? 'your updates added' : 'your updates cost'} ${Math.abs(Math.round(p.edge - p.edge0))}.`) : null,
     read ? h('p', { id: 'luck-chance' }, `At the baseline (${pct(p.b)} for yes), what happened had a ${pct(read.chance)} chance${read.kind === 'luck' ? `: under ${pct(ctx.cfg.lessons.luck_rare_below)}, a rare outcome.` : '.'}`) : null,
     verdict ? h('p', { id: 'luck-verdict' }, h('b', null, verdict)) : null);
 }

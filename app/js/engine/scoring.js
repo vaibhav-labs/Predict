@@ -45,7 +45,8 @@ export function makeScoring(cfg) {
 }
 
 // Display helpers: a real minus sign and an explicit plus, so a loss never looks like a dash.
-export const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
+// A time-weighted journal score is not a whole number, so a fraction is rounded for display (and never written +0 or −0).
+export const signed = (x) => { const n = Number.isInteger(x) ? x : Math.round(x); return n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0'; };
 export const pct = (c) => `${Math.round(c * 100)}%`;
 // The calibration gap (mean stated confidence minus hit rate) in whole percentage points, signed. A gap that rounds to
 // zero is written 0, never +0 or −0 (Math.round turns a small negative gap into −0).

@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 7 of 10 built)", "Block 7 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 8 of 10 built)", "Block 8 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 
@@ -1968,6 +1968,279 @@ def phase_b7(E):
     E.ctx.close()
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Block 8: updating (Unit 6): evidence streams, the sealed exam, the update action on a journal card, time-weighted scoring
+# ---------------------------------------------------------------------------------------------------------------
+import ref_update as RU  # noqa: E402  (an independent version of the Block 8 rules)
+UPD_STEPS = {}
+for _pool in ("practice", "exam"):
+    for _s in synth.update_steps(_pool):
+        UPD_STEPS.setdefault((f"{_s['lead']} {_s['ask']}", _s["news"], pct1(_s["prior"])), _s)
+UPD_BY_ID = {s["id"]: s for s in synth.update_steps("practice") + synth.update_steps("exam")}
+
+
+def upd_step(page):
+    page.wait_for_selector("#news")
+    key = (text(page, "#claim"), text(page, "#news"), text(page, "#prior"))
+    return UPD_STEPS[key]
+
+
+def advance_step(page, prev_news, prefixes=("#/psummary/", "#/pexam/")):
+    page.wait_for_function("([prev, prefixes]) => { if (prefixes.some((p) => location.hash.startsWith(p))) return true; const n = document.getElementById('news'); return !!n && n.textContent !== prev; }", arg=[prev_news, list(prefixes)], timeout=15000)
+
+
+def play_updates(page, n, off_of, reveal=True, checks=None):
+    """n update steps; off_of(i, step) -> points from the truth the player types (clamped to 0..100). Returns the steps and the guesses typed."""
+    out = []
+    for i in range(n):
+        q = upd_step(page)
+        prev_news = q["news"]
+        g = min(100.0, max(0.0, q["truth"] + off_of(i, q)))
+        page.fill("#pct-input", f"{g:g}")
+        F.settle(page)
+        page.click("#lock")
+        if reveal:
+            page.wait_for_selector("#verdict")
+            if checks:
+                checks(i, q, g)
+            F.settle(page)
+            page.click("#next")
+        advance_step(page, prev_news)
+        out.append((q, g))
+    return out
+
+
+def upd_points(q, g):
+    miss = abs(g - q["truth"])
+    return max(-100, round(100 * (1 - miss / 7))), miss <= 7 + 1e-9, abs(q["prior"] - q["truth"]) - miss
+
+
+def phase_b8(E):
+    """Unit 6: the stream steps, the exam, updating a journal card, time-weighted scores, against ref_update.py."""
+    # -- closed until Unit 5 is passed -------------------------------------------------------------------------------------
+    page = open_app(E, "2026-10-20", synth.u5_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b8_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u5-card")
+    check("before Unit 5 is passed there is no Unit 6 card on Today", page.query_selector("#u6-card") is None)
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U5-card")
+    u6 = [li for li in page.query_selector_all(".units li") if "Unit 6" in (li.text_content() or "")]
+    check("Unit 6 is Locked on the Path and has no cards", u6 and "Locked" in u6[0].text_content() and page.query_selector("#update-practice-card") is None and page.query_selector("#pgate-U6-card") is None)
+    go(page, "#/prob/update")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the updating address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    E.ctx.close()
+
+    # -- open: Today, the Path, the lesson cards ---------------------------------------------------------------------------
+    base = synth.u5_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-10-25", base.write(os.path.join(E.tmp, "b8_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u6-card")
+    check("Unit 6 is open: Today offers six update steps, none done", "6 update steps" in text(page, "#u6-line") and "0 of 30" in text(page, "#u6-line"), text(page, "#u6-line"))
+    F.audit(E, "today with Unit 6")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U6-card")
+    check("the Path shows Unit 6 with three lesson cards, practice, and an exam that is not open yet",
+          len(page.query_selector_all("#update-lessons-card .lesson-link")) == 3 and page.is_visible("#update-practice") and text(page, "#pgate-U6-status") == "Not open yet" and "30 practice" in text(page, "#pgate-U6-card"), text(page, "#pgate-U6-card")[:120])
+    F.audit(E, "path with Unit 6")
+    shot(E, "b8-path.png")
+    go(page, "#/lesson/worth")
+    page.wait_for_selector("#lesson-title")
+    body = text(page, "main")
+    import csv
+    fl = list(csv.DictReader(open(os.path.join(synth.ROOT, "data", "question_tables", "flights.csv"), encoding="utf-8")))
+    import datetime as _dt
+    def late(rows): return len(rows), round(100.0 * sum(1 for x in rows if int(x["arrival_delay_min"]) >= 15) / len(rows) + 1e-9, 1)
+    bwi = [x for x in fl if x["origin"] == "BWI"]
+    ex = [late(bwi), late([x for x in bwi if int(x["departs"][11:13]) < 10]), late([x for x in bwi if _dt.datetime.strptime(x["departs"][:10], "%Y-%m-%d").weekday() < 5])]
+    check("the worked example on 'How much is news worth' matches the flight record (Baltimore: 23.2% of 921, before 10: 8.5% of 246, weekday: 23.0% of 691)", ex == [(921, 23.2), (246, 8.5), (691, 23.0)] and all(t in body for t in ("23.2%", "921", "8.5%", "246", "23.0%", "691")), f"{ex}")
+    F.audit(E, "updating lesson")
+    go(page, "#/lesson/steps")
+    page.wait_for_selector("#lesson-title")
+    check("the first Unit 6 card names the exam: 40 fresh steps, 32 within 7", "40 fresh steps" in text(page, "main") and "32" in text(page, "main") and "Unit 6" in text(page, ".eyebrow"), text(page, "main")[:140])
+    for _ in range(3):
+        page.click("#lesson-done")
+        page.wait_for_timeout(250)
+    page.wait_for_function("location.hash === '#/path'", timeout=10000)
+    check("three Unit 6 cards read are three lesson events", {"steps", "worth", "reason"} <= {e["lesson"] for e in of_type(page, "lesson")})
+
+    # -- a practice session of six: prior, news, your number ---------------------------------------------------------------
+    go(page, "#/prob/update")
+    page.wait_for_selector("#news")
+    q0 = upd_step(page)
+    check("an update session opens: step 1 of 6, from the practice pool, with the prior, the news and a number to type, and no result in sight",
+          text(page, ".cnt") == "1 of 6" and "Unit 6 practice" in text(page, "#mode-tag") and page.is_disabled("#lock") and q0["id"].endswith("#0") and text(page, "#prior") == pct1(q0["prior"]) and page.query_selector("#verdict") is None, q0["id"])
+    F.audit(E, "update step")
+    shot(E, "b8-step.png")
+    page.fill("#pct-input", "abc")
+    check("letters are refused", "numbers only" in text(page, "#pct-msg").lower() and page.is_disabled("#lock"))
+    page.fill("#pct-input", "140")
+    check("a number over 100 is refused", page.is_disabled("#lock"), text(page, "#pct-msg"))
+    page.fill("#pct-input", "35")
+    n_probs0 = len(of_type(page, "prob"))
+    page.reload()
+    page.wait_for_selector("#news")
+    check("closing the page mid-step keeps the session open at the same step with nothing saved for it", text(page, ".cnt") == "1 of 6" and upd_step(page)["id"] == q0["id"] and len(of_type(page, "prob")) == n_probs0)
+
+    seen = []
+
+    def upd_checks(i, q, g):
+        pts_, hit, gain = upd_points(q, g)
+        ok = text(page, "#points") == signed(pts_) and (("Within 7" in text(page, "#verdict")) == hit)
+        note = text(page, "#gain-note")
+        ok2 = ("Moving helped" in note) if gain > 0.05 else ("Moving cost" in note) if gain < -0.05 else ("equally close" in note)
+        seen.append(ok and ok2)
+        if i == 0:
+            check("the reveal shows the points, within 7 or not and what the move was worth as the independent rules give, with the counted fact", ok and ok2 and pct1(q["truth"]) in text(page, ".rl-key") and "Before the news" in text(page, ".answer"), f"{text(page, '#points')} vs {signed(pts_)}; {note}")
+            F.audit(E, "update reveal")
+            shot(E, "b8-reveal.png")
+        if i == 1:
+            check("step 2 of a stream starts from what step 1 revealed: its prior is step 1's truth", q["id"].endswith("#1") and q["prior"] == UPD_BY_ID[q["id"][:-1] + "0"]["truth"], q["id"])
+
+    offs = [3.0, -9.0, 0.0, 6.0, -2.0, 12.0]
+    done = play_updates(page, 6, lambda i, q: offs[i], checks=upd_checks)
+    check("all six reveals showed the independent points, verdict and gain note", len(seen) == 6 and all(seen), str(seen))
+    check("steps come in pairs: 1 and 2 of one stream, then the next", [q["id"][-2:] for q, _ in done] == ["#0", "#1"] * 3 and done[0][0]["stream"] == done[1][0]["stream"] and done[0][0]["stream"] != done[2][0]["stream"])
+    page.wait_for_function("location.hash.startsWith('#/psummary/')", timeout=10000)
+    probs = of_type(page, "prob", mode="practice", family="update")
+    check("six update steps were saved with the numbers the independent rules give (guess, truth, prior, within, points, gain, move)", len(probs) == 6 and all(
+        near(p["guess"], g, 1e-9) and near(p["truth"], q["truth"], 1e-9) and near(p["prior"], q["prior"], 1e-9) and p["hit"] == upd_points(q, g)[1] and p["points"] == upd_points(q, g)[0] and near(p["gain"], upd_points(q, g)[2], 1e-6) and near(p["moved"], g - q["prior"], 1e-6) and p["unit"] == "U6" and p["q"] == q["id"]
+        for p, (q, g) in zip(probs, done)), str([(p["points"], upd_points(q, g)[0]) for p, (q, g) in zip(probs, done)]))
+    hits = sum(1 for q, g in done if upd_points(q, g)[1])
+    check("the summary says how many were within 7 and the points total", f"{hits} of 6" in text(page, "#ps-head") and text(page, "#sum-points") == signed(sum(upd_points(q, g)[0] for q, g in done)), f"{text(page, '#ps-head')} {text(page, '#sum-points')}")
+    F.audit(E, "update summary")
+    go(page, "#/mirror")
+    page.wait_for_selector("#reasoning-record")
+    rs = text(page, "#rs-table")
+    mg = sum(upd_points(q, g)[2] for q, g in done) / 6
+    check("the Mirror shows update steps within 7 and the gain over staying put as the independent rules give", f"{hits} of 6" in rs and f"{abs(mg):.1f} pts" in rs and "Gain over staying put" in rs, rs[:300])
+    F.audit(E, "mirror updating")
+    E.ctx.close()
+
+    # -- the Unit 6 exam: sealed sittings, a verdict that reads within 7 and the average gain ----------------------------------------
+    r6 = synth.u6_ready_player(U1_EXAM, start=START)
+    day = "2026-10-25"
+    page = open_app(E, day, r6.write(os.path.join(E.tmp, "b8_u6.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#need-pexam-U6")
+    check("Today lists the Unit 6 exam as ready", "40 fresh problems" in text(page, "#need-pexam-U6"), text(page, "#need-pexam-U6"))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U6-start")
+    check("the Path says the exam is Ready: 40 fresh update steps in 2 sittings of 20, 32 within 7", text(page, "#pgate-U6-status") == "Ready" and "2 sittings of 20" in text(page, "#pgate-U6-card") and "32 of 40" in text(page, "#pgate-U6-card"), text(page, "#pgate-U6-card")[:200])
+    F.audit(E, "path with Unit 6 exam")
+    page.click("#pgate-U6-start")
+    page.wait_for_selector("#news")
+    q = upd_step(page)
+    check("the exam opens at 1 of 20, sitting 1 of 2, from the exam pool", text(page, ".cnt") == "1 of 20" and "sitting 1 of 2" in text(page, "#mode-tag") and q["id"] in {s["id"] for s in synth.update_steps("exam")}, q["id"])
+    start_ev = [e for e in of_type(page, "exam", state="start") if e.get("unit") == "U6"]
+    check("starting wrote a Unit 6 attempt of 40", len(start_ev) == 1 and start_ev[0]["n"] == 40)
+    off1 = lambda i, q: 12.0 if i % 8 == 0 else 3.0  # noqa: E731
+    sit1 = play_updates(page, 20, off1, reveal=False)
+    page.wait_for_function("location.hash.startsWith('#/pexam/')", timeout=20000)
+    page.wait_for_selector("#pexam-sealed")
+    body = text(page, "main").lower()
+    check("between sittings nothing is shown about the answers", page.query_selector("#pexam-verdict") is None and "within 7" not in body and "gain" not in body and "20 of 40" in body, text(page, "#pexam-sealed")[:160])
+    F.audit(E, "update exam sealed")
+    check("the saved answers are 20 sealed problems", len(of_type(page, "prob", mode="exam", family="update")) == 20)
+    page.click("#pexam-next")
+    page.wait_for_selector("#news")
+    used1 = {s["stream"] for s, _ in sit1}
+    q2 = upd_step(page)
+    check("sitting 2 opens at 1 of 20 and never repeats a stream from sitting 1", text(page, ".cnt") == "1 of 20" and "sitting 2 of 2" in text(page, "#mode-tag") and q2["stream"] not in used1, q2["id"])
+    sit2 = play_updates(page, 20, off1, reveal=False)
+    page.wait_for_function("location.hash.startsWith('#/pexam/')", timeout=20000)
+    page.wait_for_selector("#pexam-verdict")
+    allp = sit1 + sit2
+    w = sum(1 for q, g in allp if upd_points(q, g)[1])
+    gain = sum(upd_points(q, g)[2] for q, g in allp) / 40
+    want_pass = w >= 32 and gain >= 0
+    check("the verdict is the independent one: within 7, average gain, pass", text(page, "#pexam-hits") == str(w) and (text(page, "#pexam-verdict") == "Passed") == want_pass and f"{gain:+.1f} pts" == text(page, "#pexam-miss"), f"{text(page, '#pexam-hits')}/{w} {text(page, '#pexam-verdict')} {text(page, '#pexam-miss')}/{gain:.2f}")
+    res = [e for e in of_type(page, "exam", state="result") if e.get("unit") == "U6"]
+    check("one Unit 6 result event with n=40, the within count, the mean gain and the pass", len(res) == 1 and res[0]["n"] == 40 and res[0]["hits"] == w and res[0]["pass"] == want_pass and near(res[0]["meanGain"], gain, 1e-6), str(res[:1])[:200])
+    F.audit(E, "update exam verdict")
+    shot(E, "b8-exam.png")
+    E.ctx.close()
+
+    # -- a failed exam says which half failed, and a repair drill follows -------------------------------------------------------------
+    rf = synth.u6_ready_player(U1_EXAM, start=START)
+    xsteps = synth.update_steps("exam")
+    att = rf._add("exam", "2026-10-24", 5, state="start", unit="U6", n=40)["id"]
+    for k in range(2):
+        sid = synth.prob_session(rf, "2026-10-24", 10 + 30 * k, "update", "U6", [s["id"] for s in xsteps[k * 20:(k + 1) * 20]], mode="exam", exam=att, n=k + 1, of=2)
+        for i, s in enumerate(xsteps[k * 20:(k + 1) * 20]):
+            synth.prob_update(rf, sid, "2026-10-24", 11 + 30 * k + i, s, off=12.0 * (1 if s["truth"] >= s["prior"] else -1), mode="exam", exam=att)  # 12 points past the truth, away from the prior
+        synth.prob_end(rf, sid, "2026-10-24", 40 + 30 * k)
+    page = open_app(E, "2026-10-25", rf.write(os.path.join(E.tmp, "b8_fail.jsonl")))
+    go(page, f"#/pexam/{att}")
+    page.wait_for_selector("#pexam-verdict")
+    fails = sum(1 for e in of_type(page, "prob", mode="exam", family="update") if not e["hit"])
+    reasons = text(page, "#pexam-reasons")
+    check("a failed exam says Not passed and names why: too few within 7 and a negative gain", text(page, "#pexam-verdict") == "Not passed this time" and "within 7 points" in reasons and "further from the truth" in reasons and fails >= 9, reasons[:260])
+    check("it offers the repair drill of 10 steps", "10 problems" in reasons and "repair-U6" in (page.get_attribute("#pexam-after", "href") or ""))
+    F.audit(E, "update exam failed")
+    page.click("#pexam-after")
+    page.wait_for_selector("#news")
+    check("the repair drill is a session of 10 update steps tagged Repair drill", text(page, ".cnt") == "1 of 10" and "Repair drill" in text(page, "#mode-tag"), text(page, "#mode-tag"))
+    E.ctx.close()
+
+    # -- updating an open journal card ---------------------------------------------------------------------------------------
+    ju = synth.u6_ready_player(U1_EXAM, start=START)
+    card = ju.prediction("2026-10-23", 0, 0.30, 0.50, due_option="month", text="By the end of November, the vendor will ship the new release.")
+    page = open_app(E, "2026-10-25", ju.write(os.path.join(E.tmp, "b8_j.jsonl")))
+    go(page, f"#/journal/{card['id']}")
+    page.wait_for_selector("#update-card")
+    check("an open card has an Update card: the number in force, the tripwire as a prompt, a slider and a reason box", "30%" in text(page, "#update-card") and "What would change my mind" in text(page, "#update-tripwire") and "Has that happened" in text(page, "#update-tripwire") and page.query_selector("#update-reason") is not None, text(page, "#update-card")[:200])
+    F.audit(E, "journal update card")
+    shot(E, "b8-update.png")
+    F.settle(page)
+    page.click("#update-go")
+    check("updating without moving the slider is refused, and nothing is saved", "already in force" in text(page, "#update-msg") and not of_type(page, "update"))
+    page.evaluate("(v) => { const e = document.getElementById('update-prob'); e.value = v; e.dispatchEvent(new Event('input', {bubbles: true})); }", 70)
+    check("moving the slider shows the move from the number in force", "Up 40 points from 30%" in text(page, "#update-move") and text(page, "#update-readout") == "70%", text(page, "#update-move"))
+    F.settle(page)
+    page.click("#update-go")
+    check("an update without a reason is refused", "what changed your mind" in text(page, "#update-msg").lower() and not of_type(page, "update"), text(page, "#update-msg"))
+    page.fill("#update-reason", "The vendor confirmed the date in writing.")
+    F.settle(page)
+    page.click("#update-go")
+    page.wait_for_selector("#update-history")
+    ups = of_type(page, "update")
+    check("the update is saved with the card, the new number, the one it replaced and the reason", len(ups) == 1 and ups[0]["prediction"] == card["id"] and near(ups[0]["c"], 0.70) and near(ups[0]["prev"], 0.30) and ups[0]["reason"].startswith("The vendor confirmed"), str(ups))
+    check("the card now shows the locked number and the number in force, and the history lists the reason", "locked 30%" in text(page, "#update-history") and "now 70%" in text(page, "#update-history") and "The vendor confirmed" in text(page, "#update-history") and "Now 70%" in text(page, "main"), text(page, "#update-history")[:160])
+    check("the locked prediction event itself is untouched", [e for e in of_type(page, "prediction") if e["id"] == card["id"]][0]["c"] == 0.30)
+    go(page, "#/mirror")
+    page.wait_for_selector("#reasoning-record")
+    check("the Mirror counts the card updated with a reason, against the 12 the unit asks for", "Open or resolved cards updated with a reason" in text(page, "#rs-table") and "of 12" in text(page, "#rs-table"), text(page, "#rs-table")[:300])
+    E.ctx.close()
+
+    # -- a card scored over its life: the daily forecast in force, time-weighted ------------------------------------------------------
+    jr = synth.u6_ready_player(U1_EXAM, start=START)
+    card2 = jr.prediction("2026-10-12", 0, 0.30, 0.50, due_option="week", text="By next Monday, the committee will approve the budget.")
+    jr.update(card2, "2026-10-14", 0, 0.70, 0.30, "A member said it will pass.")
+    jr.update(card2, "2026-10-16", 0, 0.50, 0.70, "The vote moved to a later date.")
+    page = open_app(E, "2026-10-20", jr.write(os.path.join(E.tmp, "b8_r.jsonl")))
+    go(page, f"#/journal/{card2['id']}")
+    page.wait_for_selector("#resolve")
+    page.click(".pick >> text=Happened")
+    F.settle(page)
+    page.click("#resolve")
+    page.wait_for_selector("#lens-what")
+    rs_ev = [e for e in of_type(page, "resolve") if e["prediction"] == card2["id"]][0]
+    # the independent version: days 12th to 20th, the number in force each day
+    seq = [0.30, 0.30, 0.70, 0.70, 0.50, 0.50, 0.50, 0.50, 0.50]
+    raws = [RU.brier(c, True) for c in seq]
+    edges = [RU.W * (r - RU.brier(0.50, True)) for r in raws]
+    check("the resolve event holds the time-weighted raw and edge, the locked number's own score, and the days", near(rs_ev["raw"], sum(raws) / 9, 1e-9) and near(rs_ev["edge"], sum(edges) / 9, 1e-9) and near(rs_ev["raw0"], RU.brier(0.30, True), 1e-9) and near(rs_ev["edge0"], RU.W * (RU.brier(0.30, True) - RU.brier(0.50, True)), 1e-9) and rs_ev["days"] == 9, str({k: rs_ev.get(k) for k in ("raw", "edge", "raw0", "edge0", "days")}))
+    gain = sum(edges) / 9 - RU.W * (RU.brier(0.30, True) - RU.brier(0.50, True))
+    check("the case file lists the updates and says what they added", "A member said it will pass." in text(page, "#what-updates") and "added" in text(page, "#luck-updates") and f"added {abs(round(gain))}" in text(page, "#luck-updates") and "9 days" in text(page, "#luck-updates"), text(page, "#luck-updates"))
+    F.audit(E, "case file with updates")
+    shot(E, "b8-casefile.png")
+    go(page, "#/mirror")
+    page.wait_for_selector("#reasoning-record")
+    check("the Mirror says what the updates added on resolved cards", "What your updates added" in text(page, "#rs-table"), text(page, "#rs-table")[:300])
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -1981,6 +2254,7 @@ PHASES = [
     ("b5", "Block 5: the Coach", phase_b5),
     ("b6", "Block 6: ranges", phase_b6),
     ("b7", "Block 7: Fermi, base rates, chains", phase_b7),
+    ("b8", "Block 8: updating", phase_b8),
 ]
 
 
