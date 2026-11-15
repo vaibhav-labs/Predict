@@ -1,10 +1,39 @@
 # Predict: build state
 
-Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+Last updated: 2026-11-15 · Stage (Block 4 built on `block-4`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
 branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 4, the Lesson Engine, 2026-11-15)
+
+Block 4 passes its exit test (`data/build_blocks.csv`, row BL4). A synthetic overconfident history fires L01 and a
+calibrated one does not, at the simulated rates; the gate passes and fails the right synthetic players; a synthetic miss
+at 85% opens the autopsy and builds a case file with all five lenses. `tools/ref_lessons.py` re-implements the trigger
+walk, the gate and the autopsy queue in different code, and both the engine tests and the browser tests compare what the
+app shows with it.
+
+**What's there.** Predict now reads your own record for habits and tells you only when enough calls say so: too sure at
+90 to 99% (L01), too shy at 60 to 80% (L02), too many 50 to 55% calls (L03), vague journal predictions (L04) and missed
+days (L15). A pattern comes with a one-minute lesson, a drill (a wheel check, forced steps, a locked zone, or rewriting
+vague predictions) and two re-tests on your normal play, 3 and 10 days later. A miss at 80% or more gets a two-line note
+under the reveal. The Unit 1 exam is 200 fresh calls in 10 sittings of 20 with nothing shown until the end; a pass counts
+toward the first belt, a fail names its reasons and sends you to a repair drill. A miss at 85% or more (and one confident
+hit in five) gets a short autopsy before your next journal step, and its rule sits above your next five cards.
+
+**Tests, all passing, in Chromium:** `python3 tools/check_data.py`; `node --test tools/test_engine.mjs` (72);
+`python3 tools/test_pwa.py` (33); `python3 tools/test_flow.py` (166); `python3 tools/test_blocks.py` (203), which also runs
+on GitHub Actions. The Mirror's belts count a passed Unit 1 gate (the Yellow row reads 2 of 4 after baseline and exam).
+
+**Found on the way.** The app icons carried embedded text naming the assistant; they were regenerated (pixel-identical) and
+the checks now scan every file under `app/`, pictures included, for the banned word. `check_data.py` also checks that the
+lesson thresholds agree with `data/lesson_triggers.csv`.
+
+**What the phone check for Block 4 should cover:** whether a flag's lesson reads as help rather than a scolding, whether
+the exam's ten sittings feel like a fair length across days, and whether the note under a miss tells you something. Open
+risk: L02's re-test (60 calls, 7 points) fails a calibrated player about a third of the time; see
+`design/balance-report.md` 4c.
 
 ## Report for the player (the question bank, rebuilt for judgment, 2026-11-15)
 
@@ -190,7 +219,11 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
   calls, drawn hollow and dashed), the bias map by topic, domain or horizon, the journal-only record with a
   domain-by-horizon grid, five belts with real progress and the plain numbers table. Today carries the same
   level, streak and seven-day score. A resolved card's case file has its five lenses; lens 4 is your pattern.
-- **Path and lessons.** The units, and the four Unit 1 lesson cards, whose numbers are computed from the payout table.
+- **Path and lessons.** The units, the Unit 1 exam card (Not open yet, Ready, In progress, Repair first, Passed, Rust), the
+  four Unit 1 lesson cards (numbers computed from the payout table), and each pattern flag with where it stands.
+- **Lesson engine (Block 4).** Pattern flags (`#/flag/<id>`): evidence, the lesson, the drill, re-test progress. Drills in the
+  gym (`#/gym/drill-<id>`) and the rewrite drill (`#/rewrite/<id>`). The sealed exam (`#/exam/<id>`) with verdict, bands and
+  repair. The autopsy (`#/autopsy/<id>`). Minimum session when days are missed. The help screen explains all of it.
 - **Coach tab.** Export the record (a `.jsonl` file through the share sheet, or a download), the calls as a
   `.csv`, Import (the same file twice counts once), Erase (typed confirmation), and a "This device" card
   that checks installed, offline, saved and connection. The Ask Predict hand-off arrives in Block 5.
@@ -232,7 +265,7 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
 - Whether an 18-call round fits in 5 minutes is not measured (open value 1). Every call records its
   milliseconds, so the first practice sessions answer it.
 - Sessions are not limited to one a day (the streak counts played days, so extra sessions add nothing to it).
-- One question pool. The 70/30 unit split and the 90-day rule wait for Block 4.
+- Questions seen in the last 90 days are not served again; 30% of each session is review. When nothing is left outside that window the oldest are reused (the exam's `reused` count says how many).
 - The difficulty labels, the shift of the mix when the hit rate leaves 65 to 85%, and the 10-call
   threshold for a thin band are first guesses, to be re-tuned from real hit rates.
 - A documented fact was verified by reading its source page, and the table keeps the words or the row that show
@@ -246,8 +279,6 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
 - The starter baseline table (`data/journal_baselines.csv`) is flat at 50% for every domain and horizon,
   and the five-resolved threshold before switching to the player's own rate
   (`journal.own_rate_min_resolved`) is a first guess: both wait for real baselines (open value 2).
-- The case file has its five lenses, but the autopsy, the audit of the chain, the luck-or-judgment
-  reading beyond the plain edge, and the rule card wait for Block 4 as planned.
 - Updating an open prediction (Block 8), the memory check (Unit 8, Block 9) and Predict's own baseline
   (Block 5) are not built; none of them are in Block 2's scope.
 
@@ -307,6 +338,25 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
   printed in full in the list under it.
 - **Open values 4 and 13** (points a day, belt evidence at one prediction a day) are not settled by this block:
   the numbers to settle them now exist on the screen, and real play is what is missing.
+
+## Block 4 assumptions
+
+- **Luck or judgment:** an outcome whose baseline chance was under 20% (`lessons.luck_rare_below`) reads as luck; a sourced question
+  (no base) always reads as judgment. The player's own marking in the autopsy stands over the suggestion.
+- **Natural calls only** feed a trigger (baseline, practice, exam); drill calls never do, and calls from before a flag's last
+  clearance never re-fire it.
+- **Exam sealing:** exam calls are invisible to the Mirror, the ledger points and every trigger until the verdict, but they
+  count for the played day and for the questions already used. The 10 sittings of 20 are drawn up front.
+- **A retake** serves fresh questions first and re-serves only what the pool cannot supply (`reused` records how many).
+- **Repair drill:** 20 calls on the worst band (a wheel check if too sure, forced steps if too shy).
+- **Autopsy form:** four questions plus a mark (held, weak, missed) on each chain link and a check of the evidence links; filing is
+  blocked until it is done and the journal's next step waits for it. Rechecks at 3 and 10 days ask one question.
+- **L15 (missed days):** two or more missed days in the last seven; the minimum session is 5 gym calls, a reveal and one
+  prediction; clears after 5 played days in a row that hold it. It sits outside the one-a-day and two-in-repair limits.
+- **Synthetic busy player:** the test generator now draws a player who plays most days, so L15 does not fire in tests that
+  are not about it; tests that need it say so.
+- **Belts:** a passed Unit 1 exam counts as the U1 gate. Other gates still wait for their blocks.
+- **Icons:** regenerated clean; a test scans every app file for the banned word.
 
 ## Decisions
 

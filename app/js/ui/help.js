@@ -32,11 +32,27 @@ export function helpScreen(ctx) {
       p('Tripwire', 'what would change your mind, and to what number.'),
       h('p', null, 'A lock is final: none of this can be edited afterwards. The card then sits Open until its due date, moves to Due, and you resolve it as Happened, Didn’t happen, or Void.')),
 
+    section('Patterns and lessons',
+      p('Patterns', 'Predict reads your own record for habits: too sure at 90 to 99%, too shy at 60 to 80%, a lot of 50 to 55% calls you could have called better, vague journal predictions, missed days. A pattern opens only when enough of your calls say so, never from one call.'),
+      p('A pattern flag', 'comes with a one-minute lesson, then a drill, then two re-tests that count your normal practice, three and ten days after the drill. Pass both and it clears. Fail one and it comes back; the third time it goes to the weekly review. At most one new pattern opens a day and two can be in repair at once.'),
+      p('Drills', 'the wheel drill checks every call at 90% or more against a wheel that wins that often; the forced drill locks the steps in between; the zone drill locks 50 to 55%; the rewrite drill makes vague predictions sharp. Drill calls never count toward a pattern.'),
+      p('The note after a miss', 'a miss at 80% or more gets two lines under the reveal: what a calibrated call looked like in your own record, and whether the records call the outcome rare (under 20% of cases like it) or ordinary.'),
+      p('Missed days', 'two or more missed days in a week shrink the session to a three-minute minimum until you have held it five days in a row.')),
+
+    section('The Unit 1 exam',
+      p('The exam', 'after 90 practice calls: 200 fresh calls in 10 sittings of 20, from questions practice never serves. Nothing is shown between calls and nothing is judged until the last one, so a lucky streak cannot pass you.'),
+      p('The verdict', 'you pass when your average confidence is within 5 points of your hit rate and no band of 15 calls or more sits more than 2.5 standard errors off. A fail says why and sends you to a repair drill on the worst band before a new exam. A pass shows Rust on the Path if the habit it fixed comes back.')),
+
+    section('The autopsy and the case file',
+      p('Autopsy', 'a real prediction that missed at 85% or more, and one in five confident hits, gets a short autopsy before your next journal step: mark each link of your chain held up, weak or missed it, then say what you knew, what you missed, whether it was luck or judgment, and one rule for next time.'),
+      p('The rule', 'sits above your next five journal cards and is checked at 3 and 10 days: did you use it?'),
+      p('Case file', 'every resolved prediction has five lenses: what happened, your reasoning (with the marks), luck or judgment (how likely the outcome was at the baseline), your pattern, and next time.')),
+
     section('Mirror and Path',
       p('Calibration curve', 'plots how often you were actually right against how sure you said you were. A point on the dashed line means your X% calls were right about X% of the time; above it, too shy; below it, too sure. Every dot carries a bar for how far luck alone could move it, and the number of calls under it: a dot with few calls is drawn hollow and means little.'),
       p('Bias map', 'your gap split by topic for the gym, and by domain and horizon for the journal. A group with fewer than 10 calls says “too few” and claims nothing; a verdict (too sure, too shy) appears only when the whole bar sits on one side of zero.'),
       p('Level, streak, 7 days', 'Level comes from career points, which never go down. A streak counts days you played (a call, a locked prediction or a resolved one) and a missed day keeps half of it. 7 days is your average skill points on the days you played, so showing up cannot raise it.'),
-      p('Path', 'the units ahead, and the lesson cards you have read.')),
+      p('Path', 'the units ahead, the Unit 1 exam, your patterns and where each one stands, and the lesson cards you have read.')),
 
     section('Points, gap and edge',
       p('Points', 'a formula scores every call so that saying what you actually believe is always the best strategy: a confident miss costs more than a confident hit pays.'),
@@ -49,5 +65,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts are listed on Mirror with your real progress, but none can be earned until the exams that unlock them are built. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 exam counts toward the first one, and the later units come with their own exams. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

@@ -230,8 +230,21 @@ Flag states: `open -> lesson taken -> drill passed -> re-test 1 (3 or more days)
 count. At three fires the flag escalates to the weekly review, where the coach builds a custom set
 from the player's own misses.
 
-- Triggers are evaluated at session end. At most one new pattern lesson per session, at most two
-  flags in active repair; others queue by size of standardized gap. Missed days (L15) goes first.
+- Triggers are evaluated whenever a screen that shows lessons opens and at session end; `evaluate` is pure and idempotent, so
+  evaluating twice writes nothing new. At most one new pattern a day, at most two flags in repair; others queue by size of
+  standardized gap. Missed days (L15) is a habit flag outside both limits.
+- **As built (Block 4):** L01 90 to 99% (40 calls, 10-point gap), L02 60 to 80% (60 calls, 12 points), L03 the 50 to 55% fence
+  (60 calls, more than 30% of them in the zone, zone hit rate 65% or more), L04 three rejected journal predictions in the last
+  ten, L15 two or more missed days in the last seven. Only natural calls (baseline, practice, exam) count, and only those made
+  after the flag was last cleared; a drill call never counts. Re-tests read the next `clear_window` observations from the day
+  3 (then 10) after the drill and pass inside `clear_gap` (7 points; L03 under 20% in the zone; L04 no rejects). A failed
+  re-test adds a fire and restarts at the lesson; three fires escalate.
+- **Drills:** wheel (each call at 90% or more is checked against a wheel that wins that often), forced (steps between,
+  locked), zone-locked (nothing under 60%), rewrite (vague predictions rewritten until the checker passes).
+- **Missed days:** the session shrinks to a minimum (5 gym calls, a reveal, one prediction) until 5 played days in a row hold it.
+- **Instant note:** a miss at 80% or more gets two lines under the reveal (own-record calibration at that confidence once there
+  are 5 earlier calls, else "1 in N"; luck if the outcome's chance was under 20%, otherwise judgment; a sourced question has no
+  base and counts as judgment).
 - All 15 pattern triggers plus the two every-time responses are in `data/lesson_triggers.csv`.
 - **Balance evidence:** part D. Trigger L01 at 40 calls and a 10-point gap fires falsely on a
   calibrated player 8.1% of the time in 150 top-band calls and catches typical overconfidence in a
@@ -242,6 +255,12 @@ from the player's own misses.
 - A gate is a fixed exam of fresh calls, judged once at the end. Failing sends the player to a
   repair drill on the worst band, then to a new exam. One exam runs at a time.
 - A passed gate reopens if its trigger later fires on review calls (rust).
+- **Unit 1 as built:** eligible after the baseline and 90 practice calls. 200 calls in 10 sittings of 20, drawn up front from the
+  exam pool (`exam-u1.json`; mix 7/38/55 easy/medium/hard), a card at a time with no feedback. The calls are sealed: they do
+  not reach the Mirror, the ledger or any trigger until the verdict. Pass: average confidence within 5 points of the hit
+  rate and no band (edges 50, 60, 70, 80, 90, 100) with 15 calls or more beyond 2.5 standard errors. A fail names its reasons
+  and the worst band, then a 20-call repair drill (wheel if too sure, forced if too shy), then a new exam that re-serves
+  only what the pool cannot supply fresh. A passed Unit 1 gate counts toward the Yellow belt row.
 - Units, gates and evidence: `data/units.csv`. Belts: `data/belts.csv`.
 
 ### 4.6 Levels and streak
@@ -309,10 +328,13 @@ knew, what I missed, luck or judgment, one rule). It takes about 90 seconds, and
 - **Worked example:** you say 85% against a 55% baseline and it does not happen. `raw = -189`,
   `base = -21`, `edge = 2 * -168 = -336`. At 55% the same miss scores 0, at 65% -96, at 75% -208.
   An 85% call breaks even only if the true chance is 70% or better.
+- **As built (Block 4):** the autopsy blocks the next journal step. Its form: a mark (held, weak, missed) on each link of the
+  chain with an audit of the evidence links, what I knew, what I missed, luck or judgment (suggested from the baseline chance,
+  the player's call stands), one rule. Rechecks at 3 and 10 days ask whether the rule was used.
 - **Staging:** Block 2 builds the chain as written, the outcome and the table of other numbers;
   Block 3 adds your pattern; Block 4 adds the autopsy, the audit, luck or judgment and the rule card;
   Block 5 adds Predict's read; Block 8 turns the tripwire into an update prompt; Block 9 adds the
-  memory check. Until Block 4 ships, a miss at 85% or more shows a plain reveal and its autopsy waits.
+  memory check.
 - **Time:** the chain fits the 4-minute journal slot. The autopsy adds about 2 minutes on the days it
   is due, so those days run slightly over 15 minutes.
 
@@ -448,3 +470,4 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 2026-11-15 | 4.1, 4.8, 5, `data/scoring.json` | Block 1 built. Gym draws, baseline and practice rules written down as built (section 4.1); the record's six event types written down (section 5); `gym.tap_guard_ms` (400) added so a double tap cannot answer the next question or skip a reveal; the baseline curve shows from 20 calls, with bands under 10 calls drawn hollow. Version 0.2 | Block 1 build. Effects: scoring and pacing numbers are unchanged (`sh sim/run_all.sh` reproduced every output exactly); the 70/30 unit-pool and 90-day rules wait for Block 4 because there is one bank; the mixes, the window and `thin_below` stay first guesses until real hit rates arrive |
 | 2026-11-15 | 4.10, 4.9, build block 3 | Block 3 built: the Mirror. Streak, habit points, career points and level, the seven-day score, error bars and sample sizes on the curve, the bias map by topic, domain and horizon, the journal-only record, the belt rows with real progress, and the case file's your-pattern lens. Every number is held against an independent Python recomputation (`tools/ref_mirror.py`) from the same raw events. One fix on the way: the table of other numbers now always holds the number actually said, and runs on the side the card leaned to | Build note, not a design change: nothing in a rule or a number changed. The played-day definition, the seven-day score excluding habit points, and the verdict being read from the interval are the readings taken where the docs left a choice (STATE.md, "Block 3 assumptions") |
 | 2026-11-15 | 4.8, 5, build blocks 1 and 4 | Player feedback ("not a test of mathematical knowledge or any core hardcore knowledge, rather judgement and prediction"): the gym question bank is rebuilt. Every question is a judgment call, a scene plus a claim about how it turns out, drawn from committed real records (Seattle weather, US flights, S&P 500 history, Our World in Data trends) or from 37 documented base rates with their evidence; arithmetic, chance puzzles and almanac facts are gone. New fields `lead`, `ask`, `base`, `n`; `verified` is `recorded` or `sourced`; the reveal adds the base rate and its number of cases. A 304-question Unit 1 exam pool is built beside the 240-question starter bank. `tools/check_questions.py` is rewritten to re-derive every answer with independent code, test fairness (z-test) and compare the files with the tables | Content change, not a rule change: scoring, gates and pacing numbers are unchanged. Difficulty is now how lopsided a claim's base rate is (recorded) or how far its threshold is from the documented value (sourced), so the 40/35/25 and 7/38/55 mixes mean something different from the old size-of-gap labels and stay first guesses until real hit rates arrive (STATE.md, "the question bank, rebuilt for judgment") |
+| 2026-11-15 | 4.4, 4.5, 4.9, 4.8, build block 4 | Block 4 built: the lesson engine and its screens. Pattern triggers L01 to L04 and L15 with flags, lessons, drills (wheel, forced, zone-locked, rewrite) and two re-tests; the instant note after a miss; the sealed 200-call Unit 1 exam with repair drill, retake and rust; the autopsy with its link audit, rule card and 3 and 10-day rechecks; the five-lens case file; the 90-day no-repeat rule and the 70/30 new-versus-review split; a passed Unit 1 gate counts toward the belts. Verified against independent Python references (`tools/ref_lessons.py`) and synthetic players | Build note, not a design change: every threshold is the one fixed in `data/scoring.json`. Readings taken where the docs left a choice (luck below 20%, exam sealing, the exam's 10 sittings, L15's minimum session) are listed under "Block 4 assumptions" in STATE.md. `design/balance-report.md` 4c adds the re-test pass rates and the honest cost of L02's re-test |

@@ -3,13 +3,14 @@
 A 15-minute daily game that trains calibrated judgment: you stake a confidence on a claim, reality
 scores you, and patterns of misses become lessons.
 
-**Status:** Blocks 1 to 3 of 10 are built. Block 1, the Dial: the confidence call, the 240-question
+**Status:** Blocks 1 to 4 of 10 are built. Block 1, the Dial: the confidence call, the 240-question
 starter bank, the baseline and Unit 1 practice, saved history with Export and Import, the calibration
 curve, and the installable, offline-capable app shell. Block 2, the Journal: the prediction card with
 its six-link chain, an offline checker, lock, resolve, and edge score against a hidden baseline. Block 3,
 the Mirror: error bars and sample sizes on the calibration curve, the bias map by topic, domain and
 horizon, level, streak and the seven-day score, the journal-only record, and the case file's "your
-pattern" lens. `STATE.md` has the detail and the next step. The app is served by GitHub Pages at
+pattern" lens. Block 4, the Lesson Engine: pattern flags with a lesson, a drill and two re-tests, the note
+after a miss, the sealed 200-call Unit 1 exam, and the autopsy with its rule card. `STATE.md` has the detail and the next step. The app is served by GitHub Pages at
 https://vaibhav-labs.github.io/Predict/.
 
 Everything personal stays off this repo. The code, tables and question bank are public; your calls,
@@ -88,7 +89,7 @@ table, give it a row in `sources.csv`, write a generator in `tools/qbank/records
 
 The phone check: install the app on a phone, play a session, write a real prediction with its full
 chain, and read the "This device" card on the Coach tab (`design/platform.md`, section 10). Blocks 1 to
-3 (the dial, the journal, the Mirror) are built; `STATE.md` says what each later block adds.
+4 (the dial, the journal, the Mirror, the lesson engine) are built; `STATE.md` says what each later block adds.
 
 ## Licence
 

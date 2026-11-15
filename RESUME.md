@@ -1,6 +1,6 @@
 # Predict: resume here
 
-Written 2026-11-15, when a session had to stop in the middle of Block 4. Read this first, then `STATE.md`
+Written 2026-11-15; refreshed after Block 4. Read this first, then `STATE.md`
 (the full state, reports for the player, assumptions, decisions) and `design/mechanics.md` (the rules). Update the
 "Where it stands" section below every time you commit; it is what a fresh session reads.
 
@@ -35,55 +35,21 @@ repo with a token the player makes.
 
 Branches in the repo (`/home/claude/predict-build` in the cloud workspace; also in the bundle, see "Saving"):
 
-| Branch | Tip | What |
-|---|---|---|
-| `main` (= `origin/main`) | `165f3c3` | Blocks 1 and 2 plus the help screen, live |
-| `block-3` | `9d5d90d` | Block 3, the Mirror: built, tested, not pushed or merged |
-| `block-4` | see `git log` | on top of block-3: `0685fb1` the rebuilt judgment question bank (done, all tests green), `946dc17` WIP Block 4 engines |
+| Branch | What |
+|---|---|
+| `main` (= `origin/main`, `165f3c3`) | Blocks 1 and 2 plus the help screen, live |
+| `block-3` | Block 3, the Mirror: built, tested, not pushed or merged |
+| `block-4` | on top of block-3: the rebuilt question bank and **Block 4, the Lesson Engine: done, all suites green** |
 
-All suites pass at `0685fb1`: `python3 tools/check_data.py` (also rebuilds both question banks and re-derives every
-answer with independent code), `node --test tools/test_engine.mjs` (49), `python3 tools/test_pwa.py` (33),
-`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (97). Run the three browser suites in separate
-copies of the repo with different `PREDICT_PORT` values (they rebuild `site/`).
+Suites on the Block 4 tip: `python3 tools/check_data.py` (also rebuilds both question banks), `node --test
+tools/test_engine.mjs` (72), `python3 tools/test_pwa.py` (33), `python3 tools/test_flow.py` (166), `python3
+tools/test_blocks.py` (203). Run the three browser suites in separate copies of the repo (tar without .git, site,
+node_modules) with different `PREDICT_PORT` values; they rebuild `site/`.
 
-### Block 4 (The Lesson Engine): what exists, what is left
+Block 4 docs are written (STATE.md report and assumptions, mechanics 4.4/4.5/4.9 and the change log, balance report 4c
+with `sim/retest_sim.py`). Open risk: L02's re-test fails a calibrated player about a third of the time (4c).
 
-Exit test (data/build_blocks.csv, row BL4): a synthetic overconfident history fires L01 and a calibrated one does not,
-at the simulated rates; the gate passes and fails the right synthetic players; a synthetic miss at 85% opens the
-autopsy and builds a case file with all five lenses.
-
-Exists and committed (`946dc17`, WIP, not wired into the app):
-
-- `app/js/engine/lessons.js`: pattern triggers, flag lifecycle (`evaluate`, `flagsOf`), `instantNote`, autopsy queue
-  (`autopsyDue`, `needsAutopsy`), `ruleCards`, `rechecksDue`.
-- `app/js/engine/gate.js`: the fixed-exam Unit 1 gate (`gateU1`, `examsOf`, `gateStatus`, `examSittingSize`).
-- `data/scoring.json`: `lessons`, `gates`, `gym.exam_*`, `gym.reseen_days` and review settings. L02's gap is 12 points
-  (sim/trigger_sim.py found 10 fired falsely on a calibrated player 20% of the time).
-- `tools/ref_lessons.py`: independent Python reference (`walk`, `gate`, `autopsies`).
-- `tools/engine_tests/b4.mjs` and `walk.mjs` and `tools/synth.py`: 11 tests, **7 pass and 4 fail**: the walk comparison,
-  the flag lifecycle (L15, the missed-days trigger, fires in scenarios that did not expect it), the failed re-test
-  path, and the daily/in-repair limits. Not yet imported by `tools/test_engine.mjs` (it imports only `b3.mjs`), so CI is
-  unaffected. First job: make those four pass, deciding in each case whether the test scenario or the engine is wrong,
-  with `ref_lessons.py` as the tiebreaker, then add `import './engine_tests/b4.mjs';` below the b3 import.
-- `design/balance-report.md` (section 4c partly), `sim/trigger_sim.py` and its outputs.
-
-Left to do in Block 4, in this order:
-
-1. Make `b4.mjs` pass; make `tools/ref_lessons.py gate` accept the compact calls format; import b4 in `test_engine.mjs`.
-2. `luckOrJudgment`: a call whose `base` is null (a sourced question) counts as judgment; add
-   `lessons.luck_rare_below` (about 0.2) and `gates.repair_drill_calls` (about 20) to `scoring.json`.
-3. `app/js/app.js` loads only `starter.json` (about line 69): also load `exam-u1.json` and tag each pool (practice,
-   exam). The exam pool must never be served in practice.
-4. Screens and routes: instant note on the reveal, flag lesson card, drills (including the rewrite drill and a new
-   `data/vague_claims.csv`), the exam hub, sittings (20 calls drawn up front, no feedback until judged), result,
-   repair drill and retake; the autopsy form, journal blocking until a miss is autopsied, the rule card, rechecks,
-   audit marks, lens updates in the case file; Today and Path integration; the L15 minimum session; `evaluate` calls
-   on session end and app open; `BLOCKS_BUILT = 4`; help and Path text.
-5. Browser phase `b4` in `tools/test_blocks.py`; a `check_data.py` consistency check (lessons config against
-   `data/lesson_triggers.csv` minimum samples).
-6. Docs: `STATE.md` (report for the player, Block 4 assumptions), `design/mechanics.md` 4.4, 4.5, 4.8, 4.9 and the change
-   log, `design/balance-report.md` 4c (re-test pass rates and long-horizon false-alarm exposure), `README.md`.
-7. Run all suites, commit on `block-4` with the trailers, refresh the bundle.
+Next: Block 5 on a new branch `block-5` chained on `block-4`, then 6 to 10.
 
 ### Blocks 5 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
 

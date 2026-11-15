@@ -747,6 +747,9 @@ def phase_b4_exam(E):
             check("pass: the Path says Passed and lists the attempt", text(page, "#gate-status") == "Passed" and page.query_selector("#gate-attempts li") is not None and "Passed" in text(page, "#gate-attempts"), text(page, "#gate-card")[:160])
             units = [t.strip() for t in page.eval_on_selector_all(".units .chip", "els => els.map(e => e.textContent)")]
             check("pass: Unit 1 shows Passed", units[1] == "Passed", str(units))
+            go(page, "#/mirror")
+            page.wait_for_selector("#belts")
+            check("pass: the Yellow belt counts the passed Unit 1 gate (baseline and exam: 2 of 4)", "Gates U0 to U3: 2 of 4" in text(page, "#belts li[data-belt=B1] em"), text(page, "#belts li[data-belt=B1] em"))
         else:
             check("fail: the Path sends the player to the repair drill, not straight to a new exam", text(page, "#gate-status") == "Repair first" and text(page, "#gate-start") == "Start the repair drill", f"{text(page, '#gate-status')} / {text(page, '#gate-start')}")
             go(page, "#/today")

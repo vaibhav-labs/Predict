@@ -59,7 +59,41 @@ for dirpath, dirnames, filenames in os.walk(ROOT):
         if low.endswith(".jsonl") or low.startswith("predict-record") or low.startswith("predict-backup"):
             errors.append(f"{rel(os.path.join(dirpath, name))}: looks like a personal record. Keep it out of this public repo.")
 
-# 4. The starter question bank: shape, balance, freshness against its tables, and every claim worked out again.
+# 4. The lesson engine's settings and its table say the same thing: every pattern in scoring.json is a row of
+#    data/lesson_triggers.csv, and the row's minimum sample is the window the engine really uses.
+with open(os.path.join(ROOT, "data", "scoring.json"), encoding="utf-8") as f:
+    cfg = json.load(f)
+with open(os.path.join(ROOT, "data", "lesson_triggers.csv"), encoding="utf-8", newline="") as f:
+    trigger_rows = {r["id"]: r for r in csv.DictReader(f)}
+for tid, t in cfg["lessons"]["triggers"].items():
+    row = trigger_rows.get(tid)
+    if not row:
+        errors.append(f"data/lesson_triggers.csv: no row for {tid}, which scoring.json lessons.triggers defines")
+        continue
+    window = t.get("window", t.get("window_days"))
+    if str(window) != row["min_sample"]:
+        errors.append(f"{tid}: scoring.json looks at {window} observations, data/lesson_triggers.csv says min_sample {row['min_sample']}")
+    drill = t.get("drill")
+    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite"}:
+        errors.append(f"{tid}: unknown drill kind {drill['kind']!r}")
+with open(os.path.join(ROOT, "data", "vague_claims.csv"), encoding="utf-8", newline="") as f:
+    vague = list(csv.DictReader(f))
+need = cfg["lessons"]["triggers"]["L04"]["drill"]["items"]
+if len(vague) < 2 * need:
+    errors.append(f"data/vague_claims.csv has {len(vague)} rows; the rewrite drill needs at least {2 * need} so a second drill brings new ones")
+for r in vague:
+    if not (r["vague"].strip() and r["hint"].strip() and r["sharp_example"].strip()):
+        errors.append(f"data/vague_claims.csv: {r['id']} has an empty cell")
+
+# 5. The app never names its maker: not in a screen, a data file or a picture's hidden text.
+for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "app")):
+    for name in filenames:
+        with open(os.path.join(dirpath, name), "rb") as f:
+            blob = f.read().lower()
+        if b"claude" in blob or b"anthropic" in blob:
+            errors.append(f"{rel(os.path.join(dirpath, name))}: names the assistant that made it. The app says Predict.")
+
+# 6. The starter question bank: shape, balance, freshness against its tables, and every claim worked out again.
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import check_questions  # noqa: E402
 
