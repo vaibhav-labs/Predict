@@ -92,7 +92,7 @@ export function callsToCSV(events) {
 // the points, a lesson trigger) may carry what they scored, so `callsOf` leaves them out. `allCallsOf` is everything on file.
 export const judgedExams = (events) => new Set(events.filter((e) => e.type === 'exam' && e.state === 'result').map((e) => e.exam));
 // A range of an exam is sealed in the same way (Unit 3's exam, 60 ranges, is judged once at the end).
-export const isSealed = (e, judged) => (e.type === 'call' || e.type === 'range') && !!e.exam && !judged.has(e.exam);
+export const isSealed = (e, judged) => (e.type === 'call' || e.type === 'range' || e.type === 'prob') && !!e.exam && !judged.has(e.exam);
 export const allCallsOf = (events) => events.filter((e) => e.type === 'call');
 export function callsOf(events) {
   const judged = judgedExams(events);
@@ -105,6 +105,12 @@ export const allRangesOf = (events) => events.filter((e) => e.type === 'range');
 export function rangesOf(events) {
   const judged = judgedExams(events);
   return events.filter((e) => e.type === 'range' && !isSealed(e, judged));
+}
+// Problems (Units 4 and 5): `prob` events, one per Fermi, base-rate, class or chain problem locked. Exam problems are sealed until judged.
+export const allProbsOf = (events) => events.filter((e) => e.type === 'prob');
+export function probsOf(events) {
+  const judged = judgedExams(events);
+  return events.filter((e) => e.type === 'prob' && !isSealed(e, judged));
 }
 export const disputedIds = (events) => new Set(events.filter((e) => e.type === 'dispute').map((e) => e.q));
 // Questions answered within the last `days` days (today counts as day 0): the 90-day rule keeps them from coming back.

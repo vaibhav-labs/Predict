@@ -54,8 +54,8 @@ export function examsOf(events, cfg, unit) {
   for (const e of events) {
     const a = e.exam && attempts.get(e.exam);
     if (!a) continue;
-    if (e.type === 'call' || e.type === 'range') a.calls.push(e);
-    else if (e.type === 'session' || e.type === 'rsession') a.sessions.push(e);
+    if (e.type === 'call' || e.type === 'range' || e.type === 'prob') a.calls.push(e);
+    else if (e.type === 'session' || e.type === 'rsession' || e.type === 'psession') a.sessions.push(e);
   }
   return unit ? list.filter((a) => a.unit === unit) : list;
 }
