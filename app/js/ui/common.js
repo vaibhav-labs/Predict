@@ -40,3 +40,25 @@ export function soonCard(block, what) {
 }
 
 export const unitRow = (ctx, id) => ctx.units.find((u) => u.id === id);
+
+// How many of the ten build blocks are in this version (shown on Today).
+export const BLOCKS_BUILT = 3;
+
+// A row of choice buttons where exactly one is on. Used for domain, due date, outcome and the Mirror's switches.
+export function picker(options, selected, onPick, attrs = {}) {
+  let value = selected;
+  const btns = options.map(([id, label]) => {
+    const b = h('button', { class: `pick${id === value ? ' on' : ''}`, type: 'button', 'aria-pressed': id === value ? 'true' : 'false', 'data-value': id }, label);
+    b.addEventListener('click', () => {
+      value = id;
+      btns.forEach((x, i) => { const on = options[i][0] === value; x.className = `pick${on ? ' on' : ''}`; x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      onPick(value);
+    });
+    return b;
+  });
+  return h('div', { class: 'picker', ...attrs }, btns);
+}
+
+export const cap1 = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+export const DOMAIN_NAMES = { work: 'Work', life: 'Life', world: 'World' };
+export const HORIZON_NAMES = { week: 'Up to a week', month: 'A month', longer: 'Longer' };

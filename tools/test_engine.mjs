@@ -371,3 +371,6 @@ test('the store saves each event before it returns, refuses overwrites, and impo
   await store.setMeta('k', { a: 1 });
   assert.deepEqual(await store.getMeta('k'), { a: 1 });
 });
+
+// ---- later blocks live in tools/engine_tests/ ----------------------------------------------------------------------
+import './engine_tests/b3.mjs';

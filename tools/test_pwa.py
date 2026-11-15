@@ -26,7 +26,7 @@ import urllib.request
 from playwright.sync_api import sync_playwright
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-PORT = 8765
+PORT = int(os.environ.get("PREDICT_PORT", "8765"))  # lets two copies of the suite run side by side
 BASE = f"http://127.0.0.1:{PORT}/Predict/"
 SHOTS = sys.argv[sys.argv.index("--shots") + 1] if "--shots" in sys.argv else None
 results = []

@@ -2,7 +2,8 @@ import { h, icon, shortDate } from '../dom.js';
 import * as R from '../engine/record.js';
 import { signed } from '../engine/scoring.js';
 import { LESSONS } from '../lessons.js';
-import { tabFrame, unitRow } from './common.js';
+import { tabFrame, unitRow, BLOCKS_BUILT } from './common.js';
+import { standingOf, standingTiles } from './standing.js';
 import { nextSessionPlan } from './gym.js';
 
 export function todayScreen(ctx) {
@@ -50,8 +51,9 @@ export function todayScreen(ctx) {
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Calls'), h('span', { class: 'val num', id: 'stat-calls' }, String(sum.n)), h('span', { class: 'cap' }, 'on this phone')),
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Points'), h('span', { class: 'val num', id: 'stat-points' }, signed(sum.points)), h('span', { class: 'cap' }, sum.n ? `${signed(Math.round(sum.avgPoints))} a call · n=${sum.n}` : 'no calls yet')),
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('span', { class: 'val num', id: 'stat-base' }, base.complete ? 'Done' : `${base.done} of ${base.total}`), h('span', { class: 'bar' }, h('i', { style: `width:${Math.round((base.done / base.total) * 100)}%` })), h('span', { class: 'cap' }, base.complete ? 'Curve in Mirror' : 'calls so far'))),
+    h('a', { class: 'standing-link', href: '#/mirror', id: 'standing-link', 'aria-label': 'Level, streak and seven-day score. Open the Mirror.' }, standingTiles(standingOf(ctx))),
     h('section', { class: 'card' },
-      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, 'Block 2 of 10 built')),
+      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, `Block ${BLOCKS_BUILT} of 10 built`)),
       h('ol', { class: 'steps' },
         h('li', null, h('span', { class: 'n' }, '1'), h('span', { class: 't' }, h('b', null, 'Gym'), h('em', { id: 'gym-line' }, gymLine)), h('span', { class: 'm num' }, `${gymMin} min`)),
         h('li', { class: nextLesson ? '' : 'later' }, h('span', { class: 'n' }, '2'),

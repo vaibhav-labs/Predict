@@ -1,10 +1,48 @@
 # Predict: build state
 
-Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are both on `main`, merged and
-live at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`); `tests.yml`'s browser suite is green
-on `main`, with a real click race in the test harness found and fixed along the way (see "Workflows"
-below). Neither block has been tried on a phone yet · Next: the Block 1 and Block 2 phone checks
-(below); Block 3 (The Mirror) only when the player says so
+Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
+branch `block-3`, waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone
+checks (below); the later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 3, 2026-11-15)
+
+Block 3, the Mirror, passes its exit test (`data/build_blocks.csv`, row BL3: every statistic matches an
+independent recomputation from the raw history). `tools/ref_mirror.py` recomputes every number from the raw
+event log with different code (the Wilson interval solved as a quadratic, the streak and the level walked
+with plain loops, the groups built with dictionaries), and `tools/test_blocks.py` loads a synthetic
+player's record through the real Import button, fixes the clock, and compares what the screens show with it.
+
+**What's there.** Today now shows the level (with the points to the next one), the streak and the seven-day
+score. The Mirror has a standing card (level, career points, the streak, seven daily bars, whether today
+beats the seven days before), the calibration curve with a 95% error bar on every dot and the number of
+calls under it (gym or journal), the bias map (the gap by topic for the gym, by domain or by horizon for
+the journal, each with its interval and a verdict that is read from the interval and never from the gap
+alone), the journal-only record (resolved, void, extra, kept out, what happened, what you said, the edge, and
+a grid of domain by horizon with the number of cards and the average edge in each cell), the five belts with
+real progress, and the plain numbers table. A resolved card's case file now has its five lenses in order, and
+the fourth, your pattern, shows the journal-only record for that card's domain, horizon and cell with every
+sample size ("too few" under 10), and says in one sentence why a card is kept out of the record when it is.
+
+**A fix on the way.** The table of other numbers on a resolved card did not mark (or contain) the number you
+said when it fell between two dial steps or below 50%. It now runs on the side the card leaned to and always
+holds your own number, once, marked. Found by the new case-file test; pinned by a new engine test.
+
+**Assumptions taken:** see "Block 3 assumptions" below. In short: what counts as a played day, a seven-day
+score that leaves habit points out, verdicts read from the interval, and a belt never shown as earned until
+its gates exist.
+
+**Tests, all passing, in Chromium:** `python3 tools/check_data.py`; `node --test tools/test_engine.mjs` (49);
+`python3 tools/test_pwa.py` (33); `python3 tools/test_flow.py` (166, about 2 minutes); and the new
+`python3 tools/test_blocks.py` (97), which also runs on GitHub Actions. A second bug turned up and was fixed
+while adding the stored `flags` and `flagged` checks: a blank claim box counted as "the checker flagged this
+draft", because an empty claim always lacks a date.
+
+**What the phone check for Block 3 should cover:** open the Mirror after a few days of play and see whether
+the standing card, the error bars and the verdict words make sense to you (a hollow dot means too few
+calls to trust it); read a resolved card's case file and see whether lens 4 tells you something or just
+repeats the numbers. Open values 4 (points a day) and 13 (belt evidence at one prediction a day) can only
+be settled from real play: the seven-day card and the belt rows are where you will see them.
 
 ## Report for the player (Block 2, 2026-11-15)
 
@@ -67,7 +105,7 @@ The long goal is a public forecasting track record.
 
 ## What exists in the app today
 
-Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirror, Coach, Path.
+Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, Journal, Mirror, Coach, Path.
 
 - **The call.** A claim, Yes or No, and a dial of 11 steps from 50% to 99%. The points for a hit and a
   miss are shown before the call is locked, and come from `data/scoring.json`.
@@ -91,7 +129,11 @@ Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirr
   daily loop, the dial, baseline vs practice, the journal's six-link chain, the calibration gap, and the
   journal's baseline and edge, plus what is not built yet (belts, levels, streak, Predict reading or
   answering inside the app). Not tied to a build block: added on request, independent of `data/build_blocks.csv`.
-- **Mirror.** The calibration curve, from 20 calls on, with thin bands (under 10 calls) drawn as such.
+- **Mirror (Block 3).** A standing card (level, career points, streak, seven daily bars), the calibration
+  curve from 20 calls on with a 95% error bar and the number of calls on every dot (thin bands, under 10
+  calls, drawn hollow and dashed), the bias map by topic, domain or horizon, the journal-only record with a
+  domain-by-horizon grid, five belts with real progress and the plain numbers table. Today carries the same
+  level, streak and seven-day score. A resolved card's case file has its five lenses; lens 4 is your pattern.
 - **Path and lessons.** The units, and the four Unit 1 lesson cards, whose numbers are computed from the payout table.
 - **Coach tab.** Export the record (a `.jsonl` file through the share sheet, or a download), the calls as a
   `.csv`, Import (the same file twice counts once), Erase (typed confirmation), and a "This device" card
@@ -130,7 +172,7 @@ Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirr
   (design/platform.md, section 10) is the real test of install, offline and saved data.
 - Whether an 18-call round fits in 5 minutes is not measured (open value 1). Every call records its
   milliseconds, so the first practice sessions answer it.
-- Sessions are not limited to one a day, and there is no streak yet (Block 3).
+- Sessions are not limited to one a day (the streak counts played days, so extra sessions add nothing to it).
 - One question pool. The 70/30 unit split and the 90-day rule wait for Block 4.
 - The difficulty labels, the shift of the mix when the hit rate leaves 65 to 85%, and the 10-call
   threshold for a thin band are first guesses, to be re-tuned from real hit rates.
@@ -142,8 +184,8 @@ Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirr
 - The starter baseline table (`data/journal_baselines.csv`) is flat at 50% for every domain and horizon,
   and the five-resolved threshold before switching to the player's own rate
   (`journal.own_rate_min_resolved`) is a first guess: both wait for real baselines (open value 2).
-- No case file yet (five lenses, the autopsy, the rule card): the outcome card is the plain reveal
-  mechanics.md says Block 2 ships, and the five lenses stay Block 3 and Block 4 as planned.
+- The case file has its five lenses, but the autopsy, the audit of the chain, the luck-or-judgment
+  reading beyond the plain edge, and the rule card wait for Block 4 as planned.
 - Updating an open prediction (Block 8), the memory check (Unit 8, Block 9) and Predict's own baseline
   (Block 5) are not built; none of them are in Block 2's scope.
 
@@ -180,6 +222,29 @@ in Block 2's scope needed a decision only the player could make.
   `edge` is withheld (`scored: false`), so the full chain and the outcome card still work for them.
 - `sim/run_all.sh` was not re-run: the three helper scripts it needs live only on the player's Mac
   (`design/platform.md`, `sim/` note), and none of the new numbers above feed the balance report.
+
+## Block 3 assumptions
+
+Where the docs left a choice, the simplest option that fit them was taken. None needed the player.
+
+- **A played day** is a day with a call, a locked prediction or a resolved prediction (`mirror` and `habit`
+  notes in `data/scoring.json`). A session that was opened and closed with no call is not a played day.
+  Habit points are paid once per played day however many sessions it holds, so at most 120 a day.
+- **The seven-day score is skill points only** (call points plus journal edge points), averaged over the days
+  played in the window, so attendance cannot raise it. Days not played are not zeros.
+- **Verdicts are read from the 95% Wilson interval** (`mirror.error_bar_z`, 1.96), not from the gap alone:
+  a sample that cannot support a claim says "no clear bias" or "too few" (under `mirror.thin_below`, 10).
+- **A journal card is written like a gym call** for the map: confidence on the side it leaned to (50% leans
+  Yes, as the dial does), a hit when that side was right, and its edge as its points.
+- **Belts show progress, never an award.** Only the baseline (U0) counts as a passed gate when its three
+  sessions are done; every other gate waits for Block 4's exams. The fifth belt is external.
+- **Career points are a high-water mark** of the running total of call points, edge points and habit points,
+  so a bad day cannot lower the level. The level cost is `140 * L^1.2` rounded half to even, which
+  reproduces `data/levels.csv` exactly.
+- **Bias map range** is plus and minus 30 points; a gap beyond that is drawn at the edge of the chart and
+  printed in full in the list under it.
+- **Open values 4 and 13** (points a day, belt evidence at one prediction a day) are not settled by this block:
+  the numbers to settle them now exist on the screen, and real play is what is missing.
 
 ## Decisions
 
@@ -245,11 +310,13 @@ in Block 2's scope needed a decision only the player could make.
 1. Read `design/platform.md`, then the plan doc's decisions table and any comments.
 2. Read `design/mechanics.md` (algorithms, data model, the 14 OPEN values) and the data tables. Unit, belt
    and block days are in `data/timeline.csv`: Units 0 to 11 end on day 224.
-3. Blocks 1 and 2 are done, merged into `main` and live, apart from the phone parts of their exit tests
-   (`data/build_blocks.csv`). Build Block 3 (the Mirror) only when the player says to.
+3. Blocks 1 and 2 are done, merged into `main` and live; Block 3 is built on `block-3` (see "Build log").
+   The phone parts of their exit tests (`data/build_blocks.csv`) are still the player's to run.
 4. After every change under `app/`, all of these must pass: `python3 tools/check_data.py`,
    `node --test tools/test_engine.mjs`, `sh tools/build_site.sh`, `python3 tools/test_pwa.py`,
-   `python3 tools/test_flow.py`. The last two need Playwright and Chromium.
+   `python3 tools/test_flow.py`, `python3 tools/test_blocks.py`. The last three need Playwright and
+   Chromium. Run them in separate copies of the repo when running them at the same time: `build_site.sh`
+   rebuilds `site/` from scratch.
 5. After each block: update this file, the change log in `design/mechanics.md`, and the plan docs.
 
 ## Rules to keep

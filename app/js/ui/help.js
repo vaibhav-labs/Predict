@@ -32,7 +32,9 @@ export function helpScreen(ctx) {
       h('p', null, 'A lock is final: none of this can be edited afterwards. The card then sits Open until its due date, moves to Due, and you resolve it as Happened, Didn’t happen, or Void.')),
 
     section('Mirror and Path',
-      p('Calibration curve', 'plots how often you were actually right against how sure you said you were. A point on the dashed line means your X% calls were right about X% of the time; above it, too shy; below it, too sure.'),
+      p('Calibration curve', 'plots how often you were actually right against how sure you said you were. A point on the dashed line means your X% calls were right about X% of the time; above it, too shy; below it, too sure. Every dot carries a bar for how far luck alone could move it, and the number of calls under it: a dot with few calls is drawn hollow and means little.'),
+      p('Bias map', 'your gap split by topic for the gym, and by domain and horizon for the journal. A group with fewer than 10 calls says “too few” and claims nothing; a verdict (too sure, too shy) appears only when the whole bar sits on one side of zero.'),
+      p('Level, streak, 7 days', 'Level comes from career points, which never go down. A streak counts days you played (a call, a locked prediction or a resolved one) and a missed day keeps half of it. 7 days is your average skill points on the days you played, so showing up cannot raise it.'),
       p('Path', 'the units ahead, and the lesson cards you have read.')),
 
     section('Points, gap and edge',
@@ -46,5 +48,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts, levels and a streak (on Path and Mirror) are feedback for later blocks. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress, but none can be earned until the exams that unlock them are built. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

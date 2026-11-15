@@ -1222,6 +1222,8 @@ def phase_journal(S):
               pred["domain"] == "work" and pred["due"] == expected_due and pred["c"] == 0.75, str(pred)[:200])
         check("the full chain was saved: outside view, case against and tripwire text", pred["chain"]["outsideView"]["text"].startswith("Vendors") and pred["chain"]["caseAgainst"]["text"] and pred["chain"]["tripwire"]["text"])
         check("the lock records how long the full chain took to write, like a gym call's ms", isinstance(pred.get("ms"), int) and pred["ms"] > 0, str(pred.get("ms")))
+        check("the lock records what the checker said about the final wording (nothing) and that it had flagged the draft on the way",
+              pred.get("flags") == [] and pred.get("flagged") is True, f"flags={pred.get('flags')} flagged={pred.get('flagged')}")
 
         editable = p2.query_selector_all("textarea, input.range, input[type=number], #claim-text")
         check("a locked card's own page has no editable field anywhere: a lock is final", len(editable) == 0, str(len(editable)))
@@ -1261,6 +1263,8 @@ def phase_journal(S):
         p2.click("#lock")
         p2.wait_for_function("location.hash.startsWith('#/journal/') && location.hash !== '#/journal/write'", timeout=5000)
         check("one scored card a day: the extra prediction is logged unscored", "Logged, unscored" in p2.inner_text("body"))
+        second = [e for e in read_db(p2)["events"] if e["type"] == "prediction"][-1]
+        check("a draft the checker never flagged is stored as such (flags empty, flagged false)", second.get("flags") == [] and second.get("flagged") is False, f"flags={second.get('flags')} flagged={second.get('flagged')}")
 
         # A due card appears on the right day, and not before: a controlled clock, and a real route change to see it.
         tab(p2, "journal")

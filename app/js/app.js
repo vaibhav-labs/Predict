@@ -62,13 +62,14 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, checkerText, journalBaselinesText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, checkerText, journalBaselinesText, beltsText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
       getOK('./content/questions/starter.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
+      getOK('./data/belts.csv').then((r) => r.text()),
     ]);
     const store = await openStore();
     const opens = ((await store.getMeta('opens')) || 0) + 1;
@@ -84,6 +85,7 @@ async function boot() {
       bankById: new Map(bank.questions.map((q) => [q.id, q])),
       checkerRules: compileCheckerRules(parseTable(checkerText)),
       journalBaselines: parseTable(journalBaselinesText),
+      belts: parseTable(beltsText),
       updateReady: false,
       nav: (hash) => { location.hash = hash; },
       // Swap the current history entry for another screen, so Back from it never lands on a screen that acts on arrival.
