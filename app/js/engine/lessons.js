@@ -234,9 +234,19 @@ export function evaluate(events, { today = localDay(), cfg, predictions }) {
   return { append };
 }
 
+// ---- luck or judgment -------------------------------------------------------------------------------------------
+// How often the outcome that happened happens in cases like it. A recorded question knows (its `base` is the chance that its
+// claim holds among the other cases); a documented fact from a source has no count of cases, so it has no chance to quote.
+export const outcomeChance = (q) => (q && typeof q.base === 'number' ? (q.answer ? q.base : 1 - q.base) : null);
+// A miss was luck when the outcome that beat you is a rare one (under lessons.luck_rare_below of cases like it), and
+// judgment otherwise, which includes every case the records say nothing about: with nothing to blame, the call was the problem.
+export const luckOrJudgment = (chance, cfg) => (chance !== null && chance !== undefined && chance < cfg.lessons.luck_rare_below - EPS ? 'luck' : 'judgment');
+// The same for a journal card: the outcome's chance at the baseline `b` (the chance of yes).
+export const cardOutcomeChance = (p) => (p.outcome === 'yes' ? p.b : p.outcome === 'no' ? 1 - p.b : null);
+
 // ---- the instant note (A01) ------------------------------------------------------------------------------------
 // A gym miss stated at note_threshold or more: the answer, why the wrong side tempted you, and what a calibrated call
-// looked like, from your own record when there is enough of it.
+// looked like, from your own record when there is enough of it. `luck` says whether the records call the outcome rare.
 export function instantNote(call, question, earlierCalls, S, cfg) {
   if (call.hit || call.c < S.noteThreshold - EPS) return null;
   const near = (x) => S.steps.reduce((b, c) => (Math.abs(c - x) < Math.abs(b - x) ? c : b), S.steps[0]);
@@ -248,7 +258,8 @@ export function instantNote(call, question, earlierCalls, S, cfg) {
   } else {
     calibrated = { kind: 'plain', oneIn: Math.round(1 / (1 - call.c)) };
   }
-  return { answer: question.fact, tempted: question.why || null, calibrated };
+  const chance = outcomeChance(question);
+  return { answer: question.fact, tempted: question.why || null, calibrated, luck: { kind: luckOrJudgment(chance, cfg), chance, n: typeof question.n === 'number' ? question.n : null } };
 }
 
 // ---- the autopsy (A02) -----------------------------------------------------------------------------------------

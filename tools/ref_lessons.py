@@ -6,7 +6,7 @@ the flag chain, the exam gate and the autopsy queue are written again here, in a
 updated in place, where the app folds the log). A disagreement on any synthetic player is a bug in one of the two.
 
   python3 tools/ref_lessons.py walk <record.jsonl> <last_day>   the flags a player would have met, day by day (see walk())
-  python3 tools/ref_lessons.py gate <calls.json>                 the Unit 1 verdict of each list of calls in the file
+  python3 tools/ref_lessons.py gate <calls.json>                 the Unit 1 verdict of each list of calls in the file (or of each {"c": [...], "h": "0110"} player)
   python3 tools/ref_lessons.py autopsies <record.jsonl>          the cards that need an autopsy, in the order they resolved
 
 The walk is the shared script for the tests: on each day the engine is looked at twice, in the morning (before the day's
@@ -286,6 +286,13 @@ def walk(events, last_day):
 
 
 # ---------------------------------------------------------------- the Unit 1 gate
+def expand(item):
+    """A list of calls [{"c": 0.9, "hit": true}], or the compact form tools/synth.py writes: {"c": [stated, ...], "h": "0110..."}."""
+    if isinstance(item, dict):
+        return [{"c": c, "hit": h == "1"} for c, h in zip(item["c"], item["h"])]
+    return item
+
+
 def gate(calls):
     g, edges = CFG["gates"], CFG["mirror"]["band_edges"]
     n = len(calls)
@@ -342,7 +349,7 @@ if __name__ == "__main__":
     if cmd == "walk":
         print(json.dumps(walk(load(sys.argv[2]), sys.argv[3])))
     elif cmd == "gate":
-        print(json.dumps([gate(c) for c in json.load(open(sys.argv[2]))]))
+        print(json.dumps([gate(expand(c)) for c in json.load(open(sys.argv[2]))]))
     elif cmd == "autopsies":
         print(json.dumps(autopsies(load(sys.argv[2]))))
     else:

@@ -4,7 +4,7 @@
 // which the triggers and the gate fire with the ones the simulations in sim/ published.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { cfg, S, ROOT, py, near } from './common.mjs';
@@ -12,7 +12,7 @@ import { withDir, readEvents, walkJS, sameTimeline, scenario, summary } from './
 import * as R from '../../app/js/engine/record.js';
 import * as LE from '../../app/js/engine/lessons.js';
 import * as G from '../../app/js/engine/gate.js';
-import { planBaseline, pickNext, seeded } from '../../app/js/engine/draw.js';
+import { planBaseline, pickNext, seeded, availablePool } from '../../app/js/engine/draw.js';
 
 const L = cfg.lessons;
 const readCsv = (name) => JSON.parse(py(`import csv\nprint(json.dumps(list(csv.DictReader(open(${JSON.stringify(path.join(ROOT, 'data', name))}, encoding='utf-8')))))`));
@@ -251,4 +251,226 @@ test('evaluate is idempotent: applying its answer and asking again at the same m
       }
     }
   }
+});
+
+// ---- rates: the app against the published simulations ---------------------------------------------------------------
+const published = JSON.parse(readFileSync(path.join(ROOT, 'sim', 'out', 'scoring_results.json'), 'utf8'));
+const mc = (code) => JSON.parse(py(`import synth\nprint(json.dumps(${code}))`));
+const asCalls = (run) => run.c.map((c, i) => ({ c, hit: run.h[i] === '1' }));
+// (A median over only the few runs that fire falsely on an honest player is too noisy to compare, so it is read where 200 or more fire.)
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+test('the L01 trigger fires at the published rates: rarely on an honest player, mostly on an overconfident one', () => {
+  const t = L.triggers.L01;
+  assert.deepEqual([t.window, t.gap], [40, 0.1], 'the sim published window 40, gap 10 points');
+  for (const policy of ['honest', 'mild_overconfident', 'overconfident']) {
+    const runs = mc(`synth.mc_band_runs(${JSON.stringify(policy)}, 0.9, 0.99, 500, 150, 41)`);
+    const first = runs.map((run) => {
+      const calls = asCalls(run).map((c, i) => ({ ...c, t: `2026-09-01T08:${String(i).padStart(5, '0')}`, d: '2026-09-01', mode: 'practice' }));
+      for (let k = t.window; k <= 150; k++) if (LE.TRIGGERS.L01.fire({ calls: calls.slice(0, k), t }, '')) return k;
+      return null;
+    });
+    const fired = first.filter((x) => x !== null);
+    const want = published.D_trigger[policy].W40_gap10;
+    const rate = fired.length / runs.length;
+    assert.ok(Math.abs(rate - want.fires_within_150) < 0.065, `${policy}: fires within 150 calls in ${(rate * 100).toFixed(1)}% of runs, published ${(want.fires_within_150 * 100).toFixed(1)}%`);
+    if (fired.length >= 200) assert.ok(Math.abs(median(fired) - want.median_calls_to_fire) <= 8, `${policy}: median ${median(fired)} calls, published ${want.median_calls_to_fire}`);
+  }
+});
+
+test('the Unit 1 gate: the app and the independent reference agree on every verdict, and pass the published share of each kind of player', () => {
+  const edges = cfg.mirror.band_edges;
+  const dir = withDir((d) => d);
+  for (const [policy, runs] of [['honest', 600], ['mild_overconfident', 400], ['overconfident', 300], ['underconfident', 300], ['always_99', 100], ['round_to_10', 400]]) {
+    const players = mc(`synth.mc_gate_players(${JSON.stringify(policy)}, ${runs}, 200, 17)`);
+    const ref = withDir((d) => { const f = path.join(d, 'players.json'); writeFileSync(f, JSON.stringify(players)); return JSON.parse(execFileSync('python3', [path.join(ROOT, 'tools', 'ref_lessons.py'), 'gate', f], { encoding: 'utf-8', maxBuffer: 1 << 28 })); });
+    let passes = 0;
+    players.forEach((run, i) => {
+      const mine = G.gateU1(asCalls(run), cfg.gates, edges), r = ref[i];
+      assert.equal(mine.pass, r.pass, `${policy} #${i}: verdict`);
+      assert.deepEqual(mine.reasons, r.reasons, `${policy} #${i}: reasons`);
+      near(mine.index, r.index, `${policy} #${i}: index`);
+      mine.bands.forEach((b, j) => { assert.equal(b.n, r.bands[j].n); assert.equal(b.checked, r.bands[j].checked); assert.equal(b.off, r.bands[j].off); near(b.z, r.bands[j].z, `${policy} #${i} band ${j}: z`); });
+      if (mine.pass) passes++;
+    });
+    const want = published.D.composite_gate[policy]['200']['2.5'], got = passes / runs;
+    assert.ok(Math.abs(got - want) < 0.08, `${policy}: passes ${(got * 100).toFixed(1)}%, published ${(want * 100).toFixed(1)}%`);
+  }
+  void dir;
+});
+
+test('the gate on hand-built exams: what passes, what fails and why, and the band to repair', () => {
+  const exam = (spec) => spec.flatMap(([c, n, hits]) => Array.from({ length: n }, (_, i) => ({ c, hit: i < hits })));
+  const edges = cfg.mirror.band_edges;
+  const calibrated = G.gateU1(exam([[0.55, 40, 22], [0.65, 40, 26], [0.75, 40, 30], [0.85, 40, 34], [0.95, 40, 38]]), cfg.gates, edges);
+  assert.equal(calibrated.pass, true); assert.deepEqual(calibrated.reasons, []);
+  const sure = G.gateU1(exam([[0.55, 40, 22], [0.65, 40, 26], [0.75, 40, 30], [0.85, 40, 34], [0.95, 40, 28]]), cfg.gates, edges);
+  assert.equal(sure.pass, false);
+  assert.deepEqual(sure.reasons, ['band:0.9'], 'the index is 5 points exactly (allowed); the top band is 25 points too sure');
+  assert.deepEqual(sure.worst, { lo: 0.9, hi: 1, dir: 'too sure' });
+  const shy = G.gateU1(exam([[0.55, 40, 30], [0.65, 40, 36], [0.75, 40, 37], [0.85, 40, 38], [0.95, 40, 40]]), cfg.gates, edges);
+  assert.ok(shy.reasons.includes('index') || shy.reasons.some((r) => r.startsWith('band')), 'too shy fails as well');
+  assert.equal(shy.worst.dir, 'too shy');
+  // A band of fewer than band_min_items calls is never checked on its own: 14 wild calls in one band do not fail an honest exam.
+  const thin = G.gateU1(exam([[0.65, 93, 61], [0.75, 93, 70], [0.95, 14, 4]]), cfg.gates, edges);
+  assert.equal(thin.bands.find((b) => b.lo === 0.9).checked, false);
+  assert.ok(!thin.reasons.some((r) => r === 'band:0.9'));
+  assert.equal(G.gateU1([], cfg.gates, edges).pass, false, 'an exam with no calls passes nothing');
+  // 5 points exactly is inside the index tolerance; 5.5 is outside.
+  assert.equal(G.gateU1(exam([[0.75, 200, 140]]), cfg.gates, edges).reasons.includes('index'), false, '75 said, 70 right');
+  assert.equal(G.gateU1(exam([[0.75, 200, 139]]), cfg.gates, edges).reasons.includes('index'), true, '75 said, 69.5 right');
+});
+
+test('where the player stands on the gate: eligible, running, failed (repair first), passed, and rust', () => {
+  const units = { practiceCalls: 90, practiceRequired: 90, baselineDone: true };
+  const st = (events, extra = {}) => G.gateStatus(events, cfg, { ...units, ...extra });
+  assert.equal(st([]).eligible, true);
+  assert.equal(st([], { baselineDone: false }).eligible, false, 'the baseline comes first');
+  assert.equal(st([], { practiceCalls: 89 }).eligible, false, 'and 90 practice calls');
+  const events = [];
+  events.push(at(D0, '09:00', { type: 'exam', state: 'start', unit: 'U1', n: 200 }));
+  const a1 = events[0];
+  events.push(...Array.from({ length: 20 }, (_, i) => ({ ...call(D0, 0.7, true, { mode: 'exam' }), exam: a1.id })));
+  let s = st(events);
+  assert.equal(s.running.id, a1.id); assert.equal(s.done, 20); assert.equal(s.eligible, false);
+  assert.equal(G.examSittingSize(s, cfg.gym), 20); assert.equal(G.examSittingSize({ ...s, done: 190 }, cfg.gym), 10, 'the last sitting is the rest');
+  events.push(at(D0, '10:00', { type: 'exam', state: 'result', exam: a1.id, pass: false }));
+  s = st(events);
+  assert.equal(s.needsRepair, true); assert.equal(s.eligible, false); assert.equal(s.running, null);
+  events.push(at(D0, '11:00', { type: 'exam', state: 'repair', exam: a1.id }));
+  s = st(events);
+  assert.equal(s.needsRepair, false); assert.equal(s.eligible, true, 'after the repair drill a new exam may start');
+  events.push(at(day(D0, 1), '09:00', { type: 'exam', state: 'start', unit: 'U1', n: 200 }));
+  const a2 = events[events.length - 1];
+  events.push(at(day(D0, 1), '10:00', { type: 'exam', state: 'result', exam: a2.id, pass: true }));
+  s = st(events);
+  assert.equal(s.passed, true); assert.equal(s.eligible, false); assert.equal(s.rust, null);
+  // Rust: a trigger of the unit fires on later practice calls and is in repair until cleared.
+  const flag = at(day(D0, 20), '21:00', { type: 'flag', state: 'open', trigger: 'L01', fire: 1, evidence: {}, chain: 1 });
+  events.push(flag);
+  s = st(events);
+  assert.equal(s.rust && s.rust.id, flag.id, 'L01 firing after the pass is rust');
+  events.push(at(day(D0, 30), '21:00', { type: 'flag', state: 'cleared', flag: flag.id }));
+  assert.equal(st(events).rust, null, 'cleared again: no rust');
+  // A flag that opened before the pass is not rust.
+  const old = [at(D0, '08:00', { type: 'flag', state: 'open', trigger: 'L02', fire: 1, evidence: {}, chain: 1 }), at(D0, '09:00', { type: 'exam', state: 'start', unit: 'U1', n: 200 })];
+  old.push(at(D0, '10:00', { type: 'exam', state: 'result', exam: old[1].id, pass: true }));
+  assert.equal(st(old).rust, null);
+});
+
+const withRecord = (builder, fn) => withDir((dir) => { const f = path.join(dir, 'r.jsonl'); py(`import synth\nsynth.${builder}.write(sys.argv[1])`, [f]); return fn(readEvents(f), f); });
+
+test('the autopsy queue: the app and the independent reference list the same cards, in the order they resolved', () => {
+  withRecord('autopsy_player()', (events, file) => {
+    const preds = R.predictionsOf(events, '2026-10-30');
+    const due = LE.autopsyDue(preds, events, cfg);
+    const mine = due.needed.map((n) => ({ prediction: n.p.id, kind: n.kind, filed: due.done.has(n.p.id) }));
+    const ref = JSON.parse(execFileSync('python3', [path.join(ROOT, 'tools', 'ref_lessons.py'), 'autopsies', file], { encoding: 'utf-8' }));
+    assert.deepEqual(mine, ref);
+    // And the story, worked out by hand from the spec in tools/synth.py: cards 0, 4 and 17 are misses at 85% or more (a forecast of
+    // 10% is a call of 90% on No), 7, 16 and 22 are the 5th, 10th and 15th confident hits (85% counts, 84% does not; a void card, an
+    // unscored card and a coin flip never count), and cards 0 and 4 already have their autopsy.
+    const order = events.filter((e) => e.type === 'prediction').map((e) => e.id);
+    assert.deepEqual(mine.map((x) => order.indexOf(x.prediction)), [0, 4, 7, 16, 17, 22]);
+    assert.deepEqual(mine.map((x) => x.kind), ['miss', 'miss', 'hit_sample', 'hit_sample', 'miss', 'hit_sample']);
+    assert.deepEqual(mine.map((x) => x.filed), [true, true, false, false, false, false]);
+    assert.deepEqual(due.pending.map((x) => order.indexOf(x.p.id)), [7, 16, 17, 22], 'what still waits for the player');
+    // An autopsy filed for a card takes it off the list.
+    const filed = [...events, at('2026-10-29', '10:00', { type: 'autopsy', prediction: mine[3].prediction, kind: 'hit_sample', knew: 'x', missed: 'y', verdict: 'judgment', rule: 'z' })];
+    assert.deepEqual(LE.autopsyDue(R.predictionsOf(filed, '2026-10-30'), filed, cfg).pending.map((x) => order.indexOf(x.p.id)), [7, 17, 22]);
+    assert.ok(LE.needsAutopsy(preds[17], due) && !LE.needsAutopsy(preds[3], due));
+  });
+});
+
+test('the rule card sits above the next five cards, and the re-checks fall due at 3 and 10 days', () => {
+  const rule = at('2026-09-02', '10:00', { type: 'autopsy', prediction: 'p1', kind: 'miss', knew: 'a', missed: 'b', verdict: 'judgment', rule: 'Ask who decides first.' });
+  const card = (d, hhmm = '11:00') => at(d, hhmm, { type: 'prediction', text: 'x', c: 0.6, b: 0.5, scored: true, due: d, flags: [], flagged: false });
+  let events = [rule];
+  assert.equal(LE.ruleCards(events, cfg).length, 1, 'shown at once, above the next card');
+  events = [rule, ...[3, 4, 5, 6].map((k) => card(`2026-09-0${k}`))];
+  assert.equal(LE.ruleCards(events, cfg).length, 1, 'four cards later it is still there');
+  events.push(card('2026-09-07'));
+  assert.equal(LE.ruleCards(events, cfg).length, 0, 'after the fifth card it goes');
+  assert.equal(LE.ruleCards([rule, card('2026-09-01', '09:00')], cfg).length, 1, 'a card locked before the autopsy does not count');
+  const due = (today, ev) => LE.rechecksDue(ev, today, cfg).map((r) => [r.step, r.dueDay]);
+  assert.deepEqual(due('2026-09-04', [rule]), []);
+  assert.deepEqual(due('2026-09-05', [rule]), [[1, '2026-09-05']]);
+  assert.deepEqual(due('2026-09-20', [rule]), [[1, '2026-09-05'], [2, '2026-09-12']]);
+  const first = at('2026-09-06', '09:00', { type: 'recheck', autopsy: rule.id, step: 1, used: 'yes' });
+  assert.deepEqual(due('2026-09-20', [rule, first]), [[2, '2026-09-12']], 'answered once, never asked again');
+  const noRule = at('2026-09-02', '10:00', { type: 'autopsy', prediction: 'p2', kind: 'miss', knew: 'a', missed: 'b', verdict: 'luck' });
+  assert.deepEqual([LE.ruleCards([noRule], cfg).length, due('2026-09-30', [noRule]).length], [0, 0], 'no rule written, nothing to show or re-check');
+});
+
+test('the instant note: a miss at 80% or more, with the answer, why it tempted, and what a calibrated call looked like', () => {
+  const q = { fact: 'It ended higher.', why: 'Rallies feel unstoppable.', base: 0.7, answer: true, n: 60 };
+  const miss = (c) => ({ hit: false, c, mode: 'practice' });
+  assert.equal(LE.instantNote({ hit: true, c: 0.95 }, q, [], S, cfg), null, 'a hit gets no note');
+  assert.equal(LE.instantNote(miss(0.75), q, [], S, cfg), null, 'a miss under 80% is expected');
+  assert.equal(LE.instantNote(miss(0.8), q, [], S, cfg).answer, 'It ended higher.', 'exactly 80% gets one');
+  const plain = LE.instantNote(miss(0.9), q, [], S, cfg);
+  assert.deepEqual(plain.calibrated, { kind: 'plain', oneIn: 10 }, 'no history yet: "at 90% you expect to be wrong 1 time in 10"');
+  assert.equal(LE.instantNote(miss(0.99), q, [], S, cfg).calibrated.oneIn, 100);
+  assert.equal(plain.tempted, 'Rallies feel unstoppable.');
+  const earlier = (n, hits, mode = 'practice', c = 0.9) => Array.from({ length: n }, (_, i) => ({ c, hit: i < hits, mode }));
+  assert.deepEqual(LE.instantNote(miss(0.9), q, earlier(4, 4), S, cfg).calibrated.kind, 'plain', 'four calls are not a record');
+  const own = LE.instantNote(miss(0.9), q, earlier(10, 7), S, cfg).calibrated;
+  assert.deepEqual(own, { kind: 'own', n: 10, hitRate: 0.7, step: 0.7 }, 'from your own calls at 90% or more: right 7 in 10, so a calibrated call there is 70%');
+  assert.equal(LE.instantNote(miss(0.9), q, [...earlier(4, 4), ...earlier(20, 0, 'drill')], S, cfg).calibrated.kind, 'plain', 'a drill call is not your own call');
+  assert.equal(LE.instantNote(miss(0.9), q, earlier(10, 7, 'practice', 0.7), S, cfg).calibrated.kind, 'plain', 'calls stated lower do not count as calls at 90%');
+  // luck or judgment, from the records: the outcome that beat you is rare (under 20% of cases like it) or it is not.
+  assert.deepEqual(plain.luck, { kind: 'judgment', chance: 0.7, n: 60 }, 'it was true, and true 70% of the time');
+  assert.equal(LE.instantNote(miss(0.9), { ...q, base: 0.1 }, [], S, cfg).luck.kind, 'luck', 'it was true and true 10% of the time');
+  assert.equal(LE.instantNote(miss(0.9), { ...q, base: 0.1, answer: false }, [], S, cfg).luck.kind, 'judgment', 'it was false and false 90% of the time');
+  assert.equal(LE.instantNote(miss(0.9), { ...q, base: 0.2 }, [], S, cfg).luck.kind, 'judgment', 'exactly 20% is not rare');
+  const sourced = LE.instantNote(miss(0.9), { fact: 'f', why: '', base: null, answer: true, n: 0 }, [], S, cfg);
+  assert.deepEqual(sourced.luck, { kind: 'judgment', chance: null, n: 0 }, 'a documented fact has no count of cases: nothing to blame luck on');
+  assert.equal(sourced.tempted, null);
+  // the same rule for a journal card, against its baseline
+  assert.deepEqual([LE.cardOutcomeChance({ outcome: 'yes', b: 0.15 }), LE.cardOutcomeChance({ outcome: 'no', b: 0.15 }), LE.cardOutcomeChance({ outcome: 'void', b: 0.5 })], [0.15, 0.85, null]);
+});
+
+test('questions: practice never serves an exam question; a sitting is drawn up front in the exam mix, half true and half false, without repeats', () => {
+  const read = (f) => JSON.parse(readFileSync(path.join(ROOT, 'app', 'content', 'questions', f), 'utf8')).questions;
+  const starter = read('starter.json'), exam = read('exam-u1.json');
+  const ids = new Set(starter.map((x) => x.id));
+  assert.equal(exam.filter((x) => ids.has(x.id)).length, 0, 'no question is in both banks');
+  assert.equal(new Set(exam.map((x) => x.claim)).size, exam.length);
+  const used = new Set();
+  const total = cfg.gates.calibration_exam_calls, size = cfg.gym.exam_session_size;
+  for (let k = 0; k < total / size; k++) {
+    const plan = planBaseline({ bank: exam, usedIds: used, size, spares: 0, mix: cfg.gym.exam_mix, rng: seeded(100 + k) });
+    assert.equal(plan.length, size);
+    const qs = plan.map((id) => exam.find((x) => x.id === id));
+    assert.ok(qs.every((x) => !used.has(x.id)), `sitting ${k + 1}: nothing already sat`);
+    assert.equal(qs.filter((x) => x.answer).length, size / 2, `sitting ${k + 1}: half true`);
+    const by = (d) => qs.filter((x) => x.diff === d).length;
+    assert.deepEqual([by('easy'), by('medium'), by('hard')], [1, 8, 11], `sitting ${k + 1}: the exam mix of ${JSON.stringify(cfg.gym.exam_mix)} on ${size} calls`);
+    plan.forEach((id) => used.add(id));
+  }
+  assert.equal(used.size, total, 'ten sittings of 20 are 200 different questions');
+  // A retake of 200 on a bank of 304 reuses 96: the ones sat longest ago come back first.
+  const order = new Map([...used].map((id, i) => [id, i]));
+  const again = availablePool(exam, used, new Set(), total, order);
+  assert.equal(again.reused, true);
+  assert.equal(again.pool.length, total);
+  const back = again.pool.filter((x) => used.has(x.id));
+  assert.equal(back.length, total - (exam.length - used.size));
+  assert.deepEqual(back.map((x) => order.get(x.id)), [...back.map((x) => order.get(x.id))].sort((a, b) => a - b).slice(0, back.length));
+  assert.ok(Math.max(...back.map((x) => order.get(x.id))) < back.length, 'the earliest-sat come back first');
+});
+
+test('the 90-day rule and the 70/30 split: nothing seen in the last 90 days returns; older questions make up the review share of the draws', () => {
+  const bank = Array.from({ length: 120 }, (_, i) => ({ id: `q${i}`, answer: i % 2 === 0, diff: ['easy', 'medium', 'hard'][i % 3] }));
+  const old = new Set(bank.slice(0, 40).map((x) => x.id));
+  const draw = (recentIds, n, reviewShare) => { const rng = seeded(7); return Array.from({ length: n }, () => pickNext({ bank, usedIds: old, recentIds, cfg: cfg.gym, rng, reviewShare })); };
+  const recent = new Set(bank.slice(0, 40).map((x) => x.id));
+  assert.ok(draw(recent, 600, 0.3).every((q) => !recent.has(q.id)), 'answered 10 days ago: never again');
+  const fromOld = draw(new Set(), 3000, 0.3).filter((q) => old.has(q.id)).length / 3000;
+  assert.ok(Math.abs(fromOld - 0.3) < 0.03, `30% of draws from the review pool, got ${(fromOld * 100).toFixed(1)}%`);
+  assert.equal(draw(new Set(), 600, 0).filter((q) => old.has(q.id)).length > 0, true, 'with no review share the old ones are just part of the pool');
+  const onlyOld = Array.from({ length: 50 }, () => pickNext({ bank: bank.slice(0, 40), usedIds: old, recentIds: new Set(), cfg: cfg.gym, rng: seeded(1), reviewShare: 0.3 }));
+  assert.ok(onlyOld.every((q) => q && old.has(q.id)), 'with nothing never seen, everything comes from the review pool');
+  const R90 = R.recentQuestionIds([call('2026-06-01', 0.7, true, { q: 'qa' }), call('2026-09-01', 0.7, true, { q: 'qb' }), call('2026-09-30', 0.7, true, { q: 'qc' })], '2026-11-29', cfg.gym.reseen_days);
+  assert.deepEqual([...R90].sort(), ['qb', 'qc'], '2026-06-01 is 181 days back; 09-01 is 89 days back and still counts as recent, 09-30 is 60');
 });
