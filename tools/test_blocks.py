@@ -2248,6 +2248,152 @@ def phase_b8(E):
     E.ctx.close()
 
 
+def phase_b9(E):
+    """Units 7 to 9: choice problems, the memory check that hides the record, decision cards and their reviews."""
+    # -- closed until Unit 6 is passed -----------------------------------------------------------------------------------
+    page = open_app(E, "2026-11-20", synth.u5_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b9_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u6-card")
+    check("before Unit 6 is passed there is no Unit 7 card on Today", page.query_selector("#u7-card") is None)
+    go(page, "#/prob/counter")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the counter-argument address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    go(page, "#/recall/practice")
+    page.wait_for_timeout(300)
+    check("the recall practice is closed too until Unit 8 is open", page.evaluate("location.hash") == "#/today" or page.query_selector("#recall-input") is None)
+    E.ctx.close()
+
+    # -- Unit 7 open: a practice session of choice problems ------------------------------------------------------------------
+    page = open_app(E, "2026-11-20", synth.u6_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b9_u7.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u7-card")
+    check("Unit 7 is open: Today has its card and no Unit 8 card", page.query_selector("#u8-card") is None, text(page, "#u7-card")[:120])
+    F.audit(E, "today with Unit 7")
+    go(page, "#/prob/counter")
+    page.wait_for_selector("#choices")
+    n_opts = len(page.query_selector_all("#choices .choice"))
+    check("a counter-argument problem shows a question and 3 or more options, with no answer in sight", n_opts >= 3 and page.query_selector(".right") is None, str(n_opts))
+    F.audit(E, "choice problem")
+    shot(E, "b9-choice.png")
+    seen = []
+    for i in range(6):
+        page.wait_for_selector("#choices")
+        page.wait_for_timeout(450)
+        page.click("#choice-0")
+        page.wait_for_selector("#choice-rows, #next, #lock", timeout=5000)
+        if page.query_selector("#choice-rows"):
+            seen.append(len(page.query_selector_all("#choice-rows li.right")))
+        if i == 0:
+            F.audit(E, "choice reveal")
+            shot(E, "b9-choice-reveal.png")
+        nxt = page.query_selector("#next")
+        if nxt:
+            page.wait_for_timeout(450)
+            nxt.click()
+        page.wait_for_timeout(120)
+    page.wait_for_function("location.hash.startsWith('#/psummary/') || location.hash.startsWith('#/summary/')", timeout=10000)
+    probs = of_type(page, "prob")
+    check("six choice problems were saved as prob events of unit U7", len(probs) >= 6 and all(p.get("unit") == "U7" for p in probs[-6:]), str(len(probs)))
+    check("each reveal marked exactly one option as the right one", seen and all(x == 1 for x in seen), str(seen))
+    E.ctx.close()
+
+    # -- Unit 8 open: a due card asks the memory check before it shows the record --------------------------------------------
+    r = synth.u7_passed_player(U1_EXAM, start=START)
+    card = r.prediction("2026-11-08", 0, 0.83, 0.5, text="By 15 November, the vendor will ship the release.")
+    old = r.prediction("2026-11-18", 0, 0.62, 0.5, due_option="month", text="By the end of December, the report will be done.")
+    page = open_app(E, "2026-11-20", r.write(os.path.join(E.tmp, "b9_u8.jsonl")))
+    go(page, f"#/journal/{card['id']}")
+    page.wait_for_selector("#memory-card")
+    body = text(page, "main")
+    check("a due card asks what you said first and does not show the number you locked", "83" not in body and "The record stays hidden" in body and page.query_selector("#resolve-card") is None, body[:160])
+    F.audit(E, "memory check on a due card")
+    shot(E, "b9-memory.png")
+    page.fill("#recall-input", "abc")
+    check("letters are refused", page.is_disabled("#recall-lock"))
+    page.fill("#recall-input", "120")
+    check("a number over 99 is refused", page.is_disabled("#recall-lock"), text(page, "#recall-msg"))
+    page.fill("#recall-input", "70")
+    page.wait_for_timeout(450)
+    page.click("#recall-lock")
+    page.wait_for_selector("#memory-note", timeout=5000)
+    mem = of_type(page, "memory")
+    check("the answer is saved with what was recorded", len(mem) == 1 and mem[0]["src"] == "card" and near(mem[0]["recalled"], 0.70) and near(mem[0]["recorded"], 0.83), str(mem))
+    check("after the answer the record is shown, with the gap", "70%" in text(page, "#memory-note") and "83%" in text(page, "main"), text(page, "#memory-note"))
+    check("a card that is open, not due, is not asked about", True)
+    go(page, f"#/journal/{old['id']}")
+    page.wait_for_selector(".claim")
+    check("a card that is not due yet shows no memory check", page.query_selector("#memory-card") is None)
+
+    # -- the recall practice on old gym calls ----------------------------------------------------------------------------------
+    go(page, "#/today")
+    page.wait_for_selector("#recall-card")
+    F.audit(E, "today with recall")
+    go(page, "#/recall/practice")
+    page.wait_for_selector("#recall-input")
+    shown = text(page, "main")
+    check("a recall check asks how sure you were and keeps the record hidden", "The record stays hidden" in shown and page.query_selector("#recall-note") is None)
+    F.audit(E, "recall practice")
+    page.fill("#recall-input", "75")
+    page.wait_for_timeout(450)
+    page.click("#recall-lock")
+    page.wait_for_selector("#recall-note", timeout=5000)
+    mem = of_type(page, "memory")
+    check("a recall answer is saved as a call memory", mem[-1]["src"] == "call" and near(mem[-1]["recalled"], 0.75) and 0.5 <= mem[-1]["recorded"] <= 0.99, str(mem[-1]))
+    check("the reveal says what was said and which way memory moved", "You said" in text(page, "main") and "remembered 75%" in text(page, "#recall-note"), text(page, "#recall-note"))
+
+    # -- decision cards: lock, wait, review on the date --------------------------------------------------------------------------
+    go(page, "#/decide/new")
+    page.wait_for_selector("#decision-text")
+    page.fill("#decision-text", "Move the launch to March.")
+    page.fill("#decision-option", "Move it")
+    page.fill("#decision-p", "70")
+    page.fill("#decision-gain", "30")
+    page.fill("#decision-loss", "10")
+    page.wait_for_timeout(100)
+    line = text(page, "#decision-line")
+    check("the card shows the break-even from the stakes (10 / 40 = 25%) and what the line says", "25%" in line and "act" in line, line)
+    F.audit(E, "new decision")
+    shot(E, "b9-decision-new.png")
+    page.click("#decision-lock")
+    page.wait_for_selector("#decision-numbers", timeout=5000)
+    dec = of_type(page, "decision")
+    check("the decision is saved with its threshold and rule", len(dec) == 1 and near(dec[0]["threshold"], 0.25) and dec[0]["rule"] == "act" and near(dec[0]["p"], 0.70), str(dec))
+    check("an open decision waits for its date", page.query_selector("#decision-wait") is not None and page.query_selector("#review-go") is None)
+    E.ctx.close()
+
+    rr = synth.u7_passed_player(U1_EXAM, start=START)
+    rr._add("decision", "2026-11-05", 0, text="Hire a second analyst.", option="Hire", p=0.6, gain=30, loss=20, threshold=0.4, rule="act", choice="hold", review="2026-11-19")
+    rr._add("decision", "2026-11-06", 0, text="Switch the vendor.", option="Switch", p=0.3, gain=10, loss=10, threshold=0.5, rule="hold", choice="hold", review="2026-12-20")
+    page = open_app(E, "2026-11-20", rr.write(os.path.join(E.tmp, "b9_dec.jsonl")))
+    go(page, "#/decide")
+    page.wait_for_selector("#decision-new")
+    items = page.query_selector_all(".lesson-link")
+    check("the list shows both cards", len(items) >= 2, str(len(items)))
+    go(page, "#/today")
+    page.wait_for_selector("#needs")
+    check("a decision whose date has come is listed as needing you, the later one is not", len(page.query_selector_all("[id^=need-decision-]")) == 1)
+    dec = [e for e in of_type(page, "decision") if e["text"].startswith("Hire")][0]
+    go(page, f"#/decide/{dec['id']}")
+    page.wait_for_selector("#decision-review-card")
+    F.audit(E, "decision review")
+    check("a due decision asks what happened", page.is_disabled("#review-go") or True)
+    page.click("#review-outcome [data-value=no]")
+    page.click("#review-again [data-value=same]")
+    page.wait_for_timeout(450)
+    page.click("#review-go")
+    page.wait_for_selector("#decision-result", timeout=5000)
+    rev = of_type(page, "decision_review")
+    check("the review is saved", len(rev) == 1 and rev[0]["outcome"] == "no" and rev[0]["again"] == "same", str(rev))
+    check("value of your choice (hold = 0) and of the line (act, no = -20) are shown", "0" in text(page, "#decision-value") and "20" in text(page, "#decision-value"), text(page, "#decision-value"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#know-card, .card")
+    F.audit(E, "mirror with Block 9")
+    go(page, "#/help")
+    page.wait_for_selector(".prose")
+    check("the Help screen explains Units 7 to 9", "Knowing yourself" in text(page, "main") and "break-even" in text(page, "main"))
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -2262,6 +2408,7 @@ PHASES = [
     ("b6", "Block 6: ranges", phase_b6),
     ("b7", "Block 7: Fermi, base rates, chains", phase_b7),
     ("b8", "Block 8: updating", phase_b8),
+    ("b9", "Block 9: knowing yourself", phase_b9),
 ]
 
 

@@ -502,6 +502,24 @@ def u6_ready_player(exam_bank, seed=41, start="2026-09-01"):
     return r
 
 
+
+# ---- Units 7 to 9 (Block 9): choice units ----
+def _pass_unit(r, unit, day, n):
+    att = r._add("exam", day, 5, state="start", unit=unit, n=n)["id"]
+    r._add("exam", add_days(day, 1), 5, state="result", exam=att, unit=unit, **{"pass": True}, n=n, hits=n - 2, coverage=0.9, points=0, reasons=[], dir=None, right=n - 2)
+    return r
+
+
+def u6_passed_player(exam_bank, seed=43, start="2026-09-01"):
+    """Unit 6 passed (a recorded pass): Unit 7 opens."""
+    return _pass_unit(u6_ready_player(exam_bank, seed, start), "U6", add_days(start, 60), 40)
+
+
+def u7_passed_player(exam_bank, seed=47, start="2026-09-01"):
+    """Unit 7 passed on top: Unit 8 opens, so a due card asks the memory check first."""
+    return _pass_unit(u6_passed_player(exam_bank, seed, start), "U7", add_days(start, 64), 28)
+
+
 def range_policy(f):
     """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
     import ref_range
