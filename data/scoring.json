@@ -121,8 +121,7 @@
         ],
         "exam_family": null,
         "exam_session_size": 15
-      },
-      "second_tolerance": 3
+      }
     }
   },
   "journal": {

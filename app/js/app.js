@@ -21,6 +21,8 @@ import { autopsyScreen } from './ui/autopsy.js';
 import { rangeScreen, rangeSummaryScreen, rangeExamScreen } from './ui/ranges.js';
 import { stepsOf } from './engine/update.js';
 import { problemScreen, problemSummaryScreen, problemExamScreen } from './ui/problems.js';
+import { recallScreen } from './ui/recall.js';
+import { decideScreen } from './ui/decide.js';
 import { runLessonEngine } from './flags.js';
 import * as SY from './sync.js';
 import { compileCheckerRules } from './engine/journal.js';
@@ -63,11 +65,13 @@ const routes = {
   psummary: (c, arg) => problemSummaryScreen(c, arg),
   pexam: (c, arg) => problemExamScreen(c, arg),
   prob: async (c, arg, token) => { await problemScreen(c, root, token, arg); return null; },
+  recall: (c, arg, token) => recallScreen(c, arg, token),
+  decide: (c, arg) => decideScreen(c, arg),
   gym: async (c, arg, token) => { await gymScreen(c, root, token, arg); return null; },
 };
 
 // The screens that show lessons ask the lesson engine to look at the record first. Asking again changes nothing.
-const READS_LESSONS = new Set(['today', 'journal', 'mirror', 'path', 'summary', 'flag', 'rewrite', 'exam', 'autopsy', 'lesson', 'rsummary', 'rexam', 'psummary', 'pexam']);
+const READS_LESSONS = new Set(['today', 'journal', 'mirror', 'path', 'summary', 'flag', 'rewrite', 'exam', 'autopsy', 'lesson', 'rsummary', 'rexam', 'psummary', 'pexam', 'recall', 'decide']);
 
 async function route() {
   const token = ++routeId;
@@ -86,7 +90,7 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, updates, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, updates, know, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
@@ -97,6 +101,7 @@ async function boot() {
       getOK('./content/questions/fermi.json').then((r) => r.json()),
       getOK('./content/questions/rates.json').then((r) => r.json()),
       getOK('./content/questions/updates.json').then((r) => r.json()),
+      getOK('./content/questions/know.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
       getOK('./data/belts.csv').then((r) => r.text()),
@@ -113,7 +118,7 @@ async function boot() {
     const bankById = new Map(practice.map((q) => [q.id, q]));
     const examById = new Map(exam.questions.map((q) => [q.id, q]));
     const rangeById = new Map(ranges.questions.map((q) => [q.id, q]));
-    const problemMap = new Map(fermi.questions.concat(rates.questions, updates.questions.flatMap(stepsOf)).map((q) => [q.id, q]));
+    const problemMap = new Map(fermi.questions.concat(rates.questions, updates.questions.flatMap(stepsOf), know.questions).map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
@@ -140,6 +145,8 @@ async function boot() {
       // Unit 6 (updating): streams of two steps; the problem screen asks one step at a time, and `problemById` answers for a step id ('upd-…#1').
       updateBank: updates.questions.filter((q) => q.pool === 'practice'),
       updateExamBank: updates.questions.filter((q) => q.pool === 'exam'),
+      // Units 7 to 9 (know yourself): choice problems by family. Practice and drills draw from the practice pool, the exams from their own.
+      knowBank: (families, pool = 'practice') => know.questions.filter((q) => families.includes(q.family) && q.pool === pool),
       problemById: (id) => problemMap.get(id),
       triggers: parseTable(triggersText),
       vagueClaims: parseTable(vagueText),

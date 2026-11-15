@@ -14,10 +14,13 @@ import { problemGateState, judgeProblemExam } from '../flags.js';
 import { retestText, flagName } from '../flagtext.js';
 import { numberLine, claimNode, fmt } from './ranges.js';
 import * as UP from '../engine/update.js';
+import * as KN from '../engine/know.js';
 
-export const KIND_NAMES = { fwx: 'Rain, fortnight', fflight: 'Flight lateness', fgrow: 'Growth', fmkt: 'Stock market', doc: 'Documented rate', flight: 'Flights', weather: 'Weather', market: 'Stock market', owid: 'Countries' };
-const FAMILY_NAMES = { fermi: 'Fermi', rate: 'Base rate', class: 'Reference class', chain: 'Chain', update: 'Updating' };
-const UNIT_NAMES = { U4: 'Unit 4 · Fermi', U5: 'Unit 5 · Outside view', U6: 'Unit 6 · Updating' };
+export const KIND_NAMES = { fwx: 'Rain, fortnight', fflight: 'Flight lateness', fgrow: 'Growth', fmkt: 'Stock market', doc: 'Documented rate', flight: 'Flights', weather: 'Weather', market: 'Stock market', owid: 'Countries', counter: 'Counter-argument', second: 'Second number', luck: 'Luck or judgment', act: 'Act or hold', threshold: 'Break-even', value: 'Expected value' };
+const FAMILY_NAMES = { fermi: 'Fermi', rate: 'Base rate', class: 'Reference class', chain: 'Chain', update: 'Updating', counter: 'Counter-argument', second: 'Second number', luck: 'Luck or judgment', act: 'Act or hold', threshold: 'Break-even', value: 'Expected value' };
+const UNIT_NAMES = { U4: 'Unit 4 · Fermi', U5: 'Unit 5 · Outside view', U6: 'Unit 6 · Updating', U7: 'Unit 7 · Second opinions', U8: 'Unit 8 · Autopsy', U9: 'Unit 9 · Decisions' };
+const CHOICE_ROUTE = { U7: 'counter', U8: 'luck', U9: 'decisions' };
+const CHOICE_FROM_ARG = { counter: 'U7', luck: 'U8', decisions: 'U9' };
 const pctText = (x) => `${Number(x.toFixed(1))}%`;
 const fmtD = (x, digits) => Number(x).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const PLAN_KEYS = new Set(['oly_all', 'oly_100', 'mega90', 'bts_ontime', 'bts_cancel']);
@@ -52,15 +55,16 @@ export async function problemScreen(ctx, root, token, arg) {
       const own = ctx.rateBank.filter((q) => !dom || q.jdomain === dom);
       return { ...base, unit: 'U5', family: 'rate', plan: plan(own.length >= spec.calls ? own : ctx.rateBank, spec.calls, 0.6) };
     }
-    if (arg === 'repair-U4' || arg === 'repair-U5' || arg === 'repair-U6') {
+    if (arg === 'repair-U4' || arg === 'repair-U5' || arg === 'repair-U6' || arg === 'repair-U7' || arg === 'repair-U8' || arg === 'repair-U9') {
       const unit = arg.slice(7);
       const st = problemGateState(ctx, unit);
       if (!st.needsRepair) return null;
       const spec = PB.problemRepairOf(unit, cfg);
+      if (KN.isChoiceUnit(unit)) return { mode: 'drill', unit, family: unit === 'U7' ? 'counter' : unit === 'U8' ? 'luck' : 'act', size: spec.calls, repair: st.lastFailed.id, drill: spec, plan: PB.planProblems({ bank: ctx.knowBank(KN.examFamilies(unit, cfg)), events, size: spec.calls, reseenDays: P.choice.reseen_days, rng, capShare: 0.5 }) };
       if (unit === 'U6') return { mode: 'drill', unit, family: 'update', size: spec.calls, repair: st.lastFailed.id, drill: spec, plan: PB.planStreams({ bank: ctx.updateBank, events, steps: spec.calls, reseenDays: P.update.reseen_days, rng }) };
       return { mode: 'drill', unit, family: spec.kind, size: spec.calls, repair: st.lastFailed.id, drill: spec, plan: plan(unit === 'U4' ? ctx.fermiBank : ctx.rateBank, spec.calls, unit === 'U4' ? 0.3 : 0.6) };
     }
-    if (arg === 'exam-U4' || arg === 'exam-U5' || arg === 'exam-U6') {
+    if (arg === 'exam-U4' || arg === 'exam-U5' || arg === 'exam-U6' || arg === 'exam-U7' || arg === 'exam-U8' || arg === 'exam-U9') {
       const unit = arg.slice(5);
       let st = problemGateState(ctx, unit);
       let attempt = st.running;
@@ -72,8 +76,14 @@ export async function problemScreen(ctx, root, token, arg) {
       }
       const size = PB.sittingSize(st, cfg);
       const per = PB.examSitting(unit, cfg);
-      const drawn = unit === 'U6' ? PB.planUpdateExam({ bank: ctx.updateExamBank, events: store.events, size: per, total: size, rng }) : PB.planProblemExam({ bank: unit === 'U4' ? ctx.fermiExamBank : ctx.rateExamBank, events: store.events, unit, size: per, total: size, rng });
-      return { mode: 'exam', unit, family: unit === 'U4' ? 'fermi' : unit === 'U6' ? 'update' : 'rate', size, exam: attempt.id, n: Math.floor(st.done / per) + 1, of: Math.ceil(st.total / per), plan: drawn.sittings[0] || [] };
+      const drawn = KN.isChoiceUnit(unit) ? PB.planProblemExam({ bank: ctx.knowBank(KN.examFamilies(unit, cfg), 'exam'), events: store.events, unit, size: per, total: size, rng }) : unit === 'U6' ? PB.planUpdateExam({ bank: ctx.updateExamBank, events: store.events, size: per, total: size, rng }) : PB.planProblemExam({ bank: unit === 'U4' ? ctx.fermiExamBank : ctx.rateExamBank, events: store.events, unit, size: per, total: size, rng });
+      return { mode: 'exam', unit, family: KN.isChoiceUnit(unit) ? KN.examFamilies(unit, cfg)[0] : unit === 'U4' ? 'fermi' : unit === 'U6' ? 'update' : 'rate', size, exam: attempt.id, n: Math.floor(st.done / per) + 1, of: Math.ceil(st.total / per), plan: drawn.sittings[0] || [] };
+    }
+    if (CHOICE_FROM_ARG[arg]) {
+      const unit = CHOICE_FROM_ARG[arg];
+      if (!problemGateState(ctx, unit).open) return null;
+      const fams = KN.practiceFamilies(unit, cfg);
+      return { mode: 'practice', unit, family: fams[0], size: P.choice.session_size, plan: PB.planProblems({ bank: ctx.knowBank(fams), events, size: P.choice.session_size, reseenDays: P.choice.reseen_days, rng, capShare: fams.length > 2 ? 0.5 : 0.6 }) };
     }
     if (arg === 'update') {
       if (!problemGateState(ctx, 'U6').open) return null;
@@ -112,7 +122,7 @@ export async function problemScreen(ctx, root, token, arg) {
     if (!id) { await finish(sess); return; }
     if (!ctx.alive(token)) return;
     const q = ctx.problemById(id);
-    if (q.parts) renderFermi(sess, q); else if (q.type === 'class') renderClass(sess, q); else if (q.type === 'update') renderUpdate(sess, q); else renderPercent(sess, q);
+    if (q.parts) renderFermi(sess, q); else if (q.type === 'class') renderClass(sess, q); else if (q.type === 'update') renderUpdate(sess, q); else if (q.type === 'choice') renderChoice(sess, q); else renderPercent(sess, q);
   }
 
   async function finish(sess) {
@@ -133,7 +143,7 @@ export async function problemScreen(ctx, root, token, arg) {
   const tags = (sess, q) => h('div', { class: 'tags' }, h('span', { class: 'tag' }, KIND_NAMES[q.kind] || q.kind), h('span', { class: 'tag', id: 'mode-tag' }, tagFor(sess)));
   const sourceRow = (q) => (/^https?:/.test(q.source) ? h('a', { class: 'link', href: q.source, target: '_blank', rel: 'noopener noreferrer' }, `Source: ${q.src_name || 'link'} ↗`) : null);
   const answerCard = (q) => h('section', { class: 'card answer' },
-    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'The answer'), h('span', { class: 'cap' }, q.verified === 'sourced' ? `Checked ${q.checked}` : 'From the record')),
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'The answer'), h('span', { class: 'cap' }, q.verified === 'sourced' ? `Checked ${q.checked}` : q.verified === 'computed' ? 'Worked out' : 'From the record')),
     h('p', null, q.fact), q.why ? h('p', { class: 'muted' }, q.why) : null, sourceRow(q));
   function revealFoot(sess, q, index) {
     const flagBtn = h('button', { class: 'ghost', type: 'button', id: 'flag' }, 'Flag this question as disputed');
@@ -149,7 +159,7 @@ export async function problemScreen(ctx, root, token, arg) {
 
   async function lock(sess, q, fields, shownAt) {
     const ev = R.makeEvent('prob', {
-      session: sess.id, mode: sess.mode, unit: sess.unit, family: q.parts ? 'fermi' : q.type, exam: sess.mode === 'exam' ? sess.exam : undefined,
+      session: sess.id, mode: sess.mode, unit: sess.unit, family: q.parts ? 'fermi' : q.type === 'choice' ? q.family : q.type, exam: sess.mode === 'exam' ? sess.exam : undefined,
       q: q.id, kind: q.kind, domain: q.domain, jdomain: q.jdomain, ms: Math.min(1800000, Date.now() - shownAt), ...fields,
     });
     await store.append(ev);
@@ -349,6 +359,40 @@ export async function problemScreen(ctx, root, token, arg) {
       answerCard(q), revealFoot(sess, q, index)));
   }
 
+  // ---- Units 7 to 9: a choice problem: a situation, a question and a few options, one of them right. The right one is worked out from the numbers on the item ----------
+  function renderChoice(sess, q) {
+    const index = sess.probs.length + 1;
+    const shownAt = Date.now();
+    let picked = null;
+    const lockBtn = h('button', { class: 'btn', type: 'button', id: 'lock', disabled: true }, 'Lock in');
+    const buttons = q.options.map((text, i) => {
+      const b = h('button', { class: 'choice', type: 'button', id: `choice-${i}`, 'aria-pressed': 'false' }, h('span', { class: 't' }, text));
+      b.addEventListener('click', () => { picked = i; buttons.forEach((x, j) => { x.setAttribute('aria-pressed', String(j === i)); x.classList.toggle('on', j === i); }); lockBtn.disabled = false; });
+      return b;
+    });
+    const armedAt = Date.now() + guardMs;
+    lockBtn.addEventListener('click', async () => {
+      if (Date.now() < armedAt || lockBtn.disabled || picked === null) return;
+      lockBtn.disabled = true;
+      const sc = KN.scoreChoice(q, picked, cfg);
+      const ev = await lock(sess, q, { choice: sc.choice, right: sc.right, hit: sc.hit, points: sc.points, claim: q.lead }, shownAt);
+      if (ev) renderChoiceReveal(sess, q, ev);
+    });
+    mount(focusFrame(header(sess, index),
+      h('section', null, tags(sess, q), h('p', { class: q.lead.length > 150 ? 'claim long' : 'claim', id: 'claim' }, h('span', { class: 'lead' }, q.lead))),
+      h('section', { class: 'card stack', id: 'choice-entry' }, h('p', { class: 'prose-s' }, q.ask), h('div', { class: 'choices', id: 'choices' }, buttons)),
+      h('div', { class: 'foot' }, h('span', { class: 'cap' }, sess.mode === 'exam' ? 'Sealed: no result until the last problem. A lock is final.' : 'A lock is final.'), lockBtn)));
+  }
+
+  function renderChoiceReveal(sess, q, ev) {
+    const index = sess.probs.length + 1;
+    const rows = q.options.map((text, i) => h('li', { class: i === q.right ? 'right' : '' }, h('div', { class: 't' }, h('span', null, text)), h('span', { class: `m${i === ev.choice && i !== q.right ? ' bad' : ''}` }, i === q.right ? 'right' : i === ev.choice ? 'your pick' : '')));
+    mount(focusFrame(header(sess, index, index),
+      h('section', { class: 'card' }, tags(sess, q), h('p', { class: 'claim long' }, h('span', { class: 'lead' }, q.lead)), h('p', { class: 'muted' }, q.ask), resultRow(ev.hit, ev.points, 'Right', 'Another answer')),
+      h('section', { class: 'card' }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'The options')), h('ul', { class: 'rows', id: 'choice-rows' }, rows)),
+      answerCard(q), revealFoot(sess, q, index)));
+  }
+
   // ---- reference-class ladders -----------------------------------------------------------------------------------------------------
   function renderClass(sess, q) {
     const index = sess.probs.length + 1;
@@ -402,7 +446,7 @@ export function problemSummaryScreen(ctx, id) {
   const title = sess.mode === 'drill' ? (sess.flag ? 'Drill' : 'Repair drill') : `${FAMILY_NAMES[sess.family] || 'Problems'} session`;
   const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
   const guard = (e) => { if (Date.now() < armedAt) e.preventDefault(); };
-  const again = sess.family === 'fermi' ? '#/prob/fermi' : sess.family === 'chain' ? '#/prob/chain' : sess.family === 'update' ? '#/prob/update' : '#/prob/rate';
+  const again = KN.isChoiceUnit(sess.unit) ? `#/prob/${CHOICE_ROUTE[sess.unit]}` : sess.family === 'fermi' ? '#/prob/fermi' : sess.family === 'chain' ? '#/prob/chain' : sess.family === 'update' ? '#/prob/update' : '#/prob/rate';
   const primary = h('a', { class: 'btn', href: '#/today' }, 'Back to Today');
   const secondary = sess.mode === 'drill' ? h('a', { class: 'ghost', href: sess.repair ? '#/path' : '#/today' }, sess.repair ? 'Back to Path' : 'Back to Today') : h('a', { class: 'ghost', href: again }, 'Start another session');
   primary.addEventListener('click', guard); secondary.addEventListener('click', guard);
@@ -412,16 +456,16 @@ export function problemSummaryScreen(ctx, id) {
       : chain ? h('section', { class: 'card stack', id: 'drill-next' }, h('span', { class: 'eyebrow' }, `What happens next · ${flagName(ctx, chain.trigger)}`), h('p', null, retestText(chain, ctx.cfg))) : null;
   const rows = ps.map((r) => {
     const q = ctx.problemById(r.q);
-    const what = r.family === 'update' ? `You said ${pctText(r.guess)} · before ${pctText(r.prior)} · truth ${pctText(r.truth)}` : r.family === 'fermi' ? `${q ? fmt(q, r.low) : r.low} to ${q ? fmt(q, r.high) : r.high} · truth ${q ? fmt(q, r.truth) : r.truth}` : r.family === 'class' ? (r.hit ? 'the right group' : 'another group') : `You said ${pctText(r.guess)} · truth ${pctText(r.truth)}`;
+    const what = r.family === 'update' ? `You said ${pctText(r.guess)} · before ${pctText(r.prior)} · truth ${pctText(r.truth)}` : r.family === 'fermi' ? `${q ? fmt(q, r.low) : r.low} to ${q ? fmt(q, r.high) : r.high} · truth ${q ? fmt(q, r.truth) : r.truth}` : r.family === 'class' ? (r.hit ? 'the right group' : 'another group') : KN.isChoiceUnit(r.unit) ? (r.hit ? 'the right answer' : 'another answer') : `You said ${pctText(r.guess)} · truth ${pctText(r.truth)}`;
     return h('li', null, h('div', { class: 't' }, h('span', null, `${KIND_NAMES[r.kind] || r.kind}: ${r.family === 'update' && r.news ? r.news : r.claim}`), h('em', null, `${what} · ${r.hit ? (r.family === 'fermi' ? 'inside' : 'good') : (r.family === 'fermi' ? 'outside' : 'off')}`)),
       h('span', { class: `m num${r.points < 0 ? ' bad' : ''}` }, signed(r.points)));
   });
-  const word = sess.family === 'fermi' ? 'held the truth' : sess.family === 'class' ? 'picked the right group' : 'were within 7 points';
+  const word = KN.isChoiceUnit(sess.unit) ? 'were right' : sess.family === 'fermi' ? 'held the truth' : sess.family === 'class' ? 'picked the right group' : 'were within 7 points';
   return focusFrame({ title: 'Session done', closeLabel: 'Back to Today' },
     h('section', null, h('div', { class: 'eyebrow' }, title), h('p', { class: 'claim', style: 'font-size:24px', id: 'ps-head' }, `${hits} of ${ps.length} ${word}.`)),
     h('section', { class: 'sumgrid' },
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Points'), h('b', { class: 'num', id: 'sum-points' }, signed(points)), h('span', { class: 'cap' }, `${ps.length} problems`)),
-      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, sess.family === 'fermi' ? 'Inside' : 'Good'), h('b', { class: 'num', id: 'sum-hits' }, `${hits} of ${ps.length}`), h('span', { class: 'cap' }, sess.family === 'fermi' ? 'a true 90% range holds about 9 in 10' : 'within 7 points, or the right group'))),
+      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, sess.family === 'fermi' ? 'Inside' : 'Good'), h('b', { class: 'num', id: 'sum-hits' }, `${hits} of ${ps.length}`), h('span', { class: 'cap' }, sess.family === 'fermi' ? 'a true 90% range holds about 9 in 10' : KN.isChoiceUnit(sess.unit) ? 'the right option' : 'within 7 points, or the right group'))),
     next,
     h('section', { class: 'card' }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your answers'), h('span', { class: 'cap' }, `${ps.length} problems`)), h('ul', { class: 'rows', id: 'rows' }, rows)),
     h('div', { class: 'foot' }, primary, secondary));
@@ -436,10 +480,14 @@ export function problemReasons(unit, result, cfg) {
     if (unit === 'U4' && r === 'factor') out.push(`The median miss was a factor of ${Number(result.medianMiss).toFixed(1)}; the pass line is a factor of ${g.fermi_median_factor}. The middle of your ranges sat too far from the truth: check which part is carrying the error.`);
     if (unit === 'U5' && r === 'within') out.push(`${result.hits} of ${result.n} answers were within ${cfg.problems.rate.tolerance} points; ${g.rate_pass_within} are needed. Your answers ran ${result.dir === 'too high' ? 'high' : 'low'} on average (${Number(result.bias).toFixed(1)} points). Start from how often it happens to cases like it, then adjust.`);
     if (unit === 'U6' && r === 'within') out.push(`${result.hits} of ${result.n} new numbers were within ${cfg.problems.update.tolerance} points of the true rate; ${g.update_pass_within} are needed. Your numbers ran ${result.dir === 'too high' ? 'high' : 'low'} on average (${Number(result.bias).toFixed(1)} points).`);
+    if (KN.isChoiceUnit(unit) && r === 'right') out.push(`${result.hits} of ${result.n} answers were right; ${result.need} are needed. ${unit === 'U7' ? 'Look for the argument that is specific, bears on the claim and is not already in your forecast.' : unit === 'U8' ? 'Judge the decision by what the person knew and how they reasoned, not by how it turned out.' : 'Work out the break-even first: the loss over the total at stake.'}`);
+    if (unit === 'U8' && r === 'memory') out.push(`Your memory of your own forecasts drifted ${Math.abs(Number(result.memoryDrift) * 100).toFixed(1)} points ${Number(result.memoryDrift) > 0 ? 'toward what happened' : 'away from what happened'} on average; the gate allows ${cfg.gates.memory_drift_max * 100} points either way. The record is the record: write the number before you look, and check it afterwards.`);
     if (unit === 'U6' && r === 'gain') out.push(`On average your moves ended ${Math.abs(Number(result.meanGain)).toFixed(1)} points further from the truth than staying at the prior would have. News is worth a move only as far as the group's own record goes: look at how much narrowing the case changes the share, not how vivid the detail is.`);
   }
   return out;
 }
+
+const memoryDone = (ctx) => KN.memoryObs(ctx.store.events, R.predictionsOf(ctx.store.events, R.localDay())).length;
 
 export function problemExamCard(ctx, unit) {
   const st = problemGateState(ctx, unit);
@@ -448,8 +496,8 @@ export function problemExamCard(ctx, unit) {
   const size = PB.examSitting(unit, cfg);
   const U = unitRow(ctx, unit);
   const attempts = st.attempts.filter((a) => a.result);
-  const noun = unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : 'base-rate problems';
-  const rule = unit === 'U4' ? `${cfg.gates.fermi_pass_hits} of ${st.total} worksheet ranges must hold the truth, and the median miss must be within a factor of ${cfg.gates.fermi_median_factor}` : unit === 'U6' ? `${cfg.gates.update_pass_within} of ${st.total} new numbers must be within ${cfg.problems.update.tolerance} points, and on average your moves must not lose ground against staying at the prior` : `${cfg.gates.rate_pass_within} of ${st.total} answers must be within ${cfg.problems.rate.tolerance} points`;
+  const noun = unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : unit === 'U7' ? 'counter-argument problems' : unit === 'U8' ? 'luck-or-judgment cases' : unit === 'U9' ? 'decision problems' : 'base-rate problems';
+  const rule = KN.isChoiceUnit(unit) ? `${cfg.gates[`${KN.CHOICE_UNITS[unit]}_pass_right`]} of ${st.total} must be right${unit === 'U8' ? `, and your memory of your own forecasts must be within ${cfg.gates.memory_drift_max * 100} points over the last ${cfg.gates.memory_window} checks` : ''}` : unit === 'U4' ? `${cfg.gates.fermi_pass_hits} of ${st.total} worksheet ranges must hold the truth, and the median miss must be within a factor of ${cfg.gates.fermi_median_factor}` : unit === 'U6' ? `${cfg.gates.update_pass_within} of ${st.total} new numbers must be within ${cfg.problems.update.tolerance} points, and on average your moves must not lose ground against staying at the prior` : `${cfg.gates.rate_pass_within} of ${st.total} answers must be within ${cfg.problems.rate.tolerance} points`;
   let status, body, action = null;
   if (st.passed) {
     status = 'Passed';
@@ -470,7 +518,7 @@ export function problemExamCard(ctx, unit) {
     action = h('a', { class: 'btn', href: `#/prob/exam-${unit}`, id: `pgate-${unit}-start` }, attempts.length ? 'Start a new exam' : 'Start the exam');
   } else {
     status = 'Not open yet';
-    body = [h('p', null, `It opens after ${U.practice_calls} practice ${unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : 'problems'}. You have done ${st.practice} so far.`)];
+    body = [h('p', null, `It opens after ${U.practice_calls} practice ${unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : 'problems'}${unit === 'U8' ? ` and ${cfg.gates.memory_min_checks} memory checks` : ''}. You have done ${st.practice}${unit === 'U8' ? ` and ${memoryDone(ctx)}` : ''} so far.`)];
   }
   return h('section', { class: 'card stack', id: `pgate-${unit}-card` },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `Unit ${unit.slice(1)} exam`), h('span', { class: `chip${st.passed ? ' on' : ''}`, id: `pgate-${unit}-status` }, status)),
@@ -479,7 +527,7 @@ export function problemExamCard(ctx, unit) {
 }
 
 export async function problemExamScreen(ctx, id) {
-  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === id && (a.unit === 'U4' || a.unit === 'U5' || a.unit === 'U6'));
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === id && ['U4', 'U5', 'U6', 'U7', 'U8', 'U9'].includes(a.unit));
   if (!attempt) { ctx.nav('#/path'); return document.createTextNode(''); }
   const unit = attempt.unit;
   if (!attempt.result) await judgeProblemExam(ctx, id);
@@ -499,7 +547,10 @@ export async function problemExamScreen(ctx, id) {
   const r = now.result;
   const reasons = problemReasons(unit, r, cfg);
   const fixTo = r.pass ? '#/path' : `#/prob/repair-${unit}`;
-  const stat3 = unit === 'U4'
+  const stat3 = unit === 'U8'
+    ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Memory drift'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.memoryDrift === 'number' ? `${r.memoryDrift >= 0 ? '+' : ''}${(r.memoryDrift * 100).toFixed(1)} pts` : '–'), h('span', { class: 'cap' }, `pass line within ${cfg.gates.memory_drift_max * 100} either way`))
+    : KN.isChoiceUnit(unit) ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Right'), h('b', { class: 'num', id: 'pexam-miss' }, `${Math.round((r.hits / r.n) * 100)}%`), h('span', { class: 'cap' }, `${r.hits} of ${r.n}`))
+    : unit === 'U4'
     ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Median miss'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.medianMiss === 'number' ? `${r.medianMiss.toFixed(1)}×` : '–'), h('span', { class: 'cap' }, `pass line ${cfg.gates.fermi_median_factor}×`))
     : unit === 'U6' ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Average gain'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.meanGain === 'number' ? `${r.meanGain >= 0 ? '+' : ''}${r.meanGain.toFixed(1)} pts` : '–'), h('span', { class: 'cap' }, `pass line ${cfg.gates.update_gain_min} or more`))
     : h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Average miss'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.meanMiss === 'number' ? `${r.meanMiss.toFixed(1)} pts` : '–'), h('span', { class: 'cap' }, 'percentage points'));
@@ -507,9 +558,9 @@ export async function problemExamScreen(ctx, id) {
     h('section', null, h('div', { class: 'eyebrow' }, `Unit ${unit.slice(1)} exam`), h('h1', { class: 'title', id: 'pexam-verdict' }, r.pass ? 'Passed' : 'Not passed this time')),
     h('section', { class: 'sumgrid' },
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Problems'), h('b', { class: 'num', id: 'pexam-n' }, String(r.n))),
-      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, unit === 'U4' ? 'Held the truth' : 'Within 7'), h('b', { class: 'num', id: 'pexam-hits' }, `${r.hits}`), h('span', { class: 'cap' }, `pass line ${unit === 'U4' ? cfg.gates.fermi_pass_hits : unit === 'U6' ? cfg.gates.update_pass_within : cfg.gates.rate_pass_within}`)),
+      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, KN.isChoiceUnit(unit) ? 'Right' : unit === 'U4' ? 'Held the truth' : 'Within 7'), h('b', { class: 'num', id: 'pexam-hits' }, `${r.hits}`), h('span', { class: 'cap' }, `pass line ${KN.isChoiceUnit(unit) ? cfg.gates[`${KN.CHOICE_UNITS[unit]}_pass_right`] : unit === 'U4' ? cfg.gates.fermi_pass_hits : unit === 'U6' ? cfg.gates.update_pass_within : cfg.gates.rate_pass_within}`)),
       stat3),
-    r.pass ? h('section', { class: 'card stack' }, h('p', null, unit === 'U4' ? `Across ${r.n} fresh problems, ${r.hits} worksheet ranges held the truth. Breaking it down works for you. Unit 4 is done, and Unit 5 is open.` : (unit === 'U6' ? `Across ${r.n} fresh steps, ${r.hits} new numbers were within ${cfg.problems.update.tolerance} points and your moves gained ${Number(r.meanGain).toFixed(1)} points on average over staying put. You move as far as the evidence is worth. Unit 6 is done.` : `Across ${r.n} fresh problems, ${r.hits} answers were within ${cfg.problems.rate.tolerance} points. You start outside. Unit 5 is done.`)))
+    r.pass ? h('section', { class: 'card stack' }, h('p', null, unit === 'U7' ? `Across ${r.n} fresh problems you picked the strongest counter-argument ${r.hits} times. You can argue against yourself. Unit 7 is done, and Unit 8 is open.` : unit === 'U8' ? `${r.hits} of ${r.n} cases called right, and your memory of your own forecasts stayed within ${cfg.gates.memory_drift_max * 100} points. You keep the record honest. Unit 8 is done, and Unit 9 is open.` : unit === 'U9' ? `${r.hits} of ${r.n} decision problems right. You can turn a forecast into a choice. Unit 9 is done.` : unit === 'U4' ? `Across ${r.n} fresh problems, ${r.hits} worksheet ranges held the truth. Breaking it down works for you. Unit 4 is done, and Unit 5 is open.` : (unit === 'U6' ? `Across ${r.n} fresh steps, ${r.hits} new numbers were within ${cfg.problems.update.tolerance} points and your moves gained ${Number(r.meanGain).toFixed(1)} points on average over staying put. You move as far as the evidence is worth. Unit 6 is done.` : `Across ${r.n} fresh problems, ${r.hits} answers were within ${cfg.problems.rate.tolerance} points. You start outside. Unit 5 is done.`)))
       : h('section', { class: 'card stack', id: 'pexam-reasons' }, h('span', { class: 'eyebrow' }, 'Why not'), ...reasons.map((t) => h('p', null, t)), h('p', { class: 'muted' }, `The repair drill is ${PB.problemRepairOf(unit, cfg).calls} problems of the same kind.`)),
     h('p', { class: 'cap' }, 'These answers are now part of your record: the Mirror reads them.'),
     h('div', { class: 'foot' }, h('a', { class: 'btn', href: fixTo, id: 'pexam-after' }, r.pass ? 'Back to Path' : 'Start the repair drill'), r.pass ? null : h('a', { class: 'ghost', href: '#/path' }, 'Back to Path')));
@@ -520,17 +571,17 @@ export function problemsTodayCards(ctx) {
   const events = ctx.store.events;
   const active = PB.activePSession(events);
   const cards = [];
-  for (const unit of ['U4', 'U5', 'U6']) {
+  for (const unit of ['U4', 'U5', 'U6', 'U7', 'U8', 'U9']) {
     const st = problemGateState(ctx, unit);
     if (!st.open) continue;
-    const route = unit === 'U4' ? '#/prob/fermi' : unit === 'U6' ? '#/prob/update' : '#/prob/rate';
+    const route = KN.isChoiceUnit(unit) ? `#/prob/${CHOICE_ROUTE[unit]}` : unit === 'U4' ? '#/prob/fermi' : unit === 'U6' ? '#/prob/update' : '#/prob/rate';
     const resume = active && active.unit === unit;
     const U = unitRow(ctx, unit);
-    const line = resume ? `Resume: ${active.probs.length} of ${active.size} done · ${probModeLabel(active)}` : unit === 'U4' ? `${ctx.cfg.problems.fermi.session_size} Fermi problems · practice ${st.practice} of ${U.practice_calls} so far` : unit === 'U6' ? `${ctx.cfg.problems.update.session_size} update steps · practice ${st.practice} of ${U.practice_calls} so far` : `${ctx.cfg.problems.rate.session_size} base-rate problems · practice ${st.practice} of ${U.practice_calls} so far`;
+    const line = resume ? `Resume: ${active.probs.length} of ${active.size} done · ${probModeLabel(active)}` : KN.isChoiceUnit(unit) ? `${ctx.cfg.problems.choice.session_size} ${unit === 'U7' ? 'counter-argument' : unit === 'U8' ? 'luck-or-judgment' : 'decision'} problems · practice ${st.practice} of ${U.practice_calls} so far` : unit === 'U4' ? `${ctx.cfg.problems.fermi.session_size} Fermi problems · practice ${st.practice} of ${U.practice_calls} so far` : unit === 'U6' ? `${ctx.cfg.problems.update.session_size} update steps · practice ${st.practice} of ${U.practice_calls} so far` : `${ctx.cfg.problems.rate.session_size} base-rate problems · practice ${st.practice} of ${U.practice_calls} so far`;
     cards.push(h('section', { class: 'card stack', id: `${unit.toLowerCase()}-card` },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, UNIT_NAMES[unit]), h('span', { class: 'cap' }, st.passed ? 'Passed' : 'Optional extra session')),
       h('p', { id: `${unit.toLowerCase()}-line` }, line),
-      h('a', { class: 'ghost', href: resume && active.mode === 'exam' ? `#/prob/exam-${unit}` : route, id: `${unit.toLowerCase()}-start` }, resume ? 'Resume' : unit === 'U4' ? 'Start Fermi problems' : unit === 'U6' ? 'Start updating' : 'Start base rates')));
+      h('a', { class: 'ghost', href: resume && active.mode === 'exam' ? `#/prob/exam-${unit}` : route, id: `${unit.toLowerCase()}-start` }, resume ? 'Resume' : KN.isChoiceUnit(unit) ? (unit === 'U7' ? 'Start second opinions' : unit === 'U8' ? 'Start luck or judgment' : 'Start decisions') : unit === 'U4' ? 'Start Fermi problems' : unit === 'U6' ? 'Start updating' : 'Start base rates')));
   }
   return cards;
 }
