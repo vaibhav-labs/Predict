@@ -219,19 +219,27 @@ def pol_fence(share=0.4):
 def lesson_player(kind, seed=11, days=60, start="2026-09-01"):
     r = Rec(seed)
     mid = {"calibrated": [("calibrated", days)], "over_fixed": [("over", 9), ("calibrated", days)], "over_stuck": [("over", days)],
-           "under": [("under", days)], "fence": [("fence", days)], "busy": [("busy", days)]}
-    pols = {"calibrated": pol_calibrated, "over": pol_over(), "under": pol_under(), "fence": pol_fence(), "busy": None}
+           "under": [("under", days)], "fence": [("fence", days)], "busy": [("busy_two", 14), ("busy_three", days)]}
+    pols = {"calibrated": pol_calibrated, "over": pol_over(), "under": pol_under(), "fence": pol_fence(), "busy_two": None, "busy_three": None}
 
-    def busy(i, rng):  # top band too sure, mid band too shy and a fence at 50%, all at once
+    def busy_two(i, rng):  # top band too sure and mid band too shy
         x = rng.random()
-        if x < 0.25:
+        if x < 0.28:
             return rng.choice([0.9, 0.95, 0.99]), 0.74
-        if x < 0.55:
+        if x < 0.62:
             return rng.choice([0.6, 0.65, 0.7, 0.75, 0.8]), 0.92
-        if x < 0.8:
+        return 0.85, 0.85
+
+    def busy_three(i, rng):  # the same two, and from the third week a fence at 50% on two calls in five (so the third pattern arrives while two are in repair)
+        x = rng.random()
+        if x < 0.22:
+            return rng.choice([0.9, 0.95, 0.99]), 0.74
+        if x < 0.5:
+            return rng.choice([0.6, 0.65, 0.7, 0.75, 0.8]), 0.92
+        if x < 0.9:
             return rng.choice([0.5, 0.55]), 0.75
         return 0.85, 0.85
-    pols["busy"] = busy
+    pols["busy_two"], pols["busy_three"] = busy_two, busy_three
     plan = mid[kind]
     for k in range(days):
         day = add_days(start, k)

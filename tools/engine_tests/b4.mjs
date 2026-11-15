@@ -23,14 +23,17 @@ const stamp = () => `${String(Math.floor(seq / 60) % 24).padStart(2, '0')}:${Str
 const call = (d, c, hit, extra = {}) => { seq += 1; return { id: `c${String(seq).padStart(6, '0')}`, t: `${d}T08:${String(seq % 60).padStart(2, '0')}:${String(Math.floor(seq / 60) % 60).padStart(2, '0')}.${String(seq % 1000).padStart(3, '0')}Z`, d, type: 'call', mode: 'practice', c, hit, side: 'yes', points: 0, q: `q${seq}`, ...extra }; };
 const at = (d, hhmm, fields) => { seq += 1; return { id: `e${String(seq).padStart(6, '0')}`, t: `${d}T${hhmm}:00.000Z`, d, ...fields }; };
 const predictions = (events, today) => R.predictionsOf(events, today);
-const evalAt = (events, today) => LE.evaluate(events, { today, cfg, predictions: predictions(events, today) });
+const evalAll = (events, today) => LE.evaluate(events, { today, cfg, predictions: predictions(events, today) });
+// The pattern lessons only. The hand-built records below skip days on purpose to keep them short, and a skipped day is missed
+// days' (L15) business, which the tests on missed days and the limits cover on their own.
+const evalAt = (events, today) => ({ append: evalAll(events, today).append.filter((f) => f.trigger !== 'L15') });
 // Apply what evaluate says, the way the app does: each result becomes a flag event written at `hhmm` of `today`.
-function apply(events, today, hhmm = '21:00') {
-  const { append } = evalAt(events, today);
-  const made = append.map((f) => at(today, hhmm, { ...f }));
+const applyWith = (look) => (events, today, hhmm = '21:00') => {
+  const made = look(events, today).append.map((f) => at(today, hhmm, { ...f }));
   events.push(...made);
   return made;
-}
+};
+const apply = applyWith(evalAt), applyAll = applyWith(evalAll);
 // n calls on a day at confidence c, `hits` of them right (the first ones)
 const batch = (d, n, c, hits, extra) => Array.from({ length: n }, (_, i) => call(d, c, i < hits, extra));
 // A repeating mix of calls: spec = [{ c, pattern: '1110111011' }], one cycle after another, so every group's rate is exact.
@@ -62,7 +65,7 @@ test('the walk: the app and the independent reference agree on every flag, for e
     ['lesson_player("over_stuck", seed=10, days=60)', '2026-10-30', 'over and stays over'],
     ['lesson_player("under", seed=10, days=60)', '2026-10-30', 'under'],
     ['lesson_player("fence", seed=10, days=60)', '2026-10-30', 'fence'],
-    ['lesson_player("busy", seed=12, days=60)', '2026-10-30', 'three patterns at once'],
+    ['lesson_player("busy", seed=12, days=60)', '2026-10-30', 'three patterns, the third late'],
     ['soft_player(seed=5, days=40)', '2026-10-10', 'vague claims'],
     ['missed_player(seed=10)', '2026-10-15', 'missed days'],
   ];
@@ -80,13 +83,19 @@ test('the walk: the app and the independent reference agree on every flag, for e
   assert.deepEqual(seen.fence.slice(0, 1), ['1:L03:open']);
   assert.deepEqual(seen['vague claims'], ['1:L04:open', '1:L04:retest1+', '1:L04:retest2+']);
   assert.deepEqual(seen['missed days'], ['1:L15:open', '1:L15:cleared', '2:L15:open', '2:L15:cleared']);
-  // Three patterns at once: the strongest first, the next one on another day, and the third waits for a place in repair.
-  const busy = scenario('lesson_player("busy", seed=12, days=60)', '2026-10-30').out;
-  const opens = busy.filter((x) => x.state === 'open');
-  assert.deepEqual(opens.map((x) => x.trigger), ['L01', 'L02', 'L03'], 'strongest standardized gap first');
-  assert.ok(opens[0].day < opens[1].day && opens[1].day < opens[2].day, 'at most one new pattern lesson a day');
-  const escalatedBeforeThird = busy.filter((x) => x.state === 'retest' && !x.passed && x.day === opens[2].day && x.at === opens[2].at);
-  assert.ok(escalatedBeforeThird.length >= 1, 'the third pattern opened in the very look where one of the two in repair went to the review');
+  // Three patterns: two from the start and a third from the third week. The third qualifies while two are in repair, waits, and
+  // opens when a place is free. (The order by standardized gap is checked on a hand-built record in the limits test.)
+  const busy = scenario('lesson_player("busy", seed=12, days=60)', '2026-10-30');
+  const opens = busy.out.filter((x) => x.state === 'open');
+  assert.deepEqual(opens.map((x) => x.trigger).sort(), ['L01', 'L02', 'L03']);
+  assert.equal(new Set(opens.map((x) => x.day)).size, 3, 'at most one new pattern lesson a day');
+  const inRepair = (list) => LE.flagsOf(list, cfg).filter((c) => c.trigger !== 'L15' && LE.ACTIVE.has(c.state)).length;
+  const third = busy.log.find((e) => e.type === 'flag' && e.state === 'open' && e.trigger === 'L03');
+  const qualifiedDay = [...new Set(busy.events.map((e) => e.d))].sort()
+    .find((d) => LE.TRIGGERS.L03.fire({ calls: LE.naturalCalls(busy.events.filter((e) => e.d <= d), cfg), t: L.triggers.L03 }, ''));
+  assert.ok(qualifiedDay && qualifiedDay < third.d, `the fence qualified on ${qualifiedDay} and opened on ${third.d}: it waited`);
+  assert.equal(inRepair(busy.log.filter((e) => e.d <= qualifiedDay)), 2, 'two patterns were in repair when it qualified');
+  assert.ok(inRepair(busy.log.slice(0, busy.log.indexOf(third))) <= 1, 'it opened once a place was free');
 });
 
 test('missed days: it opens when the player has missed two of the last seven, a day under the minimum breaks the run, five good days in a row clear it', () => {
@@ -209,23 +218,23 @@ test('limits: one new pattern a day, two in repair, missed days outside both; th
   const busy = cycles(D0, 30, [{ c: 0.95, n: 3, pattern: '1110111011' }, { c: 0.7, n: 3, pattern: '1111111110' }, { c: 0.5, n: 4, pattern: '11101' }]);
   const a = apply(busy, D0), b = apply(busy, day(D0, 1));
   assert.equal(a.length + b.length, 2);
-  const late = evalAt(busy, day(D0, 14)).append;
+  const late = evalAll(busy, day(D0, 14)).append;
   assert.deepEqual(late.map((e) => e.trigger), ['L15'], 'missed days opens although two patterns are in repair, and the third pattern still waits');
 });
 
 test('missed days is a habit flag: no lesson, no drill, and a day with calls but no card does not count toward the run', () => {
   const play = (d, n, withCard) => [...batch(d, n, 0.7, 5), ...(withCard ? [at(d, '09:00', { type: 'prediction', text: 'x', c: 0.6, b: 0.5, scored: true, due: d, flags: [], flagged: false })] : [])];
   const events = [...play(D0, 6, true), ...play(day(D0, 1), 6, true)];
-  const open = apply(events, day(D0, 4), '07:00');
+  const open = applyAll(events, day(D0, 4), '07:00');
   assert.deepEqual(open.map((e) => [e.state, e.trigger]), [['open', 'L15']], 'two days missed');
   const chain = LE.flagsOf(events, cfg)[0];
   assert.equal(chain.state, 'open'); assert.equal(chain.fires, 1);
   assert.equal(LE.waitingFor(chain, cfg), null, 'there is nothing to re-test');
   for (let k = 4; k < 9; k++) events.push(...play(day(D0, k), 5, k !== 6));   // day 6 has the calls and no card
-  assert.deepEqual(evalAt(events, day(D0, 8)).append, [], '4..8 would be five days, but day 6 has no prediction: the run restarts');
+  assert.deepEqual(evalAll(events, day(D0, 8)).append, [], '4..8 would be five days, but day 6 has no prediction: the run restarts');
   for (let k = 9; k < 12; k++) events.push(...play(day(D0, k), 5, true));
-  assert.deepEqual(evalAt(events, day(D0, 10)).append, [], 'days 7 to 10 are four good days');
-  assert.deepEqual(evalAt(events, day(D0, 11)).append.map((e) => [e.state]), [['cleared']], 'days 7 to 11 are five');
+  assert.deepEqual(evalAll(events, day(D0, 10)).append, [], 'days 7 to 10 are four good days');
+  assert.deepEqual(evalAll(events, day(D0, 11)).append.map((e) => [e.state]), [['cleared']], 'days 7 to 11 are five');
 });
 
 test('evaluate is idempotent: applying its answer and asking again at the same moment appends nothing', () => {
@@ -236,8 +245,8 @@ test('evaluate is idempotent: applying its answer and asking again at the same m
     for (const e of log) {
       half.push(e);
       if (days.indexOf(e.d) % 7 === 3) {
-        const made = apply(half, e.d);
-        assert.deepEqual(evalAt(half, e.d).append, [], `${builder} ${e.d}: second look`);
+        const made = applyAll(half, e.d);
+        assert.deepEqual(evalAll(half, e.d).append, [], `${builder} ${e.d}: second look`);
         void made;
       }
     }
