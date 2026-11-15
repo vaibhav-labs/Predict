@@ -124,7 +124,7 @@ bank_notes += [f"range bank: {n}" for n in range_notes]
 
 # 8. The Fermi bank and the Unit 5 bank (Block 7): every part, truth, reference interval, rung and chain worked out again from the records.
 import subprocess  # noqa: E402
-for _name, _script in (("fermi bank", "check_fermi.py"), ("outside-view bank", "check_rates.py"), ("updating bank", "check_updates.py"), ("know-yourself bank", "check_know.py")):
+for _name, _script in (("fermi bank", "check_fermi.py"), ("outside-view bank", "check_rates.py"), ("updating bank", "check_updates.py"), ("know-yourself bank", "check_know.py"), ("tail bank", "check_tails.py")):
     _r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), _script)], capture_output=True, text=True)
     if _r.returncode != 0:
         errors += [f"{_name}: {line}" for line in (_r.stdout + _r.stderr).strip().splitlines()[:20]]
