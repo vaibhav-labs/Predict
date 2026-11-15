@@ -87,7 +87,8 @@
         "min_reason_chars": 3,
         "large_move": 0.25,
         "reverse_days": 14,
-        "reverse_share": 0.5
+        "reverse_share": 0.5,
+        "cards_needed": 12
       }
     }
   },

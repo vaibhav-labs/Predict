@@ -52,6 +52,9 @@ function lensWhat(ctx, p) {
     lensHead(1, 'What happened', OUTCOME_LABEL[p.outcome]),
     h('p', null, `Locked ${p.d}, due ${p.due}, resolved ${p.resolvedAt ? R.localDay(new Date(p.resolvedAt)) : p.due}. You said ${pct(p.c)}.`),
     p.note ? h('p', null, p.note) : null,
+    p.updates && p.updates.length ? h('div', { class: 'stack', id: 'what-updates' }, h('span', { class: 'eyebrow' }, 'Your updates'),
+      h('ul', { class: 'rows' }, p.updates.map((u) => h('li', null, h('div', { class: 't' }, h('span', null, u.reason), h('em', null, `${u.d} · ${pct(u.prev)} to ${pct(u.c)}`)), h('span', { class: 'm num' }, `${u.c >= u.prev ? '+' : ''}${Math.round((u.c - u.prev) * 100)}`)))),
+      h('p', { class: 'cap' }, `Locked at ${pct(p.c)}, ended at ${pct(p.cNow)}.`)) : null,
     p.source ? h('div', { class: 'stack', id: 'what-source', style: 'gap:2px' }, h('span', { class: 'cap' }, `Checked ${p.checkedDay || ''} by Predict. Source:`), h('a', { class: 'srclink', href: p.source, rel: 'noopener noreferrer', target: '_blank' }, p.source)) : null,
     p.outcome === 'void' ? h('p', { class: 'lede' }, 'Void: this one scores nothing.') : null);
 }
@@ -68,6 +71,7 @@ function lensLuck(ctx, p, env) {
       : h('div', { class: 'sumgrid' },
         h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('b', { class: 'num' }, pct(p.b)), h('span', { class: 'cap' }, baselineCaption(p))),
         h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Your edge'), h('b', { class: `num${!p.scored || p.edge < 0 ? ' bad' : ''}` }, p.scored ? signed(p.edge) : 'Unscored'), h('span', { class: 'cap' }, p.scored ? `raw ${signed(p.raw)}` : 'extra prediction'))),
+    p.scored && typeof p.edge0 === 'number' && p.outcome !== 'void' ? h('p', { id: 'luck-updates' }, `Scored over ${p.days || 'its'} days at the number in force each day. The locked ${pct(p.c)} alone would have earned ${signed(p.edge0)}; with your updates the card earned ${signed(p.edge)}: ${p.edge - p.edge0 >= 0 ? 'your updates added' : 'your updates cost'} ${Math.abs(Math.round((p.edge - p.edge0) * 10) / 10)}.`) : null,
     read ? h('p', { id: 'luck-chance' }, `At the baseline (${pct(p.b)} for yes), what happened had a ${pct(read.chance)} chance${read.kind === 'luck' ? `: under ${pct(ctx.cfg.lessons.luck_rare_below)}, a rare outcome.` : '.'}`) : null,
     verdict ? h('p', { id: 'luck-verdict' }, h('b', null, verdict)) : null);
 }

@@ -4,6 +4,7 @@
 import { gateState, rangeGateState, problemGateState } from '../flags.js';
 import * as PB from '../engine/problem.js';
 import * as RS from '../engine/reasoning.js';
+import * as UP from '../engine/update.js';
 import * as RG from '../engine/range.js';
 import { KIND_NAMES } from './ranges.js';
 import { KIND_NAMES as PROB_KINDS } from './problems.js';
@@ -194,6 +195,10 @@ export function mirrorScreen(ctx) {
   const fd = PB.describeFermi(fermis, { thinBelow: cfg.thin_below, coverage: ctx.cfg.interval.coverage });
   const rtd = PB.describeRates(rates, { thinBelow: cfg.thin_below });
   const accepted = RS.acceptedBaseRates(predictions, ctx.cfg);
+  const updSteps = probs.filter((p) => p.family === 'update');
+  const ud = UP.describeUpdates(updSteps, { thinBelow: cfg.thin_below });
+  const uv = UP.updateValue(predictions);
+  const updatedCards = predictions.filter((p) => (p.updates || []).some((u) => String(u.reason || '').trim().length >= ctx.cfg.problems.update.update_rule.min_reason_chars)).length;
   const reasonCard = probs.length || predictions.length ? h('section', { class: 'card stack', id: 'reasoning-record' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Reasoning'), h('span', { class: 'cap num', id: 'rs-n' }, `n=${probs.length}`)),
     h('table', { class: 'tbl', id: 'rs-table' }, h('tbody', null,
@@ -202,6 +207,11 @@ export function mirrorScreen(ctx) {
       fd.directN ? row('Worksheet vs first guess', `${fd.worksheetHits} vs ${fd.directHits} held`, `of ${fd.directN} with a first guess`) : null,
       rates.length ? row('Base rates within 7', `${rtd.within} of ${rtd.n} (${pct(rtd.rate)})`, rtd.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
       rates.length ? row('Lean', `${rtd.bias > 0 ? '+' : rtd.bias < 0 ? '−' : ''}${Math.abs(rtd.bias).toFixed(1)} pts`, rtd.thin ? 'too few to say' : rtd.bias > 3 ? 'too high' : rtd.bias < -3 ? 'too low' : 'about even') : null,
+      updSteps.length ? row('Update steps within 7', `${ud.within} of ${ud.n} (${pct(ud.rate)})`, ud.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      updSteps.length ? row('Gain over staying put', `${ud.meanGain >= 0 ? '+' : '−'}${Math.abs(ud.meanGain).toFixed(1)} pts`, ud.thin ? 'too few to say' : ud.meanGain >= 0 ? 'your moves help' : 'your moves cost') : null,
+      ud.moveShare !== null && ud.bigN ? row('Share of a big move taken', `${Math.round(ud.moveShare * 100)}%`, `${ud.bigN} steps where the truth sat 8 or more points away`) : null,
+      uv.n ? row('What your updates added', `${uv.mean >= 0 ? '+' : '−'}${Math.abs(uv.mean).toFixed(1)} edge a card`, `n=${uv.n} resolved updated cards${uv.n < cfg.thin_below ? ': a hint' : ''}`) : null,
+      updatedCards ? row('Open or resolved cards updated with a reason', String(updatedCards), `of ${ctx.cfg.problems.update.update_rule.cards_needed || 12} the unit asks for`) : null,
       classes.length ? row('Right reference group', `${classes.filter((p) => p.hit).length} of ${classes.length}`, '') : null,
       row('Journal cards with an accepted base rate', String(accepted), `of 15 the unit asks for`))),
     h('p', { class: 'cap' }, 'Drills do not count here. A group with fewer than ' + cfg.thin_below + ' problems is a hint, not a result.')) : null;
@@ -209,7 +219,7 @@ export function mirrorScreen(ctx) {
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
-  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : []), ...(problemGateState(ctx, 'U4').passed ? ['U4'] : []), ...(problemGateState(ctx, 'U5').passed ? ['U5'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
+  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : []), ...(problemGateState(ctx, 'U4').passed ? ['U4'] : []), ...(problemGateState(ctx, 'U5').passed ? ['U5'] : []), ...(problemGateState(ctx, 'U6').passed ? ['U6'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
   const belts = P.beltRows(ctx.belts, beltFacts);
   const beltCard = h('section', { class: 'card stack', id: 'belts' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Belts'), h('span', { class: 'cap' }, 'feedback, not play')),

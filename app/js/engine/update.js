@@ -125,4 +125,14 @@ export function updateValue(predictions) {
   const total = rows.reduce((s, p) => s + (p.edge - p.edge0), 0);
   return { n: rows.length, mean: total / rows.length, total };
 }
+// The stream a step id belongs to ('upd-1a2b3c4#1' is step 2 of 'upd-1a2b3c4'); other ids pass through unchanged.
+export const streamOf = (id) => String(id).split('#')[0];
+// One step as the problem screen asks it: its own question with the prior, the news and the truth, and the stream's lead.
+export function stepsOf(stream) {
+  return stream.steps.map((s, i) => ({
+    id: `${stream.id}#${i}`, stream: stream.id, index: i, of: stream.steps.length, type: 'update', kind: stream.kind, pool: stream.pool,
+    lead: stream.lead, start: stream.start, known: s.known || [], news: s.news, ask: stream.ask, unit: '%', prior: s.prior, truth: s.truth, n: s.n, n_prior: s.n_prior,
+    domain: stream.domain, jdomain: stream.jdomain, fact: s.fact || stream.fact, why: s.why || stream.why, verified: stream.verified, source: stream.source, src_name: stream.src_name, checked: stream.checked,
+  }));
+}
 export { dayOf };

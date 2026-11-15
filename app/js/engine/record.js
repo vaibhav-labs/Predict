@@ -183,7 +183,7 @@ export function predictionsOf(events, today = localDay()) {
     const r = resolves.get(p.id);
     const state = r ? 'resolved' : p.due <= today ? 'due' : 'open';
     const ups = (updates.get(p.id) || []).slice().sort(byTime);
-    return { ...p, updates: ups, cNow: ups.length ? ups[ups.length - 1].c : p.c, state, ...(r && r.source ? { source: r.source, checkedDay: r.checked } : {}), outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, ...(r && typeof r.edge0 === 'number' ? { raw0: r.raw0, edge0: r.edge0 } : {}), resolvedAt: r ? r.t : undefined };
+    return { ...p, updates: ups, cNow: ups.length ? ups[ups.length - 1].c : p.c, state, ...(r && r.source ? { source: r.source, checkedDay: r.checked } : {}), outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, ...(r && typeof r.edge0 === 'number' ? { raw0: r.raw0, edge0: r.edge0, days: r.days } : {}), resolvedAt: r ? r.t : undefined };
   }).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : byTime(a, b)));
 }
 export const dueList = (predictions) => predictions.filter((p) => p.state === 'due');

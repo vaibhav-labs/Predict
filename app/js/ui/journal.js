@@ -11,6 +11,7 @@ import { pendingAutopsies } from './autopsy.js';
 import { lessonState, problemGateState } from '../flags.js';
 import { stepsOf, chainProductOf, outsideGrade } from '../engine/reasoning.js';
 import { promptsFor } from '../engine/coach.js';
+import * as UP from '../engine/update.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
 const DUE_OPTIONS = [['tomorrow', 'Tomorrow'], ['week', 'This week'], ['month', 'This month'], ['longer', 'Longer']];
@@ -306,7 +307,7 @@ function composeScreen(ctx) {
     return h('section', { class: 'stack' },
       h('div', { class: 'eyebrow' }, 'How sure are you the claim will happen?'), readout, input,
       ...notes,
-      h('p', { class: 'cap' }, 'A lock is final: this card cannot be edited afterwards.'),
+      h('p', { class: 'cap' }, 'A lock is final: the number you lock stays on the record. While the card is open you can add updates, each with a reason.'),
       h('div', { class: 'foot' }, lockBtn, backBtn));
   }
 
@@ -372,13 +373,13 @@ function detailBody(ctx, p, today, paint, predictions) {
   const header = h('section', null,
     h('div', { class: 'tags' }, h('span', { class: 'tag' }, domainLabel(p.domain)), h('span', { class: 'tag' }, p.scored ? 'Scored' : 'Logged, unscored')),
     h('p', { class: 'claim' }, p.text),
-    h('p', { class: 'cap' }, `Due ${p.due}${p.state !== 'resolved' ? ` · ${dueLabel(p.due, today)}` : ''} · You said ${pct(p.c)}`));
+    h('p', { class: 'cap' }, `Due ${p.due}${p.state !== 'resolved' ? ` · ${dueLabel(p.due, today)}` : ''} · You said ${pct(p.c)}${p.updates && p.updates.length ? ` · Now ${pct(p.cNow)}` : ''}`));
 
   const baselineLine = h('p', { class: 'cap' }, `Baseline: ${pct(p.b)}, ${baselineCaption(p)}.`);
 
   if (p.state === 'open') {
     return focusFrame({ title: 'Prediction', closeTo: '#/journal' },
-      header, baselineLine, chainCard(p));
+      header, baselineLine, chainCard(p), updateHistory(p), updateCard(ctx, p, paint));
   }
   if (p.state === 'due') {
     return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
@@ -410,10 +411,12 @@ function resolveCard(ctx, p, paint) {
     if (!outcome) { ctx.toast('Pick what happened.'); return; }
     goBtn.disabled = true;
     const outcomeYes = outcome === 'yes';
-    const scoring = outcome === 'void' ? { raw: null, edge: null } : J.journalScore(ctx.S, p.c, p.b, outcomeYes, ctx.cfg.journal.edge_weight);
+    // A card that was updated is scored over its life: each day at the number in force that day (engine/update.js). Without updates this is the locked number's score.
+    const scoring = outcome === 'void' ? { raw: null, edge: null } : UP.twScore(ctx.S, p, R.localDay(), outcomeYes, ctx.cfg.journal.edge_weight);
+    const lifeFields = outcome !== 'void' && p.updates && p.updates.length ? { raw0: scoring.raw0, edge0: p.scored ? scoring.edge0 : null, days: scoring.days } : {};
     // The source link travels with the answer only when the player used Predict's check and agreed with it.
     const cited = usedCheck && found && outcome === found.result;
-    await ctx.store.append(R.makeEvent('resolve', { prediction: p.id, outcome, note: note.value.trim() || undefined, raw: scoring.raw, edge: p.scored ? scoring.edge : null, source: cited ? found.source : undefined, checked: cited ? found.checked : undefined }));
+    await ctx.store.append(R.makeEvent('resolve', { prediction: p.id, outcome, note: note.value.trim() || undefined, raw: scoring.raw, edge: p.scored ? scoring.edge : null, source: cited ? found.source : undefined, checked: cited ? found.checked : undefined, ...lifeFields }));
     // A card that needs an autopsy goes to it at once; the case file waits behind it.
     const now = R.predictionsOf(ctx.store.events, R.localDay());
     const mine = now.find((x) => x.id === p.id);
@@ -422,5 +425,47 @@ function resolveCard(ctx, p, paint) {
   });
   return h('section', { class: 'card stack' },
     h('div', { class: 'eyebrow' }, 'What happened?'), checkBox, picked, note,
+    h('div', { class: 'foot' }, goBtn));
+}
+
+// ---- updating an open card (Unit 6): a new number and a reason; the locked number stays on the record --------------------------
+function updateHistory(p) {
+  if (!p.updates || !p.updates.length) return null;
+  return h('section', { class: 'card stack', id: 'update-history' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Updates'), h('span', { class: 'cap num' }, `locked ${pct(p.c)} · now ${pct(p.cNow)}`)),
+    h('ul', { class: 'rows' }, p.updates.map((u) => h('li', null, h('div', { class: 't' }, h('span', null, u.reason), h('em', null, `${u.d} · ${pct(u.prev)} to ${pct(u.c)}`)), h('span', { class: 'm num' }, `${u.c >= u.prev ? '+' : ''}${Math.round((u.c - u.prev) * 100)}`)))));
+}
+
+function updateCard(ctx, p, paint) {
+  const jcfg = ctx.cfg.journal;
+  const now = typeof p.cNow === 'number' ? p.cNow : p.c;
+  let c = now;
+  const news = ctx.coach && ctx.coach.news && ctx.coach.news[p.id];
+  const readout = h('div', { class: 'big', id: 'update-readout', 'aria-hidden': 'true' }, pct(c));
+  const input = h('input', { class: 'range', type: 'range', id: 'update-prob', min: Math.round(jcfg.probability_min * 100), max: Math.round(jcfg.probability_max * 100), step: Math.round(jcfg.probability_step * 100), value: Math.round(c * 100), 'aria-label': 'Your new probability' });
+  const msg = h('p', { class: 'msg', id: 'update-msg', role: 'status' });
+  const reason = h('textarea', { class: 'field', id: 'update-reason', rows: 2, placeholder: 'What changed your mind? A line is enough.' });
+  const move = h('p', { class: 'cap', id: 'update-move' }, 'Move the slider to change the number.');
+  const goBtn = h('button', { class: 'btn', type: 'button', id: 'update-go' }, 'Update');
+  const paintMove = () => { const d = Math.round((c - now) * 100); move.textContent = d === 0 ? 'Move the slider to change the number.' : `${d > 0 ? 'Up' : 'Down'} ${Math.abs(d)} points from ${pct(now)}.`; };
+  input.addEventListener('input', () => { c = Number(input.value) / 100; readout.textContent = pct(c); paintMove(); msg.textContent = ''; msg.className = 'msg'; });
+  const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
+  goBtn.addEventListener('click', async () => {
+    if (Date.now() < armedAt) return;
+    const v = UP.checkUpdate(p, c, reason.value, ctx.cfg);
+    if (!v.ok) { msg.textContent = v.error; msg.className = 'msg err'; return; }
+    goBtn.disabled = true;
+    await ctx.store.append(R.makeEvent('update', { prediction: p.id, c, prev: v.prev, reason: reason.value.trim() }));
+    ctx.requestPersist();
+    ctx.toast('Updated. The locked number stays on the record.');
+    paint();
+  });
+  return h('section', { class: 'card stack', id: 'update-card' },
+    h('div', { class: 'eyebrow' }, 'Update this prediction'),
+    news ? h('div', { class: 'stack', id: 'update-news' }, h('span', { class: 'eyebrow' }, `Predict found news on ${news.written}`), h('p', null, news.text), h('a', { class: 'srclink', href: news.source, rel: 'noopener noreferrer', target: '_blank' }, news.source)) : null,
+    p.chain && p.chain.tripwire ? h('p', { class: 'note', id: 'update-tripwire' }, `You wrote: "${p.chain.tripwire.text}" (to ${p.chain.tripwire.number}). Has that happened?`) : null,
+    h('p', { class: 'cap' }, `In force now: ${pct(now)}${p.updates && p.updates.length ? `, locked at ${pct(p.c)}` : ''}.`),
+    readout, input, move, reason, msg,
+    h('p', { class: 'cap' }, 'Each day the card is open is scored at the number in force that day. One update a day: a second one on the same day replaces the first.'),
     h('div', { class: 'foot' }, goBtn));
 }

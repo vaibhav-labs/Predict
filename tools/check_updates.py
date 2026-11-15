@@ -88,7 +88,8 @@ def main():
             check(n >= MIN_CASES, f"{q['id']} step {i + 1}: only {n} cases")
             check(s["n"] == n and s["k"] == k and s["truth"] == p1(k, n), f"{q['id']} step {i + 1}: should be {p1(k, n)}% of {n}, the file says {s['truth']}% of {s['n']}")
             check(s["prior"] == prior and s["n_prior"] == nprev, f"{q['id']} step {i + 1}: the prior should be the previous group's {prior}% of {nprev}")
-            check(0 < s["truth"] < 100 and s["news"], f"{q['id']} step {i + 1}: bad truth or news")
+            check(0 < s["truth"] < 100 and s["news"] and s["fact"] and s["why"], f"{q['id']} step {i + 1}: bad truth, news, fact or why")
+            check(len(s["known"]) == i and f"{p1(k, n)}".split(".")[0] in s["fact"] and f"{n:,}" in s["fact"], f"{q['id']} step {i + 1}: the fact line does not carry the counted numbers")
             moves[q["pool"]][cat(s["truth"] - s["prior"])] += 1
             prior, nprev = p1(k, n), n
         firsts[q["pool"]].add(tuple(keys[:2]))

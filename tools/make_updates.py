@@ -216,19 +216,29 @@ def build_kind(spec, pool_take):
     return out
 
 
+def lower1(t):
+    return t[:1].lower() + t[1:]
+
+
 def to_problem(spec, c, pool):
     kind = spec["kind"]
     c0, c1, c2 = c["conds"]
     (n0, k0), (n1, k1), (n2, k2) = c["nk"]
     t0, t1, t2 = c["truths"]
     start = c0[1]
-    steps = [dict(news=c1[1][:1].upper() + c1[1][1:], prior=t0, truth=t1, n=n1, k=k1, n_prior=n0),
-             dict(news=c2[1][:1].upper() + c2[1][1:], prior=t1, truth=t2, n=n2, k=k2, n_prior=n1)]
-    what = spec["what"]
-    fact = (f"Starting group: {start}: {n0:,} {spec['units']}, {k0:,} of them ({g(t0)}%) {what}. Step 1: {c1[1]}: {n1:,} {spec['units']}, {k1:,} ({g(t1)}%). Step 2: {c2[1]}: {n2:,}, {k2:,} ({g(t2)}%).")
-    why = " ".join(WHY[cat(s["truth"] - s["prior"])] for s in steps[:1]) + " The second step is judged on its own."
-    return dict(id=qid(c["key"]), type="update", pool=pool, kind=kind, key=c["key"], lead=spec["lead"].format(start=start), ask=spec["ask"], unit="%", prior0=t0, steps=steps,
-                domain=spec["domain"], jdomain=spec["jdomain"], fact=fact, why=why, verified="recorded", source=spec["url"], src_name=spec["name"], checked=common.BANK_DATE)
+    what, units = spec["what"], spec["units"]
+    steps = []
+    known = []
+    for (cond, n, k, truth, prior, n_prior) in ((c1, n1, k1, t1, t0, n0), (c2, n2, k2, t2, t1, n1)):
+        news = cond[1][:1].upper() + cond[1][1:]
+        move = cat(truth - prior)
+        fact = (f"Before the news, {n_prior:,} {units} fit the case and {g(prior)}% of them {what}. After it ({lower1(news)}), {n:,} {units} fit and {k:,} of them, {g(truth)}%, {what}. "
+                f"That is a move of {g(abs(truth - prior))} points {'up' if truth > prior else 'down' if truth < prior else 'nowhere'}.")
+        steps.append(dict(news=news, known=list(known), prior=prior, truth=truth, n=n, k=k, n_prior=n_prior, fact=fact, why=WHY[move]))
+        known = known + [news]
+    fact = (f"Starting group: {start}: {n0:,} {units}, {k0:,} of them ({g(t0)}%) {what}. Step 1: {c1[1]}: {n1:,} {units}, {k1:,} ({g(t1)}%). Step 2: {c2[1]}: {n2:,}, {k2:,} ({g(t2)}%).")
+    return dict(id=qid(c["key"]), type="update", pool=pool, kind=kind, key=c["key"], lead=spec["lead"].format(start=start), start=start, ask=spec["ask"], unit="%", prior0=t0, steps=steps,
+                domain=spec["domain"], jdomain=spec["jdomain"], fact=fact, why=WHY["medium"], verified="recorded", source=spec["url"], src_name=spec["name"], checked=common.BANK_DATE)
 
 
 def build():
@@ -243,7 +253,7 @@ def build():
     return out
 
 
-KEEP = ("id", "type", "pool", "kind", "key", "lead", "ask", "unit", "prior0", "steps", "domain", "jdomain", "fact", "why", "verified", "source", "src_name", "checked")
+KEEP = ("id", "type", "pool", "kind", "key", "lead", "start", "ask", "unit", "prior0", "steps", "domain", "jdomain", "fact", "why", "verified", "source", "src_name", "checked")
 
 
 def render(qs):

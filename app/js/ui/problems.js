@@ -13,16 +13,17 @@ import { focusFrame, unitRow } from './common.js';
 import { problemGateState, judgeProblemExam } from '../flags.js';
 import { retestText, flagName } from '../flagtext.js';
 import { numberLine, claimNode, fmt } from './ranges.js';
+import * as UP from '../engine/update.js';
 
 export const KIND_NAMES = { fwx: 'Rain, fortnight', fflight: 'Flight lateness', fgrow: 'Growth', fmkt: 'Stock market', doc: 'Documented rate', flight: 'Flights', weather: 'Weather', market: 'Stock market', owid: 'Countries' };
-const FAMILY_NAMES = { fermi: 'Fermi', rate: 'Base rate', class: 'Reference class', chain: 'Chain' };
-const UNIT_NAMES = { U4: 'Unit 4 · Fermi', U5: 'Unit 5 · Outside view' };
+const FAMILY_NAMES = { fermi: 'Fermi', rate: 'Base rate', class: 'Reference class', chain: 'Chain', update: 'Updating' };
+const UNIT_NAMES = { U4: 'Unit 4 · Fermi', U5: 'Unit 5 · Outside view', U6: 'Unit 6 · Updating' };
 const pctText = (x) => `${Number(x.toFixed(1))}%`;
 const fmtD = (x, digits) => Number(x).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const PLAN_KEYS = new Set(['oly_all', 'oly_100', 'mega90', 'bts_ontime', 'bts_cancel']);
 
 export const probModeLabel = (sess) => (sess.mode === 'exam' ? 'Exam' : sess.mode === 'drill' ? 'Drill' : sess.family === 'chain' ? 'Chain practice' : `${UNIT_NAMES[sess.unit] || ''} practice`);
-const tagFor = (sess) => (sess.mode === 'exam' ? `Exam · sitting ${sess.n} of ${sess.of}` : sess.mode === 'drill' ? (sess.flag ? 'Drill' : 'Repair drill') : sess.family === 'chain' ? 'Chain practice' : `${sess.unit === 'U4' ? 'Unit 4' : 'Unit 5'} practice`);
+const tagFor = (sess) => (sess.mode === 'exam' ? `Exam · sitting ${sess.n} of ${sess.of}` : sess.mode === 'drill' ? (sess.flag ? 'Drill' : 'Repair drill') : sess.family === 'chain' ? 'Chain practice' : `Unit ${String(sess.unit).slice(1)} practice`);
 
 export async function problemScreen(ctx, root, token, arg) {
   const { store, cfg } = ctx;
@@ -40,8 +41,10 @@ export async function problemScreen(ctx, root, token, arg) {
     if (arg && arg.startsWith('drill-')) {
       const chain = LE.flagsOf(events, cfg).find((c) => c.id === arg.slice(6));
       const spec = chain && LE.drillOf(chain.trigger, cfg);
-      if (!chain || !spec || !['chain', 'plan', 'classpick', 'domain'].includes(spec.kind) || !['open', 'lesson'].includes(chain.state)) return null;
+      if (!chain || !spec || !['chain', 'plan', 'classpick', 'domain', 'stream', 'move'].includes(spec.kind) || !['open', 'lesson'].includes(chain.state)) return null;
       const base = { mode: 'drill', size: spec.calls, flag: chain.id, trigger: chain.trigger, drill: spec };
+      if (spec.kind === 'stream') return { ...base, unit: 'U6', family: 'update', plan: PB.planStreams({ bank: ctx.updateBank, events, steps: spec.calls, reseenDays: P.update.reseen_days, rng }) };
+      if (spec.kind === 'move') return { ...base, unit: 'U6', family: 'update', plan: PB.planMoves({ bank: ctx.updateBank, events, steps: spec.calls, reseenDays: P.update.reseen_days, rng, minMove: P.update.drill_move_min }) };
       if (spec.kind === 'chain') return { ...base, unit: 'U4', family: 'chain', plan: plan(ctx.chainBank, spec.calls, 0.6) };
       if (spec.kind === 'classpick') return { ...base, unit: 'U5', family: 'class', plan: plan(ctx.classBank, spec.calls, 0.6) };
       if (spec.kind === 'plan') return { ...base, unit: 'U5', family: 'rate', plan: plan(ctx.rateBank.filter((q) => q.kind === 'flight' || PLAN_KEYS.has(q.key)), spec.calls, 0.8) };
@@ -49,14 +52,15 @@ export async function problemScreen(ctx, root, token, arg) {
       const own = ctx.rateBank.filter((q) => !dom || q.jdomain === dom);
       return { ...base, unit: 'U5', family: 'rate', plan: plan(own.length >= spec.calls ? own : ctx.rateBank, spec.calls, 0.6) };
     }
-    if (arg === 'repair-U4' || arg === 'repair-U5') {
+    if (arg === 'repair-U4' || arg === 'repair-U5' || arg === 'repair-U6') {
       const unit = arg.slice(7);
       const st = problemGateState(ctx, unit);
       if (!st.needsRepair) return null;
       const spec = PB.problemRepairOf(unit, cfg);
+      if (unit === 'U6') return { mode: 'drill', unit, family: 'update', size: spec.calls, repair: st.lastFailed.id, drill: spec, plan: PB.planStreams({ bank: ctx.updateBank, events, steps: spec.calls, reseenDays: P.update.reseen_days, rng }) };
       return { mode: 'drill', unit, family: spec.kind, size: spec.calls, repair: st.lastFailed.id, drill: spec, plan: plan(unit === 'U4' ? ctx.fermiBank : ctx.rateBank, spec.calls, unit === 'U4' ? 0.3 : 0.6) };
     }
-    if (arg === 'exam-U4' || arg === 'exam-U5') {
+    if (arg === 'exam-U4' || arg === 'exam-U5' || arg === 'exam-U6') {
       const unit = arg.slice(5);
       let st = problemGateState(ctx, unit);
       let attempt = st.running;
@@ -68,8 +72,12 @@ export async function problemScreen(ctx, root, token, arg) {
       }
       const size = PB.sittingSize(st, cfg);
       const per = PB.examSitting(unit, cfg);
-      const drawn = PB.planProblemExam({ bank: unit === 'U4' ? ctx.fermiExamBank : ctx.rateExamBank, events: store.events, unit, size: per, total: size, rng });
-      return { mode: 'exam', unit, family: unit === 'U4' ? 'fermi' : 'rate', size, exam: attempt.id, n: Math.floor(st.done / per) + 1, of: Math.ceil(st.total / per), plan: drawn.sittings[0] || [] };
+      const drawn = unit === 'U6' ? PB.planUpdateExam({ bank: ctx.updateExamBank, events: store.events, size: per, total: size, rng }) : PB.planProblemExam({ bank: unit === 'U4' ? ctx.fermiExamBank : ctx.rateExamBank, events: store.events, unit, size: per, total: size, rng });
+      return { mode: 'exam', unit, family: unit === 'U4' ? 'fermi' : unit === 'U6' ? 'update' : 'rate', size, exam: attempt.id, n: Math.floor(st.done / per) + 1, of: Math.ceil(st.total / per), plan: drawn.sittings[0] || [] };
+    }
+    if (arg === 'update') {
+      if (!problemGateState(ctx, 'U6').open) return null;
+      return { mode: 'practice', unit: 'U6', family: 'update', size: P.update.session_size, plan: PB.planStreams({ bank: ctx.updateBank, events, steps: P.update.session_size, reseenDays: P.update.reseen_days, rng }) };
     }
     if (arg === 'chain') {
       if (!problemGateState(ctx, 'U4').open) return null;
@@ -104,7 +112,7 @@ export async function problemScreen(ctx, root, token, arg) {
     if (!id) { await finish(sess); return; }
     if (!ctx.alive(token)) return;
     const q = ctx.problemById(id);
-    if (q.parts) renderFermi(sess, q); else if (q.type === 'class') renderClass(sess, q); else renderPercent(sess, q);
+    if (q.parts) renderFermi(sess, q); else if (q.type === 'class') renderClass(sess, q); else if (q.type === 'update') renderUpdate(sess, q); else renderPercent(sess, q);
   }
 
   async function finish(sess) {
@@ -294,6 +302,52 @@ export async function problemScreen(ctx, root, token, arg) {
       answerCard(q), revealFoot(sess, q, index)));
   }
 
+  // ---- Unit 6: an evidence stream, one step at a time: the rate before the news, the news, and your new number ------------------------------------
+  const knownList = (q) => (q.known && q.known.length ? h('ul', { class: 'rows', id: 'known-news' }, q.known.map((t) => h('li', null, h('div', { class: 't' }, h('span', null, t), h('em', null, 'already counted in the rate below'))))) : null);
+  function renderUpdate(sess, q) {
+    const index = sess.probs.length + 1;
+    const shownAt = Date.now();
+    const input = h('input', { class: 'field num', id: 'pct-input', type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'done', 'aria-describedby': 'pct-msg' });
+    const msg = h('p', { class: 'msg', id: 'pct-msg', role: 'status' });
+    const lockBtn = h('button', { class: 'btn', type: 'button', id: 'lock', disabled: true }, 'Lock in');
+    const check = () => { const r = PB.checkPercent(input.value); lockBtn.disabled = !r.ok; msg.textContent = !r.ok && input.value.trim() ? r.error : ''; msg.className = msg.textContent ? 'msg err' : 'msg'; return r; };
+    input.addEventListener('input', check);
+    const armedAt = Date.now() + guardMs;
+    lockBtn.addEventListener('click', async () => {
+      if (Date.now() < armedAt || lockBtn.disabled) return;
+      const r = check();
+      if (!r.ok) return;
+      lockBtn.disabled = true;
+      const sc = UP.scoreUpdate(q, r.value, cfg);
+      const ev = await lock(sess, q, { guess: sc.guess, truth: sc.truth, prior: sc.prior, miss: sc.miss, signed: sc.signed, hit: sc.hit, points: sc.points, gain: sc.gain, moved: sc.moved, news: q.news, claim: `${q.lead} ${q.ask}` }, shownAt);
+      if (ev) renderUpdateReveal(sess, q, ev);
+    });
+    mount(focusFrame(header(sess, index),
+      h('section', null, tags(sess, q), h('p', { class: 'claim long', id: 'claim' }, h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask))),
+      knownList(q) ? h('section', { class: 'card stack' }, h('span', { class: 'eyebrow' }, 'Counted so far'), knownList(q)) : null,
+      h('section', { class: 'card stack', id: 'prior-card' }, h('span', { class: 'eyebrow' }, 'Where you stand'), h('p', { class: 'claim', style: 'font-size:28px' }, h('b', { class: 'num', id: 'prior' }, pctText(q.prior)), h('span', { class: 'cap' }, ' of cases like this one, before the news'))),
+      h('section', { class: 'card stack', id: 'news-card' }, h('span', { class: 'eyebrow' }, `New information · step ${q.index + 1} of ${q.of}`), h('p', { class: 'claim long', id: 'news' }, q.news)),
+      h('section', { class: 'card stack', id: 'pct-entry' },
+        h('p', { class: 'prose-s' }, 'What is the chance now? Type a percent from 0 to 100. Within 7 points of the true rate counts. Some news is worth a big move and some is worth none.'),
+        h('label', { class: 'rfield' }, h('span', { class: 'eyebrow' }, 'Your new number'), input, h('span', { class: 'cap' }, '%')), msg),
+      h('div', { class: 'foot' }, h('span', { class: 'cap' }, sess.mode === 'exam' ? 'Sealed: no result until the last problem. A lock is final.' : 'A lock is final.'), lockBtn)));
+    input.focus();
+  }
+
+  function renderUpdateReveal(sess, q, ev) {
+    const index = sess.probs.length + 1;
+    const gain = ev.gain;
+    const worth = Math.abs(q.truth - q.prior);
+    const moveWord = ev.moved === 0 ? 'You stayed at' : `You moved ${pctText(Math.abs(ev.moved))} points ${ev.moved > 0 ? 'up' : 'down'} from`;
+    const gainText = Math.abs(gain) < 0.05 ? 'Moving and staying put would have been equally close.' : gain > 0 ? `Moving helped: you ended ${pctText(gain)} points closer to the truth than staying at ${pctText(q.prior)} would have.` : `Moving cost you: staying at ${pctText(q.prior)} would have been ${pctText(-gain)} points closer.`;
+    mount(focusFrame(header(sess, index, index),
+      h('section', { class: 'card' }, tags(sess, q), h('p', { class: 'claim long' }, h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask)), h('p', { class: 'muted' }, q.news),
+        h('div', { class: 'rl-key' }, h('span', null, h('b', null, 'Before'), ` ${pctText(q.prior)}`), h('span', null, h('b', null, 'Truth'), ` ${pctText(q.truth)}`), h('span', null, h('b', null, 'You'), ` ${pctText(ev.guess)}`), q.n ? h('span', null, h('b', null, 'Cases'), ` ${Number(q.n).toLocaleString('en-US')}`) : null),
+        resultRow(ev.hit, ev.points, 'Within 7', 'Outside'),
+        h('p', { class: 'note', id: 'pct-note' }, `The news was worth ${pctText(worth)} points. ${moveWord} ${pctText(q.prior)} to ${pctText(ev.guess)}; you were ${pctText(ev.miss)} points from the truth. `, h('span', { id: 'gain-note' }, gainText))),
+      answerCard(q), revealFoot(sess, q, index)));
+  }
+
   // ---- reference-class ladders -----------------------------------------------------------------------------------------------------
   function renderClass(sess, q) {
     const index = sess.probs.length + 1;
@@ -347,7 +401,7 @@ export function problemSummaryScreen(ctx, id) {
   const title = sess.mode === 'drill' ? (sess.flag ? 'Drill' : 'Repair drill') : `${FAMILY_NAMES[sess.family] || 'Problems'} session`;
   const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
   const guard = (e) => { if (Date.now() < armedAt) e.preventDefault(); };
-  const again = sess.family === 'fermi' ? '#/prob/fermi' : sess.family === 'chain' ? '#/prob/chain' : '#/prob/rate';
+  const again = sess.family === 'fermi' ? '#/prob/fermi' : sess.family === 'chain' ? '#/prob/chain' : sess.family === 'update' ? '#/prob/update' : '#/prob/rate';
   const primary = h('a', { class: 'btn', href: '#/today' }, 'Back to Today');
   const secondary = sess.mode === 'drill' ? h('a', { class: 'ghost', href: sess.repair ? '#/path' : '#/today' }, sess.repair ? 'Back to Path' : 'Back to Today') : h('a', { class: 'ghost', href: again }, 'Start another session');
   primary.addEventListener('click', guard); secondary.addEventListener('click', guard);
@@ -357,8 +411,8 @@ export function problemSummaryScreen(ctx, id) {
       : chain ? h('section', { class: 'card stack', id: 'drill-next' }, h('span', { class: 'eyebrow' }, `What happens next · ${flagName(ctx, chain.trigger)}`), h('p', null, retestText(chain, ctx.cfg))) : null;
   const rows = ps.map((r) => {
     const q = ctx.problemById(r.q);
-    const what = r.family === 'fermi' ? `${q ? fmt(q, r.low) : r.low} to ${q ? fmt(q, r.high) : r.high} · truth ${q ? fmt(q, r.truth) : r.truth}` : r.family === 'class' ? (r.hit ? 'the right group' : 'another group') : `You said ${pctText(r.guess)} · truth ${pctText(r.truth)}`;
-    return h('li', null, h('div', { class: 't' }, h('span', null, `${KIND_NAMES[r.kind] || r.kind}: ${r.claim}`), h('em', null, `${what} · ${r.hit ? (r.family === 'fermi' ? 'inside' : 'good') : (r.family === 'fermi' ? 'outside' : 'off')}`)),
+    const what = r.family === 'update' ? `You said ${pctText(r.guess)} · before ${pctText(r.prior)} · truth ${pctText(r.truth)}` : r.family === 'fermi' ? `${q ? fmt(q, r.low) : r.low} to ${q ? fmt(q, r.high) : r.high} · truth ${q ? fmt(q, r.truth) : r.truth}` : r.family === 'class' ? (r.hit ? 'the right group' : 'another group') : `You said ${pctText(r.guess)} · truth ${pctText(r.truth)}`;
+    return h('li', null, h('div', { class: 't' }, h('span', null, `${KIND_NAMES[r.kind] || r.kind}: ${r.family === 'update' && r.news ? r.news : r.claim}`), h('em', null, `${what} · ${r.hit ? (r.family === 'fermi' ? 'inside' : 'good') : (r.family === 'fermi' ? 'outside' : 'off')}`)),
       h('span', { class: `m num${r.points < 0 ? ' bad' : ''}` }, signed(r.points)));
   });
   const word = sess.family === 'fermi' ? 'held the truth' : sess.family === 'class' ? 'picked the right group' : 'were within 7 points';
@@ -380,6 +434,8 @@ export function problemReasons(unit, result, cfg) {
     if (unit === 'U4' && r === 'hits') out.push(`Only ${result.hits} of ${result.n} worksheet ranges held the truth; ${g.fermi_pass_hits} are needed. A true 90% range holds about ${Math.round(0.9 * result.n)}. Your ranges were too narrow.`);
     if (unit === 'U4' && r === 'factor') out.push(`The median miss was a factor of ${Number(result.medianMiss).toFixed(1)}; the pass line is a factor of ${g.fermi_median_factor}. The middle of your ranges sat too far from the truth: check which part is carrying the error.`);
     if (unit === 'U5' && r === 'within') out.push(`${result.hits} of ${result.n} answers were within ${cfg.problems.rate.tolerance} points; ${g.rate_pass_within} are needed. Your answers ran ${result.dir === 'too high' ? 'high' : 'low'} on average (${Number(result.bias).toFixed(1)} points). Start from how often it happens to cases like it, then adjust.`);
+    if (unit === 'U6' && r === 'within') out.push(`${result.hits} of ${result.n} new numbers were within ${cfg.problems.update.tolerance} points of the true rate; ${g.update_pass_within} are needed. Your numbers ran ${result.dir === 'too high' ? 'high' : 'low'} on average (${Number(result.bias).toFixed(1)} points).`);
+    if (unit === 'U6' && r === 'gain') out.push(`On average your moves ended ${Math.abs(Number(result.meanGain)).toFixed(1)} points further from the truth than staying at the prior would have. News is worth a move only as far as the group's own record goes: look at how much narrowing the case changes the share, not how vivid the detail is.`);
   }
   return out;
 }
@@ -391,8 +447,8 @@ export function problemExamCard(ctx, unit) {
   const size = PB.examSitting(unit, cfg);
   const U = unitRow(ctx, unit);
   const attempts = st.attempts.filter((a) => a.result);
-  const noun = unit === 'U4' ? 'Fermi problems' : 'base-rate problems';
-  const rule = unit === 'U4' ? `${cfg.gates.fermi_pass_hits} of ${st.total} worksheet ranges must hold the truth, and the median miss must be within a factor of ${cfg.gates.fermi_median_factor}` : `${cfg.gates.rate_pass_within} of ${st.total} answers must be within ${cfg.problems.rate.tolerance} points`;
+  const noun = unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : 'base-rate problems';
+  const rule = unit === 'U4' ? `${cfg.gates.fermi_pass_hits} of ${st.total} worksheet ranges must hold the truth, and the median miss must be within a factor of ${cfg.gates.fermi_median_factor}` : unit === 'U6' ? `${cfg.gates.update_pass_within} of ${st.total} new numbers must be within ${cfg.problems.update.tolerance} points, and on average your moves must not lose ground against staying at the prior` : `${cfg.gates.rate_pass_within} of ${st.total} answers must be within ${cfg.problems.rate.tolerance} points`;
   let status, body, action = null;
   if (st.passed) {
     status = 'Passed';
@@ -413,7 +469,7 @@ export function problemExamCard(ctx, unit) {
     action = h('a', { class: 'btn', href: `#/prob/exam-${unit}`, id: `pgate-${unit}-start` }, attempts.length ? 'Start a new exam' : 'Start the exam');
   } else {
     status = 'Not open yet';
-    body = [h('p', null, `It opens after ${U.practice_calls} practice ${unit === 'U4' ? 'Fermi problems' : 'problems'}. You have done ${st.practice} so far.`)];
+    body = [h('p', null, `It opens after ${U.practice_calls} practice ${unit === 'U4' ? 'Fermi problems' : unit === 'U6' ? 'update steps' : 'problems'}. You have done ${st.practice} so far.`)];
   }
   return h('section', { class: 'card stack', id: `pgate-${unit}-card` },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `Unit ${unit.slice(1)} exam`), h('span', { class: `chip${st.passed ? ' on' : ''}`, id: `pgate-${unit}-status` }, status)),
@@ -422,7 +478,7 @@ export function problemExamCard(ctx, unit) {
 }
 
 export async function problemExamScreen(ctx, id) {
-  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === id && (a.unit === 'U4' || a.unit === 'U5'));
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === id && (a.unit === 'U4' || a.unit === 'U5' || a.unit === 'U6'));
   if (!attempt) { ctx.nav('#/path'); return document.createTextNode(''); }
   const unit = attempt.unit;
   if (!attempt.result) await judgeProblemExam(ctx, id);
@@ -444,14 +500,15 @@ export async function problemExamScreen(ctx, id) {
   const fixTo = r.pass ? '#/path' : `#/prob/repair-${unit}`;
   const stat3 = unit === 'U4'
     ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Median miss'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.medianMiss === 'number' ? `${r.medianMiss.toFixed(1)}×` : '–'), h('span', { class: 'cap' }, `pass line ${cfg.gates.fermi_median_factor}×`))
+    : unit === 'U6' ? h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Average gain'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.meanGain === 'number' ? `${r.meanGain >= 0 ? '+' : ''}${r.meanGain.toFixed(1)} pts` : '–'), h('span', { class: 'cap' }, `pass line ${cfg.gates.update_gain_min} or more`))
     : h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Average miss'), h('b', { class: 'num', id: 'pexam-miss' }, typeof r.meanMiss === 'number' ? `${r.meanMiss.toFixed(1)} pts` : '–'), h('span', { class: 'cap' }, 'percentage points'));
   return focusFrame({ title: 'Exam result', closeTo: '#/path', closeLabel: 'Back to Path' },
     h('section', null, h('div', { class: 'eyebrow' }, `Unit ${unit.slice(1)} exam`), h('h1', { class: 'title', id: 'pexam-verdict' }, r.pass ? 'Passed' : 'Not passed this time')),
     h('section', { class: 'sumgrid' },
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Problems'), h('b', { class: 'num', id: 'pexam-n' }, String(r.n))),
-      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, unit === 'U4' ? 'Held the truth' : 'Within 7'), h('b', { class: 'num', id: 'pexam-hits' }, `${r.hits}`), h('span', { class: 'cap' }, `pass line ${unit === 'U4' ? cfg.gates.fermi_pass_hits : cfg.gates.rate_pass_within}`)),
+      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, unit === 'U4' ? 'Held the truth' : 'Within 7'), h('b', { class: 'num', id: 'pexam-hits' }, `${r.hits}`), h('span', { class: 'cap' }, `pass line ${unit === 'U4' ? cfg.gates.fermi_pass_hits : unit === 'U6' ? cfg.gates.update_pass_within : cfg.gates.rate_pass_within}`)),
       stat3),
-    r.pass ? h('section', { class: 'card stack' }, h('p', null, unit === 'U4' ? `Across ${r.n} fresh problems, ${r.hits} worksheet ranges held the truth. Breaking it down works for you. Unit 4 is done, and Unit 5 is open.` : `Across ${r.n} fresh problems, ${r.hits} answers were within ${cfg.problems.rate.tolerance} points. You start outside. Unit 5 is done.`))
+    r.pass ? h('section', { class: 'card stack' }, h('p', null, unit === 'U4' ? `Across ${r.n} fresh problems, ${r.hits} worksheet ranges held the truth. Breaking it down works for you. Unit 4 is done, and Unit 5 is open.` : (unit === 'U6' ? `Across ${r.n} fresh steps, ${r.hits} new numbers were within ${cfg.problems.update.tolerance} points and your moves gained ${Number(r.meanGain).toFixed(1)} points on average over staying put. You move as far as the evidence is worth. Unit 6 is done.` : `Across ${r.n} fresh problems, ${r.hits} answers were within ${cfg.problems.rate.tolerance} points. You start outside. Unit 5 is done.`)))
       : h('section', { class: 'card stack', id: 'pexam-reasons' }, h('span', { class: 'eyebrow' }, 'Why not'), ...reasons.map((t) => h('p', null, t)), h('p', { class: 'muted' }, `The repair drill is ${PB.problemRepairOf(unit, cfg).calls} problems of the same kind.`)),
     h('p', { class: 'cap' }, 'These answers are now part of your record: the Mirror reads them.'),
     h('div', { class: 'foot' }, h('a', { class: 'btn', href: fixTo, id: 'pexam-after' }, r.pass ? 'Back to Path' : 'Start the repair drill'), r.pass ? null : h('a', { class: 'ghost', href: '#/path' }, 'Back to Path')));
@@ -462,17 +519,17 @@ export function problemsTodayCards(ctx) {
   const events = ctx.store.events;
   const active = PB.activePSession(events);
   const cards = [];
-  for (const unit of ['U4', 'U5']) {
+  for (const unit of ['U4', 'U5', 'U6']) {
     const st = problemGateState(ctx, unit);
     if (!st.open) continue;
-    const route = unit === 'U4' ? '#/prob/fermi' : '#/prob/rate';
+    const route = unit === 'U4' ? '#/prob/fermi' : unit === 'U6' ? '#/prob/update' : '#/prob/rate';
     const resume = active && active.unit === unit;
     const U = unitRow(ctx, unit);
-    const line = resume ? `Resume: ${active.probs.length} of ${active.size} done · ${probModeLabel(active)}` : unit === 'U4' ? `${ctx.cfg.problems.fermi.session_size} Fermi problems · practice ${st.practice} of ${U.practice_calls} so far` : `${ctx.cfg.problems.rate.session_size} base-rate problems · practice ${st.practice} of ${U.practice_calls} so far`;
+    const line = resume ? `Resume: ${active.probs.length} of ${active.size} done · ${probModeLabel(active)}` : unit === 'U4' ? `${ctx.cfg.problems.fermi.session_size} Fermi problems · practice ${st.practice} of ${U.practice_calls} so far` : unit === 'U6' ? `${ctx.cfg.problems.update.session_size} update steps · practice ${st.practice} of ${U.practice_calls} so far` : `${ctx.cfg.problems.rate.session_size} base-rate problems · practice ${st.practice} of ${U.practice_calls} so far`;
     cards.push(h('section', { class: 'card stack', id: `${unit.toLowerCase()}-card` },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, UNIT_NAMES[unit]), h('span', { class: 'cap' }, st.passed ? 'Passed' : 'Optional extra session')),
       h('p', { id: `${unit.toLowerCase()}-line` }, line),
-      h('a', { class: 'ghost', href: resume && active.mode === 'exam' ? `#/prob/exam-${unit}` : route, id: `${unit.toLowerCase()}-start` }, resume ? 'Resume' : unit === 'U4' ? 'Start Fermi problems' : 'Start base rates')));
+      h('a', { class: 'ghost', href: resume && active.mode === 'exam' ? `#/prob/exam-${unit}` : route, id: `${unit.toLowerCase()}-start` }, resume ? 'Resume' : unit === 'U4' ? 'Start Fermi problems' : unit === 'U6' ? 'Start updating' : 'Start base rates')));
   }
   return cards;
 }
