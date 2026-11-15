@@ -1,6 +1,43 @@
 # Predict: build state
 
-Last updated: 2026-11-15 · Stage: Block 1 (The Dial) is built and passes all its tests in a desktop Chromium; it has not been pushed to GitHub or tried on a phone yet · Next: push, install on the phone, play a session; Block 2 (The Journal) only when the player says so
+Last updated: 2026-11-15 · Stage: Block 1 (The Dial) is on `main` and live. Block 2 (The Journal) is
+built on branch `block-2` and passes all its tests in a desktop Chromium; it has not been tried on a
+phone yet · Next: the Block 2 phone check (below), then merge `block-2`; Block 3 (The Mirror) only when
+the player says so
+
+## Report for the player (Block 2, 2026-11-15)
+
+Block 2, the Journal, is built on its own branch (`block-2`, not merged) and passes its exit test
+(`data/build_blocks.csv`, row BL2) in a desktop Chromium: `python3 tools/check_data.py`,
+`node --test tools/test_engine.mjs` (36 passed), `sh tools/build_site.sh`, `python3 tools/test_pwa.py`
+(33 passed), `python3 tools/test_flow.py` (161 passed, about 3 minutes). That run includes both worked
+edge examples from `design/mechanics.md` (4.3 and 4.9) coming out exactly, a full write-check-chain-lock
+play-through, a locked card refusing every edit (in the UI and at the storage layer), a due card
+appearing on the right day under a controlled clock, and the outcome card's table of other numbers
+checked against an independent computation.
+
+**What's there:** the prediction card with its six-link chain (claim, outside view with its own
+reference-class rate, up to three evidence signals each marked up or down, case against, tripwire, a
+1-99% probability); an in-app, offline checker (no date, a vague word, not observable, self-controlled,
+`data/checker_rules.csv`) with an Ask Predict button that copies a ready-made message to the clipboard
+(never a link, never a network call); lock, after which the claim, chain, due date and probability
+cannot change; a due list on the Journal tab split into Due, Open and Recently resolved; resolve
+(Happened, Didn't happen, Void) with a one-line note; edge points scored against a hidden base-rate
+baseline (revealed right after lock, not withheld until resolution); three horizons (week, month,
+longer) for that baseline; and an outcome card with the table of what the edge would have been at the
+gym's other confidence steps. One scored prediction a day; extra ones are logged but unscored.
+
+**Assumptions taken:** see "Block 2 assumptions" below. In short: due-date day counts, three horizon
+buckets from the four due-date choices, a flat 50% starter baseline table, a five-resolved threshold
+before switching to the player's own rate, the checker's word lists, and always scoring the journal
+with the core (Brier) rule. Nothing in Block 2's scope needed the player's own decision.
+
+**What the phone check for Block 2 should cover:** write one real prediction with its full chain and
+see whether 4 minutes is enough (every lock records its own timing, like Block 1's calls do, so this is
+also a first answer to open value 1's twin question for the journal); try the checker on a few of your
+own sentences and see whether the four flags feel right; tap Ask Predict and confirm the message pastes
+from the clipboard into a chat; leave a card open overnight (or just a day) and see it move from Open to
+Due the next time you open the app; and resolve one for real.
 
 ## What Predict is
 
@@ -29,7 +66,7 @@ The long goal is a public forecasting track record.
 
 ## What exists in the app today
 
-Block 1 is built. Five tabs: Today, Journal (a card that says it arrives in Block 2), Mirror, Coach, Path.
+Blocks 1 and 2 are built (Block 2 on branch `block-2`). Five tabs: Today, Journal, Mirror, Coach, Path.
 
 - **The call.** A claim, Yes or No, and a dial of 11 steps from 50% to 99%. The points for a hit and a
   miss are shown before the call is locked, and come from `data/scoring.json`.
@@ -38,6 +75,17 @@ Block 1 is built. Five tabs: Today, Journal (a card that says it arrives in Bloc
   points, the answer with its source link, and a flag for a disputed question. A question not answered
   in 60 seconds goes back to the pool. Every call is saved on the phone as it is made; closing the app in
   the middle leaves a Resume on Today.
+- **The journal.** One real prediction a day, written as a six-link chain (claim, outside view with its
+  own rate, up to three evidence signals marked up or down, case against, tripwire, a 1-99% probability)
+  and checked by rules in the app (no date, a vague word, not observable, self-controlled,
+  `data/checker_rules.csv`), with an Ask Predict button that copies a ready-made message (never a link,
+  never a request off this site). A lock makes the claim, chain, due date and probability immutable; the
+  hidden baseline (the player's own rate for that domain and horizon once 5 have resolved there, else a
+  starter table, else 50%) is revealed right after. Cards move from Open to Due on their due day; the
+  Journal tab lists Due, Open and the ten most recently resolved. Resolving one (Happened, Didn't happen,
+  Void) pays edge points (weight 2) against the baseline and shows the table of what the edge would have
+  been at every one of the gym's other confidence steps. One scored card a day; extra ones are logged
+  unscored.
 - **Mirror.** The calibration curve, from 20 calls on, with thin bands (under 10 calls) drawn as such.
 - **Path and lessons.** The units, and the four Unit 1 lesson cards, whose numbers are computed from the payout table.
 - **Coach tab.** Export the record (a `.jsonl` file through the share sheet, or a download), the calls as a
@@ -48,17 +96,22 @@ Block 1 is built. Five tabs: Today, Journal (a card that says it arrives in Bloc
   geography 58, numbers 57, science 48, world 23, chance 19, economy 18, technology 17.
 - **Install and offline.** The service worker installs all 40 files or none, opens with the server down
   and in airplane mode, and shows "A new version is ready" on Today after a deploy.
-- **Tests, all passing, all in Chromium:** `node --test tools/test_engine.mjs` (24), `python3 tools/test_pwa.py`
-  (33), `python3 tools/test_flow.py` (143, about 2 minutes), plus `python3 tools/check_data.py`, which also
+- **Tests, all passing, all in Chromium:** `node --test tools/test_engine.mjs` (36), `python3 tools/test_pwa.py`
+  (33), `python3 tools/test_flow.py` (161, about 3 minutes), plus `python3 tools/check_data.py`, which also
   rebuilds the question bank from its tables and works all 240 claims out again with independent code.
   A fresh copy of the repo (what GitHub will check out) passes the same. The play-through test covers the
   baseline, practice, reload and resume, offline play, the summary and Mirror numbers against independent
   recomputation, lessons against the payout table, Export, Erase and Import, bad files, the 60-second
   timeout, a session answered only at 50% (its gap is exactly 0 and must read 0), double taps, tap-target
-  sizes and no sideways scroll at 390 and 320 px.
-- **Workflows.** `pages.yml` deploys on every push to `main` after `check_data.py` and the engine tests.
-  `tests.yml` runs the three browser suites on pull requests and pushes and never blocks a deploy. It has
-  not run on GitHub yet, so its first run may need a small fix.
+  sizes, no sideways scroll at 390 and 320 px, and (Block 2) the checker, Ask Predict, a locked card
+  refusing edits, a due card on the right day under a controlled clock, resolve, and the outcome card's
+  numbers against an independent computation.
+- **Workflows.** `pages.yml` deploys on every push to `main` after `check_data.py` and the engine tests;
+  green on the Block 1 push. `tests.yml` runs the three browser suites on pull requests and pushes and
+  never blocks a deploy; its first run (on the Block 1 push to `main`, commit `944ee64`) failed at the
+  play-through step even though the same suite passes clean here, so it needs a look on its own, on
+  `main`, separately from Block 2 (not investigated as part of this block: GitHub's job-log API refused
+  the download without an authenticated `gh` session).
 
 ## Not done, on purpose or not yet known
 
@@ -73,6 +126,49 @@ Block 1 is built. Five tabs: Today, Journal (a card that says it arrives in Bloc
 - A sourced question was verified by reading one page (two agreeing pages for Olympics and World Cup rows).
   A flag on a question in the app is the player's way to catch a mistake; a flagged question is never
   drawn again.
+- Block 2 ran only in Chromium too; writing a chain with a thumb, and whether a card really moves from
+  Open to Due on the phone's own clock, are untested until the phone check above.
+- The starter baseline table (`data/journal_baselines.csv`) is flat at 50% for every domain and horizon,
+  and the five-resolved threshold before switching to the player's own rate
+  (`journal.own_rate_min_resolved`) is a first guess: both wait for real baselines (open value 2).
+- No case file yet (five lenses, the autopsy, the rule card): the outcome card is the plain reveal
+  mechanics.md says Block 2 ships, and the five lenses stay Block 3 and Block 4 as planned.
+- Updating an open prediction (Block 8), the memory check (Unit 8, Block 9) and Predict's own baseline
+  (Block 5) are not built; none of them are in Block 2's scope.
+
+## Block 2 assumptions
+
+Where the docs left a choice, the simplest option that fit them was taken and the build went on. Nothing
+in Block 2's scope needed a decision only the player could make.
+
+- **Three horizons from four due-date choices.** The due-date template (`tomorrow, this week, this
+  month, longer`, mechanics.md 4.3) stays as four player-facing choices, but the baseline table and the
+  belts (`data/belts.csv`'s "month-horizon") only need three buckets, so `tomorrow` and `this week` share
+  the `week` bucket (`data/scoring.json`, `journal.horizon_of_due`).
+- **Due-date day counts.** `tomorrow` = 1 day, `week` = 7, `month` = 30, `longer` = 90
+  (`journal.due_offset_days`): nothing in the docs fixes a calendar rule yet.
+- **Starter baseline table.** `data/journal_baselines.csv` is flat at 50% for every domain and horizon: a
+  neutral placeholder rather than an invented domain-specific guess, left to be retuned once real
+  baselines exist (open value 2).
+- **Own-rate threshold.** The player's own rate replaces the starter table once 5 or more real
+  predictions have resolved in that domain and horizon (`journal.own_rate_min_resolved`); below that, the
+  starter table (then 50%) is used, matching 4.3 step 4's "a starter table... until there is history."
+- **The journal always scores with the core rule** (`brier_points`), never the gym's sharp rule: both
+  worked examples in mechanics.md (4.3 and 4.9) use it throughout, and nothing ties journal scoring to a
+  gym unit.
+- **The checker is rule-based, not a model call:** four flags (no date, a vague word, not observable,
+  self-controlled), each a `require` or `forbid` pattern in `data/checker_rules.csv`. The "no date" flag
+  checks the claim's own wording even though the due date is also a separate required field, matching
+  the template "By [date], ...".
+- **Ask Predict copies a message to the clipboard, never a link:** the app may never call a model or
+  leave this site, and the builder's own name may never appear under `app/`.
+- **The outcome card's "table of other numbers"** reuses the gym's eleven confidence steps (50 to 99%,
+  `binary.dial_steps`) rather than a new scale, since both worked examples in mechanics.md 4.9 land on
+  values from that table.
+- **Extra same-day predictions** still get a real baseline, a resolve flow and a raw score; only their
+  `edge` is withheld (`scored: false`), so the full chain and the outcome card still work for them.
+- `sim/run_all.sh` was not re-run: the three helper scripts it needs live only on the player's Mac
+  (`design/platform.md`, `sim/` note), and none of the new numbers above feed the balance report.
 
 ## Decisions
 
@@ -119,50 +215,26 @@ Block 1 is built. Five tabs: Today, Journal (a card that says it arrives in Bloc
 
 ## Waiting on the player
 
-1. The one-time setup. First turn on Pages: github.com/vaibhav-labs/Predict/settings/pages, Source: GitHub
-   Actions. Then run this in Terminal. The Mac folder is not a git repo yet, and the repo holds only its
-   LICENSE, so these commands adopt the repo's history and keep every file here. The lines after `cd` move
-   the two deploy files into `.github/workflows/` (the tool that wrote this folder is not allowed to write
-   there, so they wait in `workflows-to-move/`) and, only if this Mac has no git identity yet, give this repo
-   one with a private address. Each line runs only if the one before it worked.
-
-   ```
-   cd ~/Documents/Predict &&
-   mkdir -p .github/workflows &&
-   mv workflows-to-move/*.yml .github/workflows/ &&
-   rmdir workflows-to-move &&
-   git init -b main &&
-   git remote add origin https://github.com/vaibhav-labs/Predict.git &&
-   { git config user.name >/dev/null || git config user.name "vaibhav-labs"; } &&
-   { git config user.email >/dev/null || git config user.email "vaibhav-labs@users.noreply.github.com"; } &&
-   git fetch origin &&
-   git reset origin/main &&
-   git checkout -- LICENSE &&
-   git add -A &&
-   git commit -m "Predict: Block 1, The Dial" &&
-   git push -u origin main
-   ```
-
-   (Tried against stand-in repos with the same shape: with and without a git identity, and with a refused
-   push followed by a retry. Two commits, LICENSE untouched, nothing ignored is committed.) If the push is
-   the step that fails (a sign-in), fix that and run only `git push -u origin main`; git asks for a personal
-   access token, or use `gh auth login` or GitHub Desktop. A token must be allowed to change workflow files
-   (the "Workflows" permission). If the first deploy ran before Pages was on, open the Actions tab and
-   re-run it. When it is green, the app is live at https://vaibhav-labs.github.io/Predict/.
+1. ~~The one-time GitHub setup.~~ Done: the repo is live at https://vaibhav-labs.github.io/Predict/,
+   commit `944ee64` on `main`.
 2. The first phone check, about five minutes (`design/platform.md`, section 10): install from Safari,
    play from the icon, open it in airplane mode, read the "This device" card on the Coach tab. Day 1 is
    the day Block 1 passes its exit test on the phone.
 3. Look through the screens and say what feels wrong. One more, open value 13 in `design/mechanics.md`:
    belt evidence at one prediction a day (keep the 40, 150, 300 thresholds, or thin them).
 4. Before Block 5: create the private `Predict-data` repo and a fine-grained token for it, and write the context note.
+5. `tests.yml` failed its first real run on `main` (commit `944ee64`, "Play-through tests") even though
+   the same suite passes clean on this Mac; worth a look with `gh run view --log-failed` (not installed
+   here) before trusting that workflow. Separately: review and merge the `block-2` branch (Block 2, the
+   Journal) when its own phone check (above, under the Block 2 report) is done.
 
 ## How to resume
 
 1. Read `design/platform.md`, then the plan doc's decisions table and any comments.
 2. Read `design/mechanics.md` (algorithms, data model, the 14 OPEN values) and the data tables. Unit, belt
    and block days are in `data/timeline.csv`: Units 0 to 11 end on day 224.
-3. Block 1 is done apart from the phone parts of its exit test (`data/build_blocks.csv`). Build Block 2
-   (the Journal) only when the player says to.
+3. Blocks 1 and 2 are done apart from the phone parts of their exit tests (`data/build_blocks.csv`);
+   Block 2 is on branch `block-2`, not yet merged. Build Block 3 (the Mirror) only when the player says to.
 4. After every change under `app/`, all of these must pass: `python3 tools/check_data.py`,
    `node --test tools/test_engine.mjs`, `sh tools/build_site.sh`, `python3 tools/test_pwa.py`,
    `python3 tools/test_flow.py`. The last two need Playwright and Chromium.

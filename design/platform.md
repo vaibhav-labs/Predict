@@ -1,6 +1,6 @@
 # Predict: platform (installable web app on GitHub Pages)
 
-Version 0.2 · Last updated: 2026-11-15 · Block 1 built · Companion to `mechanics.md` and the Build Plan doc
+Version 0.2 · Last updated: 2026-11-15 · Blocks 1 and 2 built · Companion to `mechanics.md` and the Build Plan doc
 
 > **Summary.** Predict ships as an installable web app (a PWA) that GitHub Pages serves free from this
 > repo at https://vaibhav-labs.github.io/Predict/. No domain is bought. The code and the content are
