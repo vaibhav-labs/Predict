@@ -43,7 +43,38 @@
       0.95
     ],
     "note": "Journal calls earn edge points = edge_weight * (points(your forecast) - points(baseline forecast)). edge_weight 2 makes an average real call worth about one gym call (sim F: 14.5 edge points x 2 = 29 vs 33.4 for a calibrated gym call). The baseline is recorded before you commit and shown only after. A call whose baseline is outside trivial_band does not count toward gates. One scored prediction a day, written with its full chain of reasoning; extra predictions are logged unscored. OPEN: tune edge_weight on real data in Block 2.",
-    "edge_weight": 2
+    "edge_weight": 2,
+    "domains": [
+      "work",
+      "life",
+      "world"
+    ],
+    "due_options": [
+      "tomorrow",
+      "week",
+      "month",
+      "longer"
+    ],
+    "due_offset_days": {
+      "tomorrow": 1,
+      "week": 7,
+      "month": 30,
+      "longer": 90
+    },
+    "horizon_of_due": {
+      "tomorrow": "week",
+      "week": "week",
+      "month": "month",
+      "longer": "longer"
+    },
+    "probability_min": 0.01,
+    "probability_max": 0.99,
+    "probability_step": 0.01,
+    "own_rate_min_resolved": 5,
+    "evidence_max": 3,
+    "note_due": "due_offset_days turns a due-date choice into a day count (Block 2: a day, not a calendar week or month, since no calendar logic exists yet). horizon_of_due buckets the four due-date choices into the three horizons the baseline table and the belts use (BL2, belts.csv): week, month, longer. OPEN: exact day counts and whether 'tomorrow' deserves its own bucket, settled with real baselines (open value 2).",
+    "note_baseline": "The baseline for a domain and horizon is the player's own resolved rate (yes / (yes+no), void excluded) once own_rate_min_resolved or more are resolved there; otherwise data/journal_baselines.csv; otherwise 50%.",
+    "checker_rules": "data/checker_rules.csv"
   },
   "habit": {
     "session_points": 60,

@@ -1,0 +1,10 @@
+domain,horizon,base_rate,note
+work,week,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+work,month,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+work,longer,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+life,week,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+life,month,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+life,longer,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+world,week,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+world,month,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
+world,longer,0.5,Starter guess. No history yet: neutral until real baselines arrive (mechanics.md open value 2)
