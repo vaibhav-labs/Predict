@@ -2704,6 +2704,11 @@ def phase_b12(E):
     tbl = text(page, "#ar-table")
     check("the Mirror has the Arena rows over the one settled question, flagged as self-reported and a hint", text(page, "#ar-n") == "n=1" and signed(mine) in tbl and signed(crowd) in tbl and signed(mine - crowd) in tbl and "yourself" in text(page, "#arena-record") and "hint" in text(page, "#arena-record"), tbl)
     F.audit(E, "mirror with Unit 12")
+    go(page, "#/help")
+    page.wait_for_selector("main")
+    body = text(page, "main")
+    check("How to play explains Units 10 to 12: the 1% dial, several outcomes, the round-number habit, the machine and the Arena", all(x in body for x in ("Competing (Units 10 to 12)", "Fine grain (Unit 10)", "Several outcomes", "Round-number habit", "With the machine (Unit 11)", "Arena (Unit 12)")), body[:80])
+    F.audit(E, "help with Units 10 to 12")
     check("the app never said Claude on an Arena screen", "claude" not in page.content().lower())
     E.ctx.close()
 

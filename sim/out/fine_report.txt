@@ -1,0 +1,16 @@
+Unit 10 gate: 400 calls from 480 exam questions, average confidence within 1.5 points of the hit rate (4000 runs each)
+  says the record's number (shift 0)         pass  99.8%   mean gap -0.39   sd 0.36
+  a point shy (shift -1)                     pass  64.5%   mean gap -1.40   sd 0.36
+  a point too sure (shift +1)                pass 100.0%   mean gap +0.41   sd 0.36
+  three points too sure (shift +3)           pass  52.1%   mean gap +1.40   sd 0.36
+  mildly overconfident (shift +5)            pass  15.4%   mean gap +1.85   sd 0.36
+  typically overconfident (shift +10)        pass   3.9%   mean gap +2.29   sd 0.37
+  shy (shift -5)                             pass   0.0%   mean gap -5.39   sd 0.36
+L14: more than 90% of the last 100 on a multiple of ten
+  rounds   0% of the time: fires   0.0%   a halved habit clears the re-test 100.0%
+  rounds  20% of the time: fires   0.0%   a halved habit clears the re-test 100.0%
+  rounds  50% of the time: fires   0.0%   a halved habit clears the re-test 100.0%
+  rounds  80% of the time: fires   0.2%   a halved habit clears the re-test 100.0%
+  rounds  90% of the time: fires  44.9%   a halved habit clears the re-test 100.0%
+  rounds  95% of the time: fires  97.4%   a halved habit clears the re-test 100.0%
+  rounds 100% of the time: fires 100.0%   a halved habit clears the re-test 100.0%

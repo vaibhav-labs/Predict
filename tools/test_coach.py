@@ -70,6 +70,7 @@ def packet_checks():
     ok("the open world prediction is listed for a check, with a baseline still wanted", [x["id"] for x in a["world_predictions_to_check"]] == [p["id"]] and a["predictions_without_predict_baseline"] == [p["id"]])
     ok("the resolved card is resolved and its outcome is there", [x for x in a["predictions"] if x["id"] == q["id"]][0]["state"] == "resolved")
     ok("seven days of ideas are asked for, starting tomorrow", a["prompts_needed"][0] == "2026-09-11" and len(a["prompts_needed"]) == 7)
+    ok("the packet asks for new world forecasts from tomorrow and lists none to check yet", a["forecasts_needed"]["opens_from"] == "2026-09-11" and a["world_forecasts_to_check"] == [] and a["world_forecasts_waiting"] == 0)
     ok("the packet holds no field the review should not see (no token, no key names)", "token" not in json.dumps(a).lower())
     return bad
 

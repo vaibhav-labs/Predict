@@ -21,7 +21,7 @@ const fcall = (d, c, hit, extra = {}) => ev('call', d, { session: 's', mode: 'pr
 
 test('the Block 10 settings are in the table: the fine dial, the 400-call exam, the opening chain, pattern L14', () => {
   assert.deepEqual([cfg.binary.fine.min, cfg.binary.fine.max, cfg.binary.fine.step, cfg.binary.fine.rule], [0.5, 0.99, 0.01, 'log_points']);
-  assert.deepEqual([G.fine_exam_calls, G.fine_index_tolerance, G.fine_sitting, G.fine_repair_calls], [400, 0.03, 20, 20]);
+  assert.deepEqual([G.fine_exam_calls, G.fine_index_tolerance, G.fine_sitting, G.fine_repair_calls], [400, 0.015, 20, 20]);
   assert.deepEqual([G.opens_after.U10, G.opens_after.U11, G.opens_after.U12], ['U9', 'U10', 'U10']);
   assert.deepEqual(G.rust_triggers.U10, ['L14']);
   const t = cfg.lessons.triggers.L14;
@@ -63,13 +63,13 @@ test('a multi-outcome answer must give every outcome a whole percent, at least 1
   assert.match(FN.checkMulti([40.5, 29.5, 20, 10], 4).error, /Whole/);
 });
 
-test('the Unit 10 verdict: the average confidence within 3 points of the hit rate, judged on all 400', () => {
+test('the Unit 10 verdict: the average confidence within 1.5 points of the hit rate, judged on all 400', () => {
   const mk = (n, c, hits) => Array.from({ length: n }, (_, i) => ({ c, hit: i < hits, points: FN.sharp(S, c, i < hits) }));
   let v = FN.gateFine(mk(400, 0.96, 384), G); // right 96%, says 96%
   assert.equal(v.pass, true); assert.equal(v.n, 400);
-  v = FN.gateFine(mk(400, 0.96, 372), G); // right 93%: 3 points off exactly: passes
+  v = FN.gateFine(mk(400, 0.96, 378), G); // right 94.5%: 1.5 points off exactly: passes
   assert.equal(v.pass, true);
-  v = FN.gateFine(mk(400, 0.96, 371), G); // 3.25 points off
+  v = FN.gateFine(mk(400, 0.96, 377), G); // 1.75 points off
   assert.equal(v.pass, false); assert.deepEqual(v.reasons, ['index']); assert.equal(v.dir, 'too sure');
   v = FN.gateFine(mk(400, 0.9, 380), G); // right 95%, says 90%
   assert.equal(v.pass, false); assert.equal(v.dir, 'too shy');

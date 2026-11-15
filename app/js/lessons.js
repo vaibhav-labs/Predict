@@ -341,7 +341,7 @@ export const FINE_LESSONS = [
     blocks: (S, cfg) => [
       { p: ['Unit 10 questions are all in the tails: a flight at least three hours late, a month when the market falls 8%, a day with 20 mm of rain. The record says how often. Most of the time the answer is "no, at 96% or 98%".'] },
       { p: ['Two mistakes cost the most. The first is rounding to 99% because it feels sure: a claim that holds 97 times in 100 is wrong three times in a hundred, and the sharp rule charges ', String(-S.points('log_points', 0.01)), ' for each of them. The second is saying 90% because the true figure feels too small to type.'] },
-      { p: [`The exam is ${cfg.gates.fine_exam_calls} fresh calls in sittings of ${cfg.gates.fine_sitting}. Your average confidence must be within ${cfg.gates.fine_index_tolerance * 100} points of the share you got right. After each practice call the reveal shows what the base rate alone would have scored.`] },
+      { p: [`The exam is ${cfg.gates.fine_exam_calls} fresh calls in sittings of ${cfg.gates.fine_sitting}. Your average confidence must be within ${Math.round(cfg.gates.fine_index_tolerance * 1000) / 10} points of the share you got right. After each practice call the reveal shows what the base rate alone would have scored.`] },
     ],
   },
   {

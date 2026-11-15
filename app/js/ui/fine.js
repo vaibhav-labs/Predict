@@ -13,7 +13,9 @@ import { claimNode, baseLine, domainLabel } from './gym.js';
 import { fineGateState, judgeFineExam } from '../flags.js';
 import { retestText, flagName } from '../flagtext.js';
 
-const pts = (x) => `${Math.round(Math.abs(x) * 100)}`;
+const pts = (x) => `${Math.round(Math.abs(x) * 1000) / 10}`;
+const tolOf = (cfg) => `${Math.round(cfg.gates.fine_index_tolerance * 1000) / 10}`;
+const gapText = (x) => `${x > 0 ? '+' : x < 0 ? '\u2212' : ''}${pts(x)}`;
 
 // The questions of a session, in order: fresh ones first (never asked), then the ones asked longest ago. A disputed question never comes back.
 export function planFine({ bank, events, size, rng }) {
@@ -282,13 +284,13 @@ export function fineExamScreen(ctx, id) {
         a.calls.length < a.total ? h('a', { class: 'btn', href: '#/fine/exam' }, 'Next sitting') : null));
   }
   const r = a.result;
-  const tol = Math.round(cfg.gates.fine_index_tolerance * 100);
+  const tol = tolOf(cfg);
   return focusFrame({ title: 'Verdict', closeLabel: 'Back to Path', closeTo: '#/path' },
     h('section', null, h('div', { class: 'eyebrow' }, 'Unit 10 exam'), h('p', { class: 'claim', style: 'font-size:24px', id: 'fexam-verdict' }, r.pass ? 'Passed.' : 'Not passed this time.')),
     h('section', { class: 'sumgrid' },
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Average confidence'), h('b', { class: 'num', id: 'fexam-conf' }, pct(r.meanConf))),
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Hit rate'), h('b', { class: 'num', id: 'fexam-hit' }, pct(r.hitRate))),
-      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Gap'), h('b', { class: 'num' }, gapPts(r.index)), h('span', { class: 'cap' }, `limit ${tol} points`)),
+      h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Gap'), h('b', { class: 'num' }, gapText(r.index)), h('span', { class: 'cap' }, `limit ${tol} points`)),
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Sharp points'), h('b', { class: 'num' }, signed(r.points)), h('span', { class: 'cap' }, `${r.n} calls`))),
     h('section', { class: 'card stack' }, r.pass
       ? h('p', null, `Across ${r.n} fresh calls on the 1% dial your average confidence was within ${tol} points of how often you were right. Unit 10 is done; Units 11 and 12 are open.`)
@@ -317,7 +319,7 @@ export function finePathCards(ctx, lessonCard, FINE_LESSONS) {
   if (st.passed) { status = 'Passed'; body = [h('p', null, `Passed on ${st.passedAt.slice(0, 10)}.`)]; if (st.rust) body.push(h('p', { class: 'msg err', id: 'fine-rust' }, `Rust: ${flagName(ctx, st.rust.trigger)} came back after you passed.`)); }
   else if (st.running) { status = 'In progress'; body = [h('p', null, `${st.done} of ${st.total} calls done, sealed until the last one.`)]; action = h('a', { class: 'btn', href: '#/fine/exam', id: 'fine-exam-start' }, `Next sitting: ${FN.fineSittingSize(st, cfg)} calls`); }
   else if (st.needsRepair) { status = 'Repair first'; body = [h('p', null, `Not passed this time: you ran ${st.lastFailed.result.dir}. A repair drill of ${cfg.gates.fine_repair_calls} calls comes first.`)]; action = h('a', { class: 'btn', href: '#/fine/repair', id: 'fine-exam-start' }, 'Start the repair drill'); }
-  else if (st.eligible) { status = 'Ready'; body = [h('p', null, `${st.total} fresh calls on the 1% dial in sittings of ${cfg.gates.fine_sitting}. Your average confidence must be within ${Math.round(cfg.gates.fine_index_tolerance * 100)} points of your hit rate.`)]; action = h('a', { class: 'btn', href: '#/fine/exam', id: 'fine-exam-start' }, attempts.length ? 'Start a new exam' : 'Start the exam'); }
+  else if (st.eligible) { status = 'Ready'; body = [h('p', null, `${st.total} fresh calls on the 1% dial in sittings of ${cfg.gates.fine_sitting}. Your average confidence must be within ${tolOf(cfg)} points of your hit rate.`)]; action = h('a', { class: 'btn', href: '#/fine/exam', id: 'fine-exam-start' }, attempts.length ? 'Start a new exam' : 'Start the exam'); }
   else { status = 'Not open yet'; body = [h('p', null, `It opens after ${st.practiceRequired} fine practice calls. You have made ${st.practice}.`)]; }
   out.push(h('section', { class: 'card stack', id: 'pgate-U10-card' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Unit 10 · Fine grain'), h('span', { class: 'chip on', id: 'pgate-U10-status' }, status)),

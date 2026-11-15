@@ -1,0 +1,72 @@
+{
+ "gate": {
+  "says the record's number (shift 0)": {
+   "pass": 0.99775,
+   "mean_gap": -0.0038804624999985208,
+   "sd": 0.0035823068037360746
+  },
+  "a point shy (shift -1)": {
+   "pass": 0.645,
+   "mean_gap": -0.013957624999999129,
+   "sd": 0.0035894420244482307
+  },
+  "a point too sure (shift +1)": {
+   "pass": 1.0,
+   "mean_gap": 0.00409287500000346,
+   "sd": 0.003584291359093878
+  },
+  "three points too sure (shift +3)": {
+   "pass": 0.52075,
+   "mean_gap": 0.014031081250004476,
+   "sd": 0.0036384001531783623
+  },
+  "mildly overconfident (shift +5)": {
+   "pass": 0.15375,
+   "mean_gap": 0.018495487500004973,
+   "sd": 0.0036130884399421625
+  },
+  "typically overconfident (shift +10)": {
+   "pass": 0.03875,
+   "mean_gap": 0.022907968750005343,
+   "sd": 0.0037090031214968566
+  },
+  "shy (shift -5)": {
+   "pass": 0.0,
+   "mean_gap": -0.0538748562499987,
+   "sd": 0.003614157856345791
+  }
+ },
+ "l14": {
+  "0.0": {
+   "fires": 0.0,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "0.2": {
+   "fires": 0.0,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "0.5": {
+   "fires": 0.0,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "0.8": {
+   "fires": 0.00225,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "0.9": {
+   "fires": 0.449,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "0.95": {
+   "fires": 0.97375,
+   "retest_clears_if_habit_halves": 1.0
+  },
+  "1.0": {
+   "fires": 1.0,
+   "retest_clears_if_habit_halves": 0.99975
+  }
+ },
+ "bank": 480,
+ "calls": 400,
+ "tolerance": 0.015
+}

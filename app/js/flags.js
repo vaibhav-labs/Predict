@@ -109,7 +109,7 @@ export async function judgeProblemExam(ctx, attemptId) {
 }
 
 // Unit 10 (Fine grain): opens when Unit 9 is passed. The practice that counts toward its exam is the fine calls of practice sessions; the exam is judged once,
-// when its last call is in (400 calls, the average confidence within 3 points of the hit rate).
+// when its last call is in (400 calls, the average confidence within 1.5 points of the hit rate).
 export function fineGateState(ctx) {
   const events = ctx.store.events;
   const open = problemGateState(ctx, ctx.cfg.gates.opens_after.U10).passed;
