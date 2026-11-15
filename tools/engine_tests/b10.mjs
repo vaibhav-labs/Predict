@@ -8,6 +8,7 @@ import * as LE from '../../app/js/engine/lessons.js';
 import * as FN from '../../app/js/engine/fine.js';
 import { summarize } from '../../app/js/engine/record.js';
 import { ledger } from '../../app/js/engine/progress.js';
+import * as WD from '../../app/js/engine/world.js';
 
 const G = cfg.gates;
 let seq = 0;
@@ -148,4 +149,60 @@ test('describeFine reads the practice and exam fine calls: the last 100 for the 
   assert.equal(d.tailN, 10); assert.equal(d.tailHit, 0.9);
   assert.equal(d.hits, 10);
   assert.equal(d.roundShare, 1 / 11);
+});
+
+// ---- Unit 11: world questions, the two forecasts and Predict's ---------------------------------------------------------------------
+test('world points: the sharp rule on the side the chance points to, matching a recomputation for every whole percent', () => {
+  const ref = JSON.parse(py('import math\nout={}\nfor p in range(1,100):\n  for yes in (True,False):\n    q=p/100 if yes else 1-p/100\n    out[f"{p}:{str(yes).lower()}"]=round(100*(1+math.log2(q)))\nprint(json.dumps(out))'));
+  for (let p = 1; p <= 99; p++) for (const yes of [true, false]) {
+    // a number below 50% is a call on no at 100 - p: it is right when no happened. The log score of "what happened" is its chance.
+    const want = ref[`${p}:${yes}`];
+    // the dial is capped at 50..99, so the published points for a call at c are the table's: compare through c.
+    const got = WD.worldPoints(S, p / 100, yes);
+    assert.equal(got, want, `p ${p} yes ${yes}`);
+  }
+});
+
+test('world questions: states by day, Predict\'s number hidden until opened, the record keeps what the player saw', () => {
+  const f = (id, opens, due, p = 0.37) => [id, { text: `Will ${id} happen?`, p, written: '2026-11-01', opens, due, ref: 'a base rate', result: null, source: null, checked: null }];
+  const coach = { forecasts: Object.fromEntries([f('w-a', '2026-11-10', '2026-12-01'), f('w-b', '2026-11-20', '2026-12-10'), f('w-c', '2026-11-01', '2026-11-12')]) };
+  const today = '2026-11-14';
+  const ev = (state, id, rest) => ({ type: 'world', state, id, t: `${today}T10:00:00Z`, d: today, ...rest });
+  let qs = WD.worldQuestions([], coach, today);
+  assert.deepEqual(qs.map((q) => [q.id, q.state]), [['w-c', 'expired'], ['w-a', 'open']], 'w-b has not opened and is not listed; w-c is past due and was never forecast');
+  const events = [ev('first', 'w-a', { text: 'Will w-a happen?', due: '2026-12-01', opens: '2026-11-10', p: 0.6 })];
+  qs = WD.worldQuestions(events, coach, today);
+  assert.equal(qs.find((q) => q.id === 'w-a').state, 'reveal', 'a first number is in, the final one is not');
+  events.push(ev('final', 'w-a', { p: 0.5, machine: 0.37, machineWritten: '2026-11-01', machineRef: 'a base rate' }));
+  assert.equal(WD.worldQuestions(events, coach, today).find((q) => q.id === 'w-a').state, 'waiting');
+  assert.equal(WD.worldQuestions(events, coach, '2026-12-02').find((q) => q.id === 'w-a').state, 'due');
+  // a new file that no longer lists the question changes nothing for a question the player started
+  const gone = WD.worldQuestions(events, { forecasts: {} }, '2026-12-02').find((q) => q.id === 'w-a');
+  assert.equal(gone.state, 'due'); assert.equal(gone.machine, 0.37); assert.equal(gone.text, 'Will w-a happen?');
+  // a final without a first is ignored; a second first is ignored
+  assert.equal(WD.worldQuestions([ev('final', 'w-a', { p: 0.5, machine: 0.37 })], coach, today).find((q) => q.id === 'w-a').state, 'open');
+  const twice = WD.worldQuestions([...events, ev('first', 'w-a', { p: 0.99 })], coach, today).find((q) => q.id === 'w-a');
+  assert.equal(twice.first.p, 0.6);
+  events.push(ev('resolve', 'w-a', { outcome: 'yes', via: 'self' }));
+  const done = WD.worldQuestions(events, coach, '2026-12-02').find((q) => q.id === 'w-a');
+  assert.equal(done.state, 'resolved');
+  assert.deepEqual(WD.worldScores(S, done), { first: WD.worldPoints(S, 0.6, true), final: 0, machine: WD.worldPoints(S, 0.37, true) });
+  assert.equal(WD.worldScores(S, { ...done, resolve: { outcome: 'void' } }), null, 'a void question scores nothing');
+});
+
+test('world gate: needs 60 resolved, then final at least as good as first and as Predict\'s alone', () => {
+  const mk = (i, first, final, machine, outcome = 'yes') => ({ id: `w${i}`, first: { p: first }, final: { p: final }, machine, resolve: { outcome } });
+  const many = (n, a) => Array.from({ length: n }, (_, i) => mk(i, ...a));
+  let g = WD.worldGate(S, many(59, [0.6, 0.7, 0.65]), cfg.gates);
+  assert.equal(g.n, 59); assert.equal(g.ready, false); assert.equal(g.passed, false);
+  g = WD.worldGate(S, many(60, [0.6, 0.7, 0.65]), cfg.gates);
+  assert.equal(g.ready, true); assert.equal(g.passed, true, 'final 70 beats first 60 and Predict 65 when yes happens every time');
+  g = WD.worldGate(S, many(60, [0.7, 0.6, 0.65]), cfg.gates);
+  assert.equal(g.beatsFirst, false); assert.equal(g.passed, false);
+  g = WD.worldGate(S, many(60, [0.6, 0.65, 0.65]), cfg.gates);
+  assert.equal(g.passed, true, 'equal to Predict\'s alone counts');
+  g = WD.worldGate(S, [...many(60, [0.6, 0.7, 0.65]), mk(99, 0.9, 0.9, 0.9, 'void')], cfg.gates);
+  assert.equal(g.n, 60); assert.equal(g.voided, 1, 'void questions are counted apart and carry no points');
+  const unresolved = { ...mk(1, 0.6, 0.7, 0.65), resolve: null };
+  assert.equal(WD.worldGate(S, [unresolved], cfg.gates).n, 0);
 });

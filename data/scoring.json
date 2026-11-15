@@ -266,6 +266,7 @@
     "memory_min_checks": 30,
     "memory_drift_max": 0.05,
     "fine_exam_calls": 400,
+    "world_resolved": 60,
     "fine_index_tolerance": 0.03,
     "fine_sitting": 20,
     "fine_repair_calls": 20
