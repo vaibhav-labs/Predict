@@ -47,6 +47,32 @@
     "drill_calls": 10,
     "input_note": "The range screen takes a low and a high. A log question needs both above zero. Nothing else is refused: a silly range simply scores badly."
   },
+  "problems": {
+    "_doc": "Unit 4 (Fermi) and Unit 5 (outside view) problems, design/mechanics.md 4.11. A Fermi problem is scored as a range on its whole (the worksheet's combined range) with the interval points above; a base-rate or chain problem is a percent that counts when within `tolerance` points of the truth.",
+    "fermi": {
+      "session_size": 8,
+      "exam_session_size": 10,
+      "reseen_days": 90,
+      "parts_note": "The worksheet combines the parts in log space: the centres add and the half-widths add in quadrature (independent errors), see engine/problem.js combineRanges."
+    },
+    "rate": {
+      "tolerance": 7,
+      "full_points": 100,
+      "floor": -100,
+      "session_size": 12,
+      "class_per_session": 3,
+      "exam_session_size": 20,
+      "reseen_days": 90,
+      "class_min_cases": 30,
+      "class_right": 60,
+      "class_wrong": -30,
+      "accept_within": 10,
+      "note": "Points for a percent answer: round(full_points * (1 - miss / tolerance)), never below floor, where miss is the number of percentage points from the truth. Within the tolerance is a hit (a hit pays 0 or more). A class problem pays class_right or class_wrong. accept_within: a journal card's outside-view rate counts as an accepted base rate when it is within this many points of the checker's reference rate."
+    },
+    "chain": {
+      "session_size": 10
+    }
+  },
   "journal": {
     "scored_predictions_per_day": 1,
     "trivial_band": [
@@ -119,9 +145,27 @@
       "U3": [
         "L05",
         "L06"
+      ],
+      "U4": [
+        "L07"
+      ],
+      "U5": [
+        "L08",
+        "L09"
       ]
     },
-    "range_repair_calls": 10
+    "range_repair_calls": 10,
+    "fermi_exam_calls": 20,
+    "fermi_pass_hits": 16,
+    "fermi_median_factor": 3,
+    "fermi_repair_calls": 6,
+    "rate_exam_calls": 40,
+    "rate_pass_within": 32,
+    "rate_repair_calls": 10,
+    "opens_after": {
+      "U4": "U3",
+      "U5": "U4"
+    }
   },
   "sim": {
     "seed": 20261114,
@@ -417,6 +461,47 @@
           "kind": "budget",
           "calls": 10,
           "budget_ratio": 1.6
+        }
+      },
+      "L07": {
+        "kind": "chain_blind",
+        "window": 15,
+        "gap": 0.15,
+        "clear_window": 15,
+        "clear_gap": 0.1,
+        "drill": {
+          "kind": "chain",
+          "calls": 10
+        }
+      },
+      "L08": {
+        "kind": "own_task",
+        "window": 20,
+        "gap": 0.15,
+        "clear_window": 20,
+        "clear_gap": 0.1,
+        "drill": {
+          "kind": "plan",
+          "calls": 8
+        }
+      },
+      "L09": {
+        "kind": "base_neglect",
+        "window": 15,
+        "distance": 0.25,
+        "clear_window": 15,
+        "drill": {
+          "kind": "classpick",
+          "calls": 8
+        }
+      },
+      "L13": {
+        "kind": "domain_blind",
+        "window": 30,
+        "clear_window": 30,
+        "drill": {
+          "kind": "domain",
+          "calls": 8
         }
       }
     },
