@@ -1986,7 +1986,7 @@ def upd_step(page):
 
 
 def advance_step(page, prev_news, prefixes=("#/psummary/", "#/pexam/")):
-    page.wait_for_function("([prev, prefixes]) => { if (prefixes.some((p) => location.hash.startsWith(p))) return true; const n = document.getElementById('news'); return !!n && n.textContent !== prev; }", arg=[prev_news, list(prefixes)], timeout=15000)
+    page.wait_for_function("([prev, prefixes]) => { if (prefixes.some((p) => location.hash.startsWith(p))) return true; const n = document.getElementById('news'); const c = document.getElementById('claim'); const pr = document.getElementById('prior'); return !!n && !!c && !!pr && (c.textContent + '|' + n.textContent + '|' + pr.textContent) !== prev; }", arg=[prev_news, list(prefixes)], timeout=15000)
 
 
 def play_updates(page, n, off_of, reveal=True, checks=None):
@@ -1994,7 +1994,7 @@ def play_updates(page, n, off_of, reveal=True, checks=None):
     out = []
     for i in range(n):
         q = upd_step(page)
-        prev_news = q["news"]
+        prev_news = text(page, "#claim") + "|" + q["news"] + "|" + text(page, "#prior")
         g = min(100.0, max(0.0, q["truth"] + off_of(i, q)))
         page.fill("#pct-input", f"{g:g}")
         F.settle(page)
