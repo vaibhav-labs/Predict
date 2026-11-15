@@ -2401,6 +2401,193 @@ def phase_b9(E):
     E.ctx.close()
 
 
+TAILS = {q["claim"]: q for q in json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "tails.json"), encoding="utf-8"))["questions"]}
+
+
+def set_dial(page, k):
+    page.evaluate("(v) => { const i = document.getElementById('dial'); i.value = String(v); i.dispatchEvent(new Event('input')); }", k)
+
+
+def fine_call_ui(page, c_pct, truthful=True, side=None):
+    """Answer the fine question on screen: the side the base rate favours (or `side`), at c_pct percent, by the dial itself."""
+    page.wait_for_selector("#claim")
+    q = TAILS[text(page, "#claim")]
+    s = side or ("yes" if q["base"] >= 0.5 else "no")
+    set_dial(page, (c_pct - 50) * (1 if s == "yes" else -1))
+    page.wait_for_timeout(450)
+    page.click("#lock")
+    return q, s
+
+
+def phase_b10(E):
+    """Unit 10: the 1% dial under the sharp rule, tail questions, the sealed 400-call exam, the round-number drill (L14)."""
+    # -- closed until Unit 9 is passed ----------------------------------------------------------------------------------------
+    page = open_app(E, "2026-11-25", synth.u8_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b10_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#needs, .stat")
+    check("before Unit 9 is passed there is no Unit 10 card on Today", page.query_selector("#u10-card") is None)
+    go(page, "#/fine")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the fine-grain address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    E.ctx.close()
+
+    # -- open: Today, Path, the dial, one call --------------------------------------------------------------------------------
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u10-card")
+    check("Unit 10 is open: Today has its card with 0 of 84", "0 of 84" in text(page, "#u10-count"), text(page, "#u10-card")[:120])
+    F.audit(E, "today with Unit 10")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check("the Path shows Unit 10 with three lesson cards, practice and an exam not open yet", len(page.query_selector_all("#fine-lessons-card .lesson-link")) == 3 and text(page, "#pgate-U10-status") == "Not open yet" and page.is_visible("#fine-practice"), text(page, "#pgate-U10-card")[:100])
+    F.audit(E, "path with Unit 10")
+    go(page, "#/lesson/sharp")
+    page.wait_for_selector("#lesson-title")
+    body = text(page, "main")
+    check("the sharp-rule card gives the payout table's own numbers (99% right +99, 99% wrong -564)", "99" in body and "564" in body and "Unit 10" in text(page, ".eyebrow"), body[:160])
+    F.audit(E, "sharp lesson")
+    go(page, "#/fine")
+    page.wait_for_selector("#dial")
+    mn, mx = page.get_attribute("#dial", "min"), page.get_attribute("#dial", "max")
+    check("the dial has 1% steps: 49 on each side of a toss-up", (mn, mx) == ("-49", "49") and page.query_selector("#dial-up") is not None and page.query_selector("#dial-down") is not None, str((mn, mx)))
+    check("a fine session opens: 1 of 14, tagged Unit 10 practice", text(page, ".cnt") == "1 of 14" and "Unit 10 practice" in text(page, "#mode-tag"), text(page, ".cnt"))
+    F.audit(E, "fine question")
+    shot(E, "b10-question.png")
+    for _ in range(13):
+        page.click("#dial-up")
+    check("thirteen taps on +1 from a toss-up make 63% Yes, and the payouts shown are the sharp rule's", "63%" in text(page, "main") and signed(synth.sharp_pts(0.63, True)) in text(page, ".pay") and signed(synth.sharp_pts(0.63, False)) in text(page, ".pay"), text(page, ".pay"))
+    page.wait_for_timeout(450)
+    page.click("#lock")
+    page.wait_for_selector("#verdict", timeout=5000)
+    ev = of_type(page, "call")[-1]
+    check("the call is saved on the 1% dial: fine, unit U10, 63%, sharp points, core points and the log rule", ev.get("fine") is True and ev["unit"] == "U10" and near(ev["c"], 0.63) and ev["rule"] == "log_points" and ev["points"] == synth.sharp_pts(0.63, ev["hit"]) and ev["core"] == synth.pts(0.63) if ev["hit"] else ev["core"] == synth.pts(1 - 0.63), str(ev))
+    check("the reveal shows the sharp points and what the base rate alone would have scored", text(page, "#points") == signed(ev["points"]) and "base rate" in text(page, "#base-compare"), text(page, "#base-compare"))
+    F.audit(E, "fine reveal")
+    shot(E, "b10-reveal.png")
+    for i in range(13):
+        page.wait_for_timeout(450)
+        page.click("#next")
+        page.wait_for_selector("#claim, #sum-points", timeout=5000)
+        if page.query_selector("#sum-points"):
+            break
+        fine_call_ui(page, 96 if i % 2 else 97)
+        page.wait_for_selector("#verdict", timeout=5000)
+    page.wait_for_timeout(450)
+    if page.query_selector("#next"):
+        page.click("#next")
+    page.wait_for_selector("#sum-points", timeout=8000)
+    sess_calls = [c for c in of_type(page, "call") if c.get("fine")]
+    total = sum(c["points"] for c in sess_calls)
+    check("the session summary is in sharp points and counts the multiples of ten", len(sess_calls) == 14 and text(page, "#sum-points") == signed(total) and re.fullmatch(r"\d+ of 14", text(page, "#sum-round")), f"{text(page, '#sum-points')} vs {signed(total)}")
+    F.audit(E, "fine summary")
+    go(page, "#/today")
+    page.wait_for_selector("#u10-card")
+    check("Today counts the 14 fine calls toward the 84", "14 of 84" in text(page, "#u10-count"), text(page, "#u10-count"))
+    stat = text(page, "#stat-points")
+    core_sum = sum(c["core"] for c in of_type(page, "call") if c.get("mode") in ("practice", "baseline", "exam", "drill") and c.get("core") is not None)
+    check("the points on Today never swing on the sharp rule: fine calls count at the core rule", abs(int(stat.replace("\u2212", "-").replace("+", "")) - sum((c["core"] if c.get("fine") else c["points"]) for c in of_type(page, "call"))) <= 1, f"{stat}")
+    E.ctx.close()
+
+    # -- the exam: 84 practice calls made; sittings of 20, sealed; the last sitting gives the verdict -------------------------
+    r = synth.u10_ready_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_ready.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check("with 84 practice calls the exam card says Ready", text(page, "#pgate-U10-status") == "Ready" and page.query_selector("#fine-exam-start") is not None, text(page, "#pgate-U10-card")[:120])
+    go(page, "#/fine/exam")
+    page.wait_for_selector("#dial")
+    check("an exam sitting is sealed: sitting 1 of 20, no result shown", "Exam" in text(page, "#mode-tag") and "sitting 1 of 20" in text(page, "#mode-tag") and text(page, ".cnt") == "1 of 20")
+    q, _ = fine_call_ui(page, 96)
+    page.wait_for_function("document.querySelector('.cnt') && document.querySelector('.cnt').textContent === '2 of 20'", timeout=5000)
+    check("an exam call shows no reveal: the next question follows at once", page.query_selector("#verdict") is None and text(page, ".cnt") == "2 of 20")
+    for i in range(19):
+        page.wait_for_function("document.querySelector('.cnt') && document.querySelector('.cnt').textContent === '%d of 20' || location.hash.startsWith('#/fexam/')" % (i + 2), timeout=5000)
+        if page.evaluate("location.hash").startswith("#/fexam/"):
+            break
+        fine_call_ui(page, 96)
+        page.wait_for_timeout(120)
+    page.wait_for_selector("#fexam-progress", timeout=8000)
+    check("after 20 calls the exam screen shows only the sealed progress: 20 of 400", "20 of 400" in text(page, "#fexam-progress") and page.query_selector("#fexam-verdict") is None, text(page, "#fexam-progress"))
+    exam_calls = [c for c in of_type(page, "call") if c.get("mode") == "exam" and c.get("unit") == "U10"]
+    check("the 20 exam calls are saved on the fine dial and carry the exam id", len(exam_calls) == 20 and all(c.get("fine") and c.get("exam") for c in exam_calls), str([(c.get("mode"), c.get("fine"), c.get("exam")) for c in exam_calls][:3]) + str(len(exam_calls)))
+    E.ctx.close()
+    verdict_player(E, True)
+    verdict_player(E, False)
+
+    # -- L14: the round-number habit and its drill ------------------------------------------------------------------------------
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    qs = synth._tails("practice")[:100]
+    day0 = "2026-09-20"
+    for k in range(5):
+        sub = qs[k * 20:(k + 1) * 20]
+        synth.fine_session(r, synth.add_days(day0, k), 0, sub, [[0.9, 0.8, 0.7, 0.6, 0.5][j % 5] for j in range(20)], honest=True)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_l14.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    page.wait_for_selector("#patterns")
+    check("100 fine calls on multiples of ten open the round-number pattern", "Round-number habit" in text(page, "#patterns"), text(page, "#patterns")[:120])
+    flag = [e for e in read_events(page) if e["type"] == "flag" and e.get("trigger") == "L14" and e.get("state") == "open"]
+    check("one L14 flag was written, with the share in its evidence", len(flag) == 1 and flag[0]["evidence"]["share"] == 1.0, str(flag[:1]))
+    go(page, f"#/flag/{flag[0]['id']}")
+    page.wait_for_selector("main")
+    body = text(page, "main")
+    check("the flag screen says what it saw and what the re-tests ask", "multiple of ten" in body and "100 calls on the 1% dial" in body, body[:200])
+    F.audit(E, "L14 flag")
+    go(page, f"#/fine/drill-{flag[0]['id']}")
+    page.wait_for_selector("#dial")
+    check("the drill is 20 calls and tagged Drill", text(page, ".cnt") == "1 of 20" and "Drill" in text(page, "#mode-tag"))
+    for _ in range(10):
+        page.click("#dial-up")
+    check("a multiple of ten (60%) is locked in the drill: the hint shows and Lock waits", page.is_visible("#dial-hint") and page.is_disabled("#lock"), text(page, "#dial-hint"))
+    page.click("#dial-up")
+    check("61% is allowed", not page.is_disabled("#lock") and not page.is_visible("#dial-hint"))
+    F.audit(E, "L14 drill")
+    E.ctx.close()
+
+
+def verdict_player(E, want_pass):
+    """The last sitting of the 400-call exam: 380 sealed calls are on file, the player makes 20 more, and the verdict follows."""
+    r = synth.u10_ready_player(U1_EXAM, start=START)
+    pool = synth._tails("exam")
+    att = r._add("exam", "2026-11-12", 0, state="start", unit="U10", n=400)["id"]
+    for k in range(19):
+        sub = pool[k * 20:(k + 1) * 20]
+        sid = r._add("session", synth.add_days("2026-11-12", k // 3), 10 + k * 40, mode="exam", unit="U10", fine=True, size=20, exam=att, n=k + 1, of=20, plan=[q["id"] for q in sub])["id"]
+        for j, q in enumerate(sub):
+            base_side = "yes" if q["base"] >= 0.5 else "no"
+            side = base_side if want_pass or (k * 20 + j) % 8 else ("no" if base_side == "yes" else "yes")
+            synth.fine_call(r, sid, synth.add_days("2026-11-12", k // 3), 11 + k * 40 + j, q, 0.96, side, mode="exam", exam=att)
+        r._add("session_end", synth.add_days("2026-11-12", k // 3), 12 + k * 40 + 20, session=sid)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, f"b10_verdict_{want_pass}.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check(f"{'pass' if want_pass else 'fail'} run: the exam shows 380 of 400 done, in progress", text(page, "#pgate-U10-status") == "In progress" and "380 of 400" in text(page, "#pgate-U10-card"), text(page, "#pgate-U10-card")[:120])
+    go(page, "#/fine/exam")
+    page.wait_for_selector("#dial")
+    for i in range(20):
+        page.wait_for_function("document.querySelector('#claim') !== null", timeout=5000)
+        fine_call_ui(page, 96)
+        page.wait_for_timeout(150)
+    page.wait_for_selector("#fexam-verdict", timeout=15000)
+    v = text(page, "#fexam-verdict")
+    res = [e for e in read_events(page) if e["type"] == "exam" and e.get("state") == "result" and e.get("unit") == "U10"]
+    check(f"the verdict is {'Passed' if want_pass else 'Not passed'} and is written once", len(res) == 1 and res[0]["pass"] is want_pass and v.startswith("Passed" if want_pass else "Not passed") and res[0]["n"] == 400, f"{v} / {res[0] if res else None}")
+    conf, hit = res[0]["meanConf"], res[0]["hitRate"]
+    check("the verdict shows the average confidence and the hit rate that decided it", text(page, "#fexam-conf") == pct(conf) and text(page, "#fexam-hit") == pct(hit), f"{text(page, '#fexam-conf')} {text(page, '#fexam-hit')}")
+    F.audit(E, f"fine exam verdict {want_pass}")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    status = text(page, "#pgate-U10-status")
+    check("the Path shows Passed after a pass and Repair first after a fail", status == ("Passed" if want_pass else "Repair first"), status)
+    if not want_pass:
+        check("a fail says which way: too sure", "too sure" in text(page, "#pgate-U10-card"), text(page, "#pgate-U10-card")[:140])
+        go(page, "#/fine/repair")
+        page.wait_for_selector("#dial")
+        check("the repair drill is 20 calls and tagged Repair drill", text(page, ".cnt") == "1 of 20" and "Repair drill" in text(page, "#mode-tag"))
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -2416,6 +2603,7 @@ PHASES = [
     ("b7", "Block 7: Fermi, base rates, chains", phase_b7),
     ("b8", "Block 8: updating", phase_b8),
     ("b9", "Block 9: knowing yourself", phase_b9),
+    ("b10", "Block 10: fine grain", phase_b10),
 ]
 
 
