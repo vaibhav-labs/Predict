@@ -12,6 +12,7 @@ import { withDir, readEvents, walkJS, sameTimeline, scenario, summary } from './
 import * as R from '../../app/js/engine/record.js';
 import * as LE from '../../app/js/engine/lessons.js';
 import * as G from '../../app/js/engine/gate.js';
+import { ledger } from '../../app/js/engine/progress.js';
 import { planBaseline, pickNext, seeded, availablePool } from '../../app/js/engine/draw.js';
 
 const L = cfg.lessons;
@@ -473,4 +474,42 @@ test('the 90-day rule and the 70/30 split: nothing seen in the last 90 days retu
   assert.ok(onlyOld.every((q) => q && old.has(q.id)), 'with nothing never seen, everything comes from the review pool');
   const R90 = R.recentQuestionIds([call('2026-06-01', 0.7, true, { q: 'qa' }), call('2026-09-01', 0.7, true, { q: 'qb' }), call('2026-09-30', 0.7, true, { q: 'qc' })], '2026-11-29', cfg.gym.reseen_days);
   assert.deepEqual([...R90].sort(), ['qb', 'qc'], '2026-06-01 is 181 days back; 09-01 is 89 days back and still counts as recent, 09-30 is 60');
+});
+
+test('a sealed exam: until the verdict is in, its calls are on file but nothing the player sees carries what they scored', () => {
+  const start = at(D0, '09:00', { type: 'exam', state: 'start', unit: 'U1', n: 200 });
+  const sat = Array.from({ length: 40 }, (_, i) => ({ ...call(D0, 0.95, i < 10, { mode: 'exam', q: `x${i}`, points: i < 10 ? 2 : -400 }), exam: start.id }));
+  const mine = call(D0, 0.7, true, { points: 20 });
+  const events = [start, ...sat, mine].sort(R.byTime);
+  const habit = cfg.habit;
+  assert.equal(R.callsOf(events).length, 1, 'only the practice call is visible');
+  assert.equal(R.allCallsOf(events).length, 41);
+  assert.equal(LE.naturalCalls(events, cfg).length, 1, 'a trigger cannot read a sealed call');
+  assert.deepEqual(evalAt(events, D0).append, [], 'and a pattern flag cannot give the score away mid-exam');
+  const led = ledger(events, D0, habit);
+  assert.equal(led.rows[0].calls, 41, 'the day is played and its calls are counted');
+  assert.equal(led.rows[0].callPoints, 20, 'but only the visible call pays');
+  assert.equal(R.usedQuestionIds(events).size, 41, 'a sealed question is still used: it is never dealt twice');
+  const judged = [...events, at(D0, '12:00', { type: 'exam', state: 'result', exam: start.id, pass: false })];
+  assert.equal(R.callsOf(judged).length, 41, 'judged: the calls join the record');
+  assert.equal(ledger(judged, D0, habit).rows[0].callPoints, 20 + 10 * 2 - 30 * 400);
+  assert.equal(evalAt(judged, D0).append.filter((f) => f.trigger === 'L01').length, 1, 'and now they can fire a trigger: 25% right at 95%');
+});
+
+test('retest progress and the drills a flag and a failed exam ask for', () => {
+  const { events, flag } = openedL01();
+  const chain = () => LE.flagsOf(events, cfg)[0];
+  const env = (today) => ({ cfg, predictions: predictions(events, today), today });
+  assert.deepEqual(LE.retestProgress(chain(), events, env(D0)), { step: 1, readyDay: day(D0, 3), need: 40, have: 0, ready: false });
+  events.push(...batch(day(D0, 3), 25, 0.95, 24), ...batch(day(D0, 3), 5, 0.5, 3), ...batch(day(D0, 2), 9, 0.95, 9));
+  assert.deepEqual(LE.retestProgress(chain(), events, env(day(D0, 3))), { step: 1, readyDay: day(D0, 3), need: 40, have: 25, ready: true }, 'only top-band calls from the third day count');
+  assert.equal(LE.retestProgress({ ...chain(), state: 'cleared' }, events, env(D0)), null);
+  assert.deepEqual(LE.drillOf('L01', cfg), { kind: 'wheel', calls: 15 });
+  assert.deepEqual(LE.drillOf('L02', cfg).steps, [0.5, 0.8, 0.85, 0.9, 0.95, 0.99]);
+  assert.deepEqual([LE.drillOf('L03', cfg).min, LE.drillOf('L04', cfg).items, LE.drillOf('L15', cfg)], [0.6, 5, null]);
+  assert.equal(flag.trigger, 'L01');
+  const sure = G.repairDrillOf({ lo: 0.9, hi: 1, dir: 'too sure' }, cfg), shy = G.repairDrillOf({ lo: 0.6, hi: 0.7, dir: 'too shy' }, cfg);
+  assert.deepEqual([sure.kind, sure.calls, shy.kind, shy.calls], ['wheel', 20, 'forced', 20]);
+  assert.deepEqual(shy.steps, [0.5, 0.8, 0.85, 0.9, 0.95, 0.99]);
+  assert.equal(G.repairDrillOf(null, cfg).kind, 'wheel');
 });

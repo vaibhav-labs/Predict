@@ -81,3 +81,11 @@ export function gateStatus(events, cfg, { practiceCalls = 0, practiceRequired = 
 
 // The next exam sitting: up to exam_session_size calls, never more than the exam has left.
 export const examSittingSize = (status, gym) => Math.min(gym.exam_session_size, status.total - status.done);
+
+// The repair drill after a failed exam: gates.repair_drill_calls calls aimed at the worst band. Too sure: each call is checked against
+// the wheel before it is locked. Too shy: forced commits (the steps the L02 drill uses). `worst` is the verdict's worst band.
+export function repairDrillOf(worst, cfg) {
+  const calls = cfg.gates.repair_drill_calls;
+  if (worst && worst.dir === 'too shy') return { kind: 'forced', calls, steps: cfg.lessons.triggers.L02.drill.steps, band: worst };
+  return { kind: 'wheel', calls, band: worst || null };
+}

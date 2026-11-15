@@ -88,12 +88,20 @@ export function callsToCSV(events) {
 
 // ---- reading the log -----------------------------------------------------------------------------------
 
-export const callsOf = (events) => events.filter((e) => e.type === 'call');
-export const usedQuestionIds = (events) => new Set(callsOf(events).map((e) => e.q));
+// An exam is judged once, at the end. Until its verdict is in, its calls are sealed: nothing the player sees (the Mirror,
+// the points, a lesson trigger) may carry what they scored, so `callsOf` leaves them out. `allCallsOf` is everything on file.
+export const judgedExams = (events) => new Set(events.filter((e) => e.type === 'exam' && e.state === 'result').map((e) => e.exam));
+export const isSealed = (e, judged) => e.type === 'call' && !!e.exam && !judged.has(e.exam);
+export const allCallsOf = (events) => events.filter((e) => e.type === 'call');
+export function callsOf(events) {
+  const judged = judgedExams(events);
+  return events.filter((e) => e.type === 'call' && !isSealed(e, judged));
+}
+export const usedQuestionIds = (events) => new Set(allCallsOf(events).map((e) => e.q));
 export const disputedIds = (events) => new Set(events.filter((e) => e.type === 'dispute').map((e) => e.q));
 // Questions answered within the last `days` days (today counts as day 0): the 90-day rule keeps them from coming back.
 export function recentQuestionIds(events, today, days) {
-  return new Set(callsOf(events).filter((c) => daysBetween(c.d, today) < days).map((c) => c.q));
+  return new Set(allCallsOf(events).filter((c) => daysBetween(c.d, today) < days).map((c) => c.q));
 }
 export const lessonsRead = (events) => new Set(events.filter((e) => e.type === 'lesson').map((e) => e.lesson));
 

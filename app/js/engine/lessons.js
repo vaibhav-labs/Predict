@@ -6,13 +6,14 @@
 // A flag's life: open -> lesson read -> drill done -> re-test 1 (3 or more days later) -> re-test 2 (10 or more days
 // after the drill) -> cleared. A failed re-test returns it to open and adds a fire; at escalate_after_fires fires it
 // goes to the weekly review. Each step is one `flag` event, so the state is a fold of the log.
-import { addDays, localDay } from './record.js';
+import { addDays, localDay, callsOf } from './record.js';
 import { ledger } from './progress.js';
 
 const EPS = 1e-9;
 const inBand = (c, [lo, hi]) => c.c >= lo - EPS && c.c <= hi + EPS;
 
-export const naturalCalls = (events, cfg) => events.filter((e) => e.type === 'call' && cfg.lessons.natural_modes.includes(e.mode));
+// The player's own calls, as the triggers read them. Calls of an exam not yet judged are sealed and read by nothing.
+export const naturalCalls = (events, cfg) => callsOf(events).filter((e) => cfg.lessons.natural_modes.includes(e.mode));
 // A journal prediction the checker had something to say about: flagged while it was written, or on its final wording.
 export const rejected = (p) => p.flagged === true || (Array.isArray(p.flags) && p.flags.length > 0);
 
@@ -175,6 +176,21 @@ export function waitingFor(chain, cfg) {
   if (chain.state === 'retest2') return { step: 2, readyDay: addDays(chain.drill.d, d2), since: chain.retests[0].t };
   return null;
 }
+
+// How far a chain's next re-test has got: the observations that would count (made after the drill, from the ready day on),
+// and how many it needs. `have` is capped at `need`.
+export function retestProgress(chain, events, { cfg, predictions, today }) {
+  const wait = waitingFor(chain, cfg);
+  if (!wait) return null;
+  const t = cfg.lessons.triggers[chain.trigger];
+  const calls = naturalCalls(events, cfg).filter((c) => (wait.since ? c.t > wait.since : true) && c.d >= wait.readyDay);
+  const preds = (predictions || []).filter((p) => (wait.since ? p.t > wait.since : true) && p.d >= wait.readyDay);
+  const have = chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length : calls.filter((c) => inBand(c, t.band)).length;
+  return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have, t.clear_window), ready: today >= wait.readyDay };
+}
+
+// The drill a flag asks for, from the trigger's settings: { kind, calls | items, steps?, min? }.
+export const drillOf = (trigger, cfg) => (cfg.lessons.triggers[trigger] || {}).drill || null;
 
 const lastChain = (chains, id) => chains.filter((c) => c.trigger === id).pop() || null;
 
