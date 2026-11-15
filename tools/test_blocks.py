@@ -2030,6 +2030,13 @@ def phase_b8(E):
     page.wait_for_function("location.hash === '#/today'", timeout=5000)
     check("opening the updating address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
     E.ctx.close()
+    rc = synth.u5_ready_player(U1_EXAM, start=START)
+    card0 = rc.prediction("2026-10-19", 0, 0.30, 0.50, due_option="month", text="By the end of November, the vendor will ship the release.")
+    page = open_app(E, "2026-10-20", rc.write(os.path.join(E.tmp, "b8_closed2.jsonl")))
+    go(page, f"#/journal/{card0['id']}")
+    page.wait_for_selector(".claim")
+    check("before Unit 6 is open an open card has no update action: a lock is final", page.query_selector("#update-card") is None and page.query_selector("textarea") is None and page.query_selector("input[type=range]") is None)
+    E.ctx.close()
 
     # -- open: Today, the Path, the lesson cards ---------------------------------------------------------------------------
     base = synth.u5_passed_player(U1_EXAM, start=START)

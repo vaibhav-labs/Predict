@@ -379,7 +379,7 @@ function detailBody(ctx, p, today, paint, predictions) {
 
   if (p.state === 'open') {
     return focusFrame({ title: 'Prediction', closeTo: '#/journal' },
-      header, baselineLine, chainCard(p), updateHistory(p), updateCard(ctx, p, paint));
+      header, baselineLine, chainCard(p), updateHistory(p), problemGateState(ctx, 'U6').open ? updateCard(ctx, p, paint) : null);
   }
   if (p.state === 'due') {
     return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
