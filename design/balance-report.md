@@ -238,6 +238,26 @@ Section 5 is the closed form. This is the same game on the real range bank (`app
 - **Open risk: padding passes the gate.** A humble player who says 3x passes 100.0% (Unit 3 caps hits at 58 of 60 to stop this; Unit 4 does not), but earns -77 a problem against -15 for the calibrated player. If padding shows up in a real record, add an upper bound on hits or a width cap to the Unit 4 gate (one line in `data/scoring.json` and `gateU4`).
 - **The Unit 5 gate asks for a real outside view:** a player within 3 points on average passes 100.0%, within 5 91.3%, within 8 6.3%; a lean of 6 points high with that noise 0.0%.
 
+## 5d. Updating on the real evidence-stream bank (Block 8)
+
+`sim/update_sim.py` plays the Unit 6 exam on the real exam pool (60 streams of two steps, `updates.json`), 20 streams a sitting pair as the app draws them, with the real rules from `data/scoring.json`. A player answers each step with prior + k x (truth - prior) + noise: k is the share of the deserved move taken (0 never moves, 1 exactly as far as the news is worth, above 1 too far), noise is a normal error in points. The gate needs 32 of 40 steps within 7 points and a mean gain of zero or more over staying at the prior.
+
+| Player | Within 7 of 40 | Mean gain | Points a step | Within half passes | Gain half passes | Exam pass |
+|---|---|---|---|---|---|---|
+| never moves (k 0) | 23.7 | +0.0 | +11 | 0.1% | 100.0% | 0.1% |
+| barely moves (k 0.3, noise 3) | 27.9 | +1.4 | +24 | 7.7% | 99.8% | 7.7% |
+| under-reacts (k 0.6, noise 3) | 34.4 | +3.1 | +47 | 91.5% | 100.0% | 91.5% |
+| calibrated, sharp (k 1, noise 3) | 39.2 | +4.4 | +66 | 100.0% | 100.0% | 100.0% |
+| calibrated, typical (k 1, noise 5) | 33.7 | +2.9 | +44 | 82.5% | 100.0% | 82.5% |
+| calibrated, rough (k 1, noise 8) | 24.9 | +0.5 | +13 | 1.2% | 70.2% | 1.2% |
+| over-reacts (k 1.6, noise 3) | 30.4 | +2.1 | +33 | 33.2% | 100.0% | 33.2% |
+| whiplash (k 2.5, noise 3) | 18.3 | -2.9 | -13 | 0.0% | 0.0% | 0.0% |
+| noise chaser (k 0, noise 15) | 12.6 | -6.7 | -38 | 0.0% | 0.0% | 0.0% |
+
+- **The bank is balanced on purpose:** news is worth 8 or more points on 36.7% of exam steps, 3 to 8 on 30.0% and under 3 on 33.3%. Staying at the prior is within 7 on 59.2% of steps, so a player who never moves earns +11 a step and passes 0.1%.
+- **The within-7 half does the work.** A calibrated player with typical noise passes 82.5%, a rough one 1.2%; an over-reactor (k 1.6) passes 33.2% and a whiplash player (k 2.5) never. The gain half is nearly always met by anyone who moves the right way (70.2% even for the rough player), so it mostly catches whiplash and chasing noise.
+- **Open risk: a half-hearted mover passes.** A player who takes only 60% of every deserved move (k 0.6, noise 3) passes 91.5%: with a tolerance of 7 and streams that are mostly small moves, under-reaction is forgiven. If real players do this, tighten `update_pass_within` or add a floor on the share of a big move taken (the Mirror already shows that share).
+
 ## 6. Real predictions: raw points against edge
 
 - **Intent:** logging sure things must not pay.

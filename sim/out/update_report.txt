@@ -1,0 +1,12 @@
+Player                               within of 40 mean gain pts/step within half gain half exam pass
+never moves (k 0)                            23.7      +0.0     11.0        0.1%    100.0%      0.1%
+barely moves (k 0.3, noise 3)                27.9      +1.4     23.7        7.7%     99.8%      7.7%
+under-reacts (k 0.6, noise 3)                34.4      +3.1     46.7       91.5%    100.0%     91.5%
+calibrated, sharp (k 1, noise 3)             39.2      +4.4     65.9      100.0%    100.0%    100.0%
+calibrated, typical (k 1, noise 5)           33.7      +2.9     43.6       82.5%    100.0%     82.5%
+calibrated, rough (k 1, noise 8)             24.9      +0.5     13.3        1.2%     70.2%      1.2%
+over-reacts (k 1.6, noise 3)                 30.4      +2.1     33.1       33.2%    100.0%     33.2%
+whiplash (k 2.5, noise 3)                    18.3      -2.9    -12.6        0.0%      0.0%      0.0%
+noise chaser (k 0, noise 15)                 12.6      -6.7    -38.1        0.0%      0.0%      0.0%
+
+Exam bank: 120 steps; news worth 8 or more points on 37%, 3 to 8 on 30%, under 3 on 33%; staying at the prior is already within 7 on 59%.

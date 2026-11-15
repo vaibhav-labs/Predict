@@ -1,0 +1,99 @@
+{
+ "never moves (k 0)": {
+  "k": 0.0,
+  "noise": 0.0,
+  "mean_within": 23.6565,
+  "mean_gain": 0.0,
+  "points_per_step": 10.98114375,
+  "exam_pass": 0.0005,
+  "within_half": 0.0005,
+  "gain_half": 1.0
+ },
+ "barely moves (k 0.3, noise 3)": {
+  "k": 0.3,
+  "noise": 3.0,
+  "mean_within": 27.8675,
+  "mean_gain": 1.3520100011657574,
+  "points_per_step": 23.7108625,
+  "exam_pass": 0.07725,
+  "within_half": 0.07725,
+  "gain_half": 0.9975
+ },
+ "under-reacts (k 0.6, noise 3)": {
+  "k": 0.6,
+  "noise": 3.0,
+  "mean_within": 34.44925,
+  "mean_gain": 3.1241541649034055,
+  "points_per_step": 46.69936875,
+  "exam_pass": 0.915,
+  "within_half": 0.915,
+  "gain_half": 1.0
+ },
+ "calibrated, sharp (k 1, noise 3)": {
+  "k": 1.0,
+  "noise": 3.0,
+  "mean_within": 39.21225,
+  "mean_gain": 4.449719397662179,
+  "points_per_step": 65.8554375,
+  "exam_pass": 1.0,
+  "within_half": 1.0,
+  "gain_half": 1.0
+ },
+ "calibrated, typical (k 1, noise 5)": {
+  "k": 1.0,
+  "noise": 5.0,
+  "mean_within": 33.6785,
+  "mean_gain": 2.881505323263179,
+  "points_per_step": 43.5603,
+  "exam_pass": 0.825,
+  "within_half": 0.825,
+  "gain_half": 1.0
+ },
+ "calibrated, rough (k 1, noise 8)": {
+  "k": 1.0,
+  "noise": 8.0,
+  "mean_within": 24.88575,
+  "mean_gain": 0.5402647208536959,
+  "points_per_step": 13.2921875,
+  "exam_pass": 0.01175,
+  "within_half": 0.012,
+  "gain_half": 0.70175
+ },
+ "over-reacts (k 1.6, noise 3)": {
+  "k": 1.6,
+  "noise": 3.0,
+  "mean_within": 30.386,
+  "mean_gain": 2.112115851274002,
+  "points_per_step": 33.10489375,
+  "exam_pass": 0.3325,
+  "within_half": 0.3325,
+  "gain_half": 1.0
+ },
+ "whiplash (k 2.5, noise 3)": {
+  "k": 2.5,
+  "noise": 3.0,
+  "mean_within": 18.30925,
+  "mean_gain": -2.859695946977192,
+  "points_per_step": -12.6191,
+  "exam_pass": 0.0,
+  "within_half": 0.0,
+  "gain_half": 0.0
+ },
+ "noise chaser (k 0, noise 15)": {
+  "k": 0.0,
+  "noise": 15.0,
+  "mean_within": 12.5815,
+  "mean_gain": -6.674132991221887,
+  "points_per_step": -38.1063625,
+  "exam_pass": 0.0,
+  "within_half": 0.0,
+  "gain_half": 0.0
+ },
+ "_bank": {
+  "steps": 120,
+  "strong_share": 0.36666666666666664,
+  "medium_share": 0.3,
+  "weak_share": 0.3333333333333333,
+  "stay_within_7_share": 0.5916666666666667
+ }
+}

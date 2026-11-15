@@ -48,5 +48,8 @@ python3 sim/range_sim.py --runs 20000 --json sim/out/range_results.json > sim/ou
 echo "Fermi and base-rate games on the real banks (about 1 minute)"
 python3 sim/problem_sim.py --runs 4000 --json sim/out/problem_results.json > sim/out/problem_report.txt
 
+echo "updating game on the real bank (under a minute)"
+python3 sim/update_sim.py --runs 4000 --json sim/out/update_results.json > sim/out/update_report.txt
+
 echo "6/6 balance report"
 python3 sim/make_balance_report.py
