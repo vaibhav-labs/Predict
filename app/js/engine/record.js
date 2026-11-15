@@ -132,6 +132,35 @@ export function dayNumber(events, today) {
   return Math.max(1, daysBetween(calls[0].d, today) + 1);
 }
 
+// A journal card: one `prediction` event (written once, at lock, and never changed) plus, once it
+// resolves, one `resolve` event that carries the outcome. `today` decides open vs due, so this is a
+// pure function of the log and the clock, like dayNumber above.
+export function predictionsOf(events, today = localDay()) {
+  const resolves = new Map(events.filter((e) => e.type === 'resolve').map((e) => [e.prediction, e]));
+  return events.filter((e) => e.type === 'prediction').map((p) => {
+    const r = resolves.get(p.id);
+    const state = r ? 'resolved' : p.due <= today ? 'due' : 'open';
+    return { ...p, state, outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, resolvedAt: r ? r.t : undefined };
+  }).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : byTime(a, b)));
+}
+export const dueList = (predictions) => predictions.filter((p) => p.state === 'due');
+export const openList = (predictions) => predictions.filter((p) => p.state === 'open');
+export const resolvedList = (predictions) => predictions.filter((p) => p.state === 'resolved');
+
+// Whether today already has a scored prediction (one scored card a day; extras are logged unscored).
+export function scoredToday(predictions, today = localDay()) {
+  return predictions.some((p) => p.d === today && p.scored);
+}
+
+// The player's own rate for a domain and horizon, from resolved real predictions (void excluded): used
+// as the baseline once there is enough history (data/scoring.json journal.own_rate_min_resolved).
+export function ownBaseRate(predictions, domain, horizon) {
+  const rows = resolvedList(predictions).filter((p) => p.domain === domain && p.horizon === horizon && p.outcome !== 'void');
+  if (!rows.length) return { n: 0, rate: null };
+  const yes = rows.filter((p) => p.outcome === 'yes').length;
+  return { n: rows.length, rate: yes / rows.length };
+}
+
 // ---- statistics: every number carries its sample size --------------------------------------------------
 
 export function summarize(calls) {

@@ -12,12 +12,15 @@ import { compile } from '../app/js/engine/expr.js';
 import { makeScoring, roundHalfEven, signed, gapPts } from '../app/js/engine/scoring.js';
 import { parseCSV, parseTable } from '../app/js/engine/csv.js';
 import * as R from '../app/js/engine/record.js';
+import * as J from '../app/js/engine/journal.js';
 import { seeded, planBaseline, pickNext, apportion } from '../app/js/engine/draw.js';
 import { openStore, MemoryBackend } from '../app/js/store.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = JSON.parse(readFileSync(path.join(ROOT, 'data', 'scoring.json'), 'utf8'));
 const S = makeScoring(cfg);
+const checkerRules = J.compileCheckerRules(parseTable(readFileSync(path.join(ROOT, 'data', 'checker_rules.csv'), 'utf8')));
+const journalBaselines = parseTable(readFileSync(path.join(ROOT, 'data', 'journal_baselines.csv'), 'utf8'));
 
 // ---- formulas ------------------------------------------------------------------------------------------
 test('formula reader follows Python precedence', () => {
@@ -181,6 +184,101 @@ test('day number counts from the first call, and sessions and baseline progress 
   assert.equal(R.activeSession(ev).id, s.id);
   assert.equal(R.activeSession([...ev, R.makeEvent('session_end', { session: s.id }, day('2026-11-16'))]), null);
   assert.equal(R.sessionsOf(ev)[0].calls.length, 3);
+});
+
+// ---- the journal -----------------------------------------------------------------------------------------
+function fakePrediction(i, over = {}) {
+  const d = day('2026-11-16');
+  d.setSeconds(i);
+  return R.makeEvent('prediction', {
+    text: `Claim ${i}`, domain: 'work', dueOption: 'week', due: '2026-11-23', horizon: 'week',
+    chain: { outsideView: { text: 'ov', rate: 0.5 }, evidence: [], caseAgainst: { text: 'ca', number: 10 }, tripwire: { text: 'tw', number: 20 } },
+    c: 0.7, b: 0.5, bSource: 'starter', scored: true, ...over,
+  }, d);
+}
+test('the two worked edge examples in mechanics.md 4.3 come out exactly', () => {
+  // "you say 75% a client signs by Friday; the baseline is 55%."
+  assert.deepEqual(J.journalScore(S, 0.75, 0.55, true, 2), { raw: 75, base: 19, edge: 112 });
+  assert.deepEqual(J.journalScore(S, 0.75, 0.55, false, 2), { raw: -125, base: -21, edge: -208 });
+});
+test('the worked edge example in mechanics.md 4.9 comes out exactly, and the table of other numbers matches it', () => {
+  // "you say 85% against a 55% baseline and it does not happen."
+  assert.deepEqual(J.journalScore(S, 0.85, 0.55, false, 2), { raw: -189, base: -21, edge: -336 });
+  const table = J.otherNumbers(S, 0.55, false, 2);
+  const at = (c) => table.find((r) => Math.abs(r.c - c) < 1e-9).edge;
+  assert.equal(at(0.55), 0); // the same miss at the baseline itself breaks even
+  assert.equal(at(0.65), -96);
+  assert.equal(at(0.75), -208);
+  assert.equal(at(0.85), -336);
+});
+test('the checker: a sharp claim with a date passes clean', () => {
+  assert.deepEqual(J.checkClaim('By Friday, the client will sign the contract.', checkerRules), []);
+});
+test('the checker: vague wording and no date are both caught', () => {
+  const flags = J.checkClaim('Our project will probably go a lot better soon.', checkerRules).map((f) => f.flag);
+  assert.ok(flags.includes('no_date'), flags.join(','));
+  assert.ok(flags.includes('ambiguous_term'), flags.join(','));
+});
+test('the checker: a feeling is not observable', () => {
+  const flags = J.checkClaim('I will feel happy about my job by next month.', checkerRules).map((f) => f.flag);
+  assert.deepEqual(flags, ['not_observable']);
+});
+test('the checker: a fully self-controlled task is flagged, with a date and no vague words', () => {
+  const flags = J.checkClaim('I will finish writing my report by Friday.', checkerRules).map((f) => f.flag);
+  assert.deepEqual(flags, ['self_controlled']);
+});
+test('due date and horizon follow data/scoring.json journal section, not code', () => {
+  const jcfg = cfg.journal;
+  assert.equal(J.dueDateFor('tomorrow', '2026-11-15', jcfg), '2026-11-16');
+  assert.equal(J.dueDateFor('week', '2026-11-15', jcfg), '2026-11-22');
+  assert.equal(J.dueDateFor('month', '2026-11-15', jcfg), '2026-12-15');
+  assert.equal(J.dueDateFor('longer', '2026-11-15', jcfg), '2027-02-13');
+  assert.deepEqual(['tomorrow', 'week', 'month', 'longer'].map((o) => J.horizonFor(o, jcfg)), ['week', 'week', 'month', 'longer']);
+});
+test('the baseline: the starter table until there is enough of the player’s own history', () => {
+  const jcfg = cfg.journal;
+  const starved = J.baselineFor({ domain: 'work', horizon: 'week', own: { n: 4, rate: 0.9 }, starterTable: journalBaselines, cfg: jcfg });
+  assert.deepEqual(starved, { b: 0.5, source: 'starter' });
+  const own = J.baselineFor({ domain: 'work', horizon: 'week', own: { n: 5, rate: 0.9 }, starterTable: journalBaselines, cfg: jcfg });
+  assert.deepEqual(own, { b: 0.9, source: 'own' });
+  const noRow = J.baselineFor({ domain: 'work', horizon: 'week', own: { n: 0, rate: null }, starterTable: [], cfg: jcfg });
+  assert.deepEqual(noRow, { b: 0.5, source: 'default' });
+});
+test('ownBaseRate: yes-rate of resolved real predictions in one domain and horizon, void excluded', () => {
+  const preds = R.predictionsOf([
+    fakePrediction(1, { domain: 'work', horizon: 'week' }),
+    fakePrediction(2, { domain: 'work', horizon: 'week' }),
+    fakePrediction(3, { domain: 'work', horizon: 'week' }),
+    fakePrediction(4, { domain: 'life', horizon: 'week' }), // a different domain: not counted
+  ].flatMap((p, i) => [p, R.makeEvent('resolve', { prediction: p.id, outcome: ['yes', 'no', 'void', 'yes'][i], raw: 1, edge: 1 }, day('2026-11-20'))]));
+  const own = R.ownBaseRate(preds, 'work', 'week');
+  assert.deepEqual(own, { n: 2, rate: 0.5 }); // one yes, one no; the void does not count
+});
+test('predictionsOf: open, due and resolved follow the clock, and a locked card never changes', () => {
+  const p1 = fakePrediction(1, { due: '2026-11-20' }); // open relative to 2026-11-16
+  const p2 = fakePrediction(2, { due: '2026-11-10' }); // already due
+  const resolve2 = R.makeEvent('resolve', { prediction: p2.id, outcome: 'yes', raw: 75, edge: 112 }, day('2026-11-16'));
+  const preds = R.predictionsOf([p1, p2, resolve2], '2026-11-16');
+  assert.equal(preds.find((p) => p.id === p1.id).state, 'open');
+  assert.equal(preds.find((p) => p.id === p2.id).state, 'resolved');
+  const dueBefore = R.predictionsOf([p1], '2026-11-16');
+  assert.equal(dueBefore[0].state, 'open');
+  const dueAfter = R.predictionsOf([p1], '2026-11-20');
+  assert.equal(dueAfter[0].state, 'due');
+});
+test('a locked prediction is never overwritten: the store refuses a second event with the same id', async () => {
+  const store = await openStore(new MemoryBackend());
+  const p = fakePrediction(1);
+  assert.equal(await store.append(p), true);
+  assert.equal(await store.append({ ...p, c: 0.99 }), false); // same id: refused
+  assert.equal(store.events.find((e) => e.id === p.id).c, 0.7);
+});
+test('scoredToday: one scored card a day, extras logged unscored', () => {
+  const today = '2026-11-16';
+  const first = R.predictionsOf([fakePrediction(1, { scored: true })], today);
+  assert.equal(R.scoredToday(first, today), true);
+  const unscored = R.predictionsOf([fakePrediction(1, { scored: false })], today);
+  assert.equal(R.scoredToday(unscored, today), false);
 });
 
 // ---- drawing questions ---------------------------------------------------------------------------------
