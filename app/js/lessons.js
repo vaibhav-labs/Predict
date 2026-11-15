@@ -203,7 +203,7 @@ export const RATE_LESSONS = [
 ];
 
 // The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), one more card for soft questions, and a Unit 3 card for each range pattern.
-export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L10: 'steps', L11: 'worth', L13: 'blind' };
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L10: 'steps', L11: 'worth', L12: 'memory', L13: 'blind' };
 export const STRANGER = {
   id: 'stranger',
   title: 'Could a stranger score this?',
@@ -247,7 +247,84 @@ export const UPDATE_LESSONS = [
     ],
   },
 ];
-export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
+
+// Units 7 to 9 (know yourself): argue against yourself, read your own record honestly, turn a forecast into a choice.
+export const SECOND_LESSONS = [
+  {
+    id: 'counter',
+    title: 'Argue against yourself',
+    blurb: 'The case against, before reality writes it',
+    blocks: (S, cfg) => [
+      { p: ['Every journal card already asks for a case against. In Unit 7 the weekly review reads it and grades it: ', { b: 'sound' }, ' (a specific reason the claim could be false that your own evidence does not already answer), ', { b: 'weak' }, ' or ', { b: 'missing' }, '.'] },
+      { p: ['A good case against is something you could check, that bears on the outcome, and that your number has not already allowed for. "Things can go wrong" is a mood. "Of the last twelve like it, three finished on time" is an argument.'] },
+      { p: [`The exam is ${cfg.gates.counter_exam_calls} fresh problems where you pick the strongest counter-argument out of four: ${cfg.gates.counter_pass_right} must be right. The wrong options are the ones people really write: a point that supports the claim, a true fact beside the point, a tiny risk, and a vague worry.`] },
+    ],
+  },
+  {
+    id: 'second',
+    title: 'Two numbers, not one',
+    blurb: 'A gut number first, a final number after the chain',
+    blocks: () => [
+      { p: ['From Unit 7 a journal card asks for your gut number first, before you write anything else, and your final number after the outside view, the evidence and the case against. Both are kept. When the card resolves, the Mirror shows which was closer on average.'] },
+      { p: ['If the final number is no better than the gut one, the chain is decoration. If it is better, you now have proof that writing it down is worth the minutes.'] },
+      { p: ['Practice asks the same thing in miniature: a counter-argument arrives that is, say, three times as likely if you are wrong as if you are right. The right second number is the one the odds give, not "stay put" and not "halve it".'] },
+    ],
+  },
+];
+export const AUTOPSY_LESSONS = [
+  {
+    id: 'process',
+    title: 'Judge the decision, not the result',
+    blurb: 'Good process, bad luck. Bad process, good luck.',
+    blocks: (S, cfg) => [
+      { p: ['A result tells you two things at once: what the person knew and did, and what luck did. A good outcome after careless reasoning was luck, and will not repeat. A bad outcome after careful reasoning was bad luck, and the same care is still the right way.'] },
+      { p: ['From Unit 8 on, ', { b: 'every case that resolves gets an autopsy' }, ': the hits too, since being right for the wrong reason is how a record flatters you. The Unit 8 problems practise telling luck from judgment by reading how the call was made.'] },
+      { p: [`The exam is ${cfg.gates.luck_exam_calls} fresh cases: ${cfg.gates.luck_pass_right} must be right, and your memory of your own forecasts must stay within ${cfg.gates.memory_drift_max * 100} points.`] },
+    ],
+  },
+  {
+    id: 'memory',
+    title: 'What did you actually say?',
+    blurb: 'Hindsight rewrites the record in your head',
+    blocks: (S, cfg) => [
+      { p: ['After an outcome is known, people remember having been closer to it than they were. "I always thought so." The record says otherwise, which is why you keep one.'] },
+      { p: ['From Unit 8 a due card asks ', { b: 'what number did you lock?' }, ' before it shows the record. Only then does the real number appear, with your drift: how far your memory moved toward what happened. Practice asks the same of old gym calls.'] },
+      { p: [`Over ${cfg.lessons.triggers.L12.window} checks, memory that sits ${cfg.lessons.triggers.L12.min_shift * 100} points or more closer to the outcome than the record opens a pattern. The cure is the habit: write the number down before you look, and check it afterwards.`] },
+    ],
+  },
+];
+export const DECISION_LESSONS = [
+  {
+    id: 'break',
+    title: 'The break-even line',
+    blurb: 'Act above it, hold below it',
+    blocks: () => [
+      { p: ['A forecast is not a decision. To decide, you need what you gain if you act and are right, and what you lose if you act and are wrong. Acting pays on average when your chance is above ', { b: 'loss ÷ (gain + loss)' }, '.'] },
+      { p: ['Gain 30, lose 10: the line is 10 ÷ 40, a quarter. A 30% chance is enough. Gain 10, lose 30: the line is three quarters, and a 70% chance is not.'] },
+      { p: ['The line is not fifty-fifty unless the stakes are equal. Most bad decisions are made at the wrong line, not the wrong forecast.'] },
+    ],
+  },
+  {
+    id: 'value',
+    title: 'Weigh each result by its chance',
+    blurb: 'What a choice is worth on average',
+    blocks: () => [
+      { p: ['The average value of acting is the gain times the chance it works, minus the loss times the chance it does not. At 40% with a gain of 30 and a loss of 70: 12 minus 42, which is minus 30. A choice can feel exciting and be worth less than nothing.'] },
+      { p: ['Common slips: counting only the gain, using the same chance for both sides, or averaging the gain and the loss as if they were equally likely.'] },
+    ],
+  },
+  {
+    id: 'review',
+    title: 'Decide, then review',
+    blurb: 'A decision card with a review date',
+    blocks: (S, cfg) => [
+      { p: ['A decision card holds what you will do, your forecast, what you stand to gain and lose, and a review date at least ', String(cfg.decision.min_review_days), ' days out. The break-even line is worked out for you; you still choose.'] },
+      { p: ['On the review date the card comes due. You say what happened and whether you would decide the same again. The Mirror then shows how often you followed your own line, and what following it would have paid compared with what you chose.'] },
+    ],
+  },
+];
+const ALL_LISTS = [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS];
+export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : ALL_LISTS.flat().find((l) => l.id === FLAG_CARD[trigger]) || null);
 // Every card the Path can open, with the list it belongs to.
-export const cardList = (id) => [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS].find((list) => list.some((l) => l.id === id)) || null;
-export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : RATE_LESSONS.some((l) => l.id === id) ? 'Unit 5 · Outside view' : 'Unit 6 · Updating');
+export const cardList = (id) => ALL_LISTS.find((list) => list.some((l) => l.id === id)) || null;
+export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : RATE_LESSONS.some((l) => l.id === id) ? 'Unit 5 · Outside view' : UPDATE_LESSONS.some((l) => l.id === id) ? 'Unit 6 · Updating' : SECOND_LESSONS.some((l) => l.id === id) ? 'Unit 7 · Second opinions' : AUTOPSY_LESSONS.some((l) => l.id === id) ? 'Unit 8 · Autopsy' : 'Unit 9 · Decisions');
