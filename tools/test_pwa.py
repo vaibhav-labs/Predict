@@ -32,9 +32,20 @@ SHOTS = sys.argv[sys.argv.index("--shots") + 1] if "--shots" in sys.argv else No
 results = []
 
 
+def annotate_failure(name, detail=""):
+    """On GitHub Actions a failing check also becomes a red annotation on the run. Anyone can read annotations from the
+    public API without logging in, while the job log itself needs a login. Nothing happens anywhere else."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        message = (name + (f"  [{detail}]" if detail else ""))[:900]
+        message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::error title=FAIL::{message}", flush=True)
+
+
 def check(name, ok, detail=""):
     results.append((name, bool(ok), detail))
     print(("PASS " if ok else "FAIL ") + name + (f"  [{detail}]" if detail else ""), flush=True)
+    if not ok:
+        annotate_failure(name, detail)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

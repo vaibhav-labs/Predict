@@ -6,7 +6,7 @@ name: Browser tests
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'block-*']
   workflow_dispatch:
 
 permissions:

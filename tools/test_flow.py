@@ -50,6 +50,8 @@ results = []
 def check(name, ok, detail=""):
     results.append((name, bool(ok), detail))
     print(("PASS " if ok else "FAIL ") + name + (f"  [{detail}]" if detail else ""), flush=True)
+    if not ok:
+        T.annotate_failure(name, detail)
 
 
 # ---------------------------------------------------------------------------------------------------------------
