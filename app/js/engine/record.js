@@ -91,6 +91,10 @@ export function callsToCSV(events) {
 export const callsOf = (events) => events.filter((e) => e.type === 'call');
 export const usedQuestionIds = (events) => new Set(callsOf(events).map((e) => e.q));
 export const disputedIds = (events) => new Set(events.filter((e) => e.type === 'dispute').map((e) => e.q));
+// Questions answered within the last `days` days (today counts as day 0): the 90-day rule keeps them from coming back.
+export function recentQuestionIds(events, today, days) {
+  return new Set(callsOf(events).filter((c) => daysBetween(c.d, today) < days).map((c) => c.q));
+}
 export const lessonsRead = (events) => new Set(events.filter((e) => e.type === 'lesson').map((e) => e.lesson));
 
 // A session is open from its session event until its session_end event.

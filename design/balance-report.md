@@ -126,6 +126,40 @@ Count-based exams (exact binomial):
 
 - **Change made:** 40 calls and a 10-point gap. A typical overconfident player makes about 9 top-band calls a day, so 46 calls is about five days.
 
+## 4b. Lesson trigger for underconfidence (L02)
+
+- **Intent:** the same as L01, in the 60 to 80% band, where the plan left the threshold OPEN (value 5).
+- **Method:** 3,000 runs of 150 calls stated at 60 to 80% (`sim/trigger_sim.py`), the trigger checked after every call and, more realistically, once every 7 calls (about one session's worth of calls in that band).
+
+| Window and gap | Looked at | False alarm on a calibrated player | Fires on mild underconfidence | median calls | Fires on typical underconfidence | median calls |
+|---|---|---|---|---|---|---|
+| 60 calls, 8 points | after every call | 44.0% | 90.8% | 63 | 100.0% | 60 |
+| 60 calls, 8 points | every 7 calls (session end) | 34.0% | 84.9% | 70 | 99.8% | 63 |
+| 60 calls, 10 points | after every call | 26.4% | 78.8% | 72 | 99.2% | 60 |
+| 60 calls, 10 points | every 7 calls (session end) | 19.7% | 71.0% | 77 | 98.8% | 63 |
+| 60 calls, 12 points | after every call | 13.8% | 60.6% | 80 | 97.5% | 60 |
+| 60 calls, 12 points (chosen) | every 7 calls (session end) | 9.6% | 51.7% | 84 | 95.8% | 63 |
+| 80 calls, 8 points | after every call | 23.4% | 78.1% | 81 | 99.5% | 80 |
+| 80 calls, 8 points | every 7 calls (session end) | 17.9% | 71.8% | 84 | 98.9% | 84 |
+| 80 calls, 10 points | after every call | 11.0% | 60.6% | 86 | 98.0% | 80 |
+| 80 calls, 10 points | every 7 calls (session end) | 8.2% | 52.7% | 91 | 96.4% | 84 |
+| 80 calls, 12 points | after every call | 4.6% | 40.4% | 94 | 93.4% | 80 |
+| 80 calls, 12 points | every 7 calls (session end) | 3.1% | 33.3% | 98 | 89.5% | 84 |
+| 100 calls, 8 points | after every call | 11.9% | 65.9% | 100 | 98.5% | 100 |
+| 100 calls, 8 points | every 7 calls (session end) | 8.7% | 58.2% | 105 | 97.6% | 105 |
+| 100 calls, 10 points | after every call | 4.6% | 45.2% | 102 | 95.3% | 100 |
+| 100 calls, 10 points | every 7 calls (session end) | 3.3% | 38.2% | 105 | 93.1% | 105 |
+| 100 calls, 12 points | after every call | 1.4% | 25.9% | 107 | 86.8% | 100 |
+| 100 calls, 12 points | every 7 calls (session end) | 1.2% | 19.9% | 112 | 82.5% | 105 |
+| 120 calls, 8 points | after every call | 6.0% | 54.4% | 120 | 97.7% | 120 |
+| 120 calls, 8 points | every 7 calls (session end) | 4.2% | 47.4% | 126 | 96.7% | 126 |
+| 120 calls, 10 points | after every call | 1.8% | 32.7% | 120 | 93.3% | 120 |
+| 120 calls, 10 points | every 7 calls (session end) | 1.2% | 27.2% | 126 | 89.5% | 126 |
+| 120 calls, 12 points | after every call | 0.4% | 16.2% | 121 | 81.1% | 120 |
+| 120 calls, 12 points | every 7 calls (session end) | 0.3% | 12.6% | 126 | 76.3% | 126 |
+
+- **Change made:** the plan's 60 calls and 10 points fired falsely on a calibrated player 19.7% of the time at session-end looks. 60 calls and 12 points: 9.6% false alarms, 95.8% of typical underconfident players caught in a median of 63 calls.
+
 ## 5. Ranges
 
 - **Intent:** neither going wide nor going narrow may beat an honest 90% range.
