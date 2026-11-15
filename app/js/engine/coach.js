@@ -14,6 +14,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DOMAINS = new Set(['work', 'life', 'world']);
 const DUES = new Set(['tomorrow', 'week', 'month', 'longer']);
 const RESULTS = new Set(['yes', 'no', 'void']);
+const GRADES = new Set(['sound', 'weak', 'missing']);
 const LIMITS = { title: 120, paragraph: 700, paragraphs: 12, drills: 6, drillText: 400, prompt: 220, perDay: 3, days: 14, read: 900, note: 300, ref: 160, ids: 400 };
 
 const text = (v, max) => (typeof v === 'string' && v.trim() && v.length <= max && !BANNED.test(v) ? v.trim() : null);
@@ -26,7 +27,7 @@ const httpsUrl = (v) => {
 };
 
 export function emptyCoach() {
-  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, news: {}, dropped: 0 };
+  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, news: {}, grades: {}, dropped: 0 };
 }
 
 // Cut `raw` (parsed JSON of coach/latest.json, or anything) down to what is valid. `dropped` counts what was refused.
@@ -86,6 +87,13 @@ export function parseCoach(raw) {
   for (const [id, n] of entries(raw.news)) {
     const body = text(n && n.text, LIMITS.read), written = dayOf(n && n.written), url = httpsUrl(n && n.source);
     if (body && written && url && /^[\w-]+$/.test(id)) out.news[id] = { text: body, written, source: url }; else drop();
+  }
+  // The weekly review's grade of the case against on a journal card (Block 9, Unit 7): sound, weak or missing, with a one-line note. A weak or missing grade
+  // needs its note (the player is owed the reason); a grade with none is dropped.
+  for (const [id, g] of entries(raw.grades)) {
+    const grade = g && GRADES.has(g.grade) ? g.grade : null, written = dayOf(g && g.written);
+    const note = g && g.note !== undefined ? text(g.note, LIMITS.note) : null;
+    if (grade && written && /^[\w-]+$/.test(id) && (note || grade === 'sound')) out.grades[id] = { grade, written, note }; else drop();
   }
   return out;
 }

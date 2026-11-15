@@ -8,7 +8,7 @@ import { signed, pct } from '../engine/scoring.js';
 import { tabFrame, focusFrame, picker } from './common.js';
 import { caseFile, chainCard, baselineCaption } from './casefile.js';
 import { pendingAutopsies } from './autopsy.js';
-import { lessonState, problemGateState } from '../flags.js';
+import { lessonState, problemGateState, autopsyDueOf } from '../flags.js';
 import { stepsOf, chainProductOf, outsideGrade } from '../engine/reasoning.js';
 import { promptsFor } from '../engine/coach.js';
 import * as UP from '../engine/update.js';
@@ -420,7 +420,7 @@ function resolveCard(ctx, p, paint) {
     // A card that needs an autopsy goes to it at once; the case file waits behind it.
     const now = R.predictionsOf(ctx.store.events, R.localDay());
     const mine = now.find((x) => x.id === p.id);
-    if (mine && LE.needsAutopsy(mine, LE.autopsyDue(now, ctx.store.events, ctx.cfg))) { ctx.replace(`#/autopsy/${p.id}`); return; }
+    if (mine && LE.needsAutopsy(mine, autopsyDueOf(ctx, now, ctx.store.events))) { ctx.replace(`#/autopsy/${p.id}`); return; }
     paint();
   });
   return h('section', { class: 'card stack' },

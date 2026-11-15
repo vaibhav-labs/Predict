@@ -10,7 +10,7 @@ import { focusFrame, DOMAIN_NAMES, HORIZON_NAMES } from './common.js';
 import { stepsOf, chainProductOf, outsideGrade, isOwnTask } from '../engine/reasoning.js';
 import { markLabel, luckRead, recheckCard, USED } from './autopsy.js';
 
-import { problemGateState } from '../flags.js';
+import { problemGateState, autopsyDueOf } from '../flags.js';
 const problemUnlocked = (ctx) => problemGateState(ctx, 'U5').open;
 const OUTCOME_LABEL = { yes: 'Happened', no: "Didn't happen", void: 'Void' };
 
@@ -143,7 +143,7 @@ function lensNext(ctx, p, env) {
 export function caseFile(ctx, p, header, predictions, repaint) {
   const events = ctx.store.events;
   const autopsy = events.find((e) => e.type === 'autopsy' && e.prediction === p.id) || null;
-  const due = LE.autopsyDue(predictions, events, ctx.cfg);
+  const due = autopsyDueOf(ctx, predictions, events);
   const need = autopsy ? null : LE.needsAutopsy(p, due);
   const env = { predictions, autopsy, repaint };
   const banner = need ? h('section', { class: 'card nudge stack', id: 'autopsy-banner' },

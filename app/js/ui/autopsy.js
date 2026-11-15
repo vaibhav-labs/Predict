@@ -6,7 +6,7 @@ import * as R from '../engine/record.js';
 import * as LE from '../engine/lessons.js';
 import { pct } from '../engine/scoring.js';
 import { focusFrame, picker } from './common.js';
-import { lessonState } from '../flags.js';
+import { lessonState, autopsyDueOf } from '../flags.js';
 
 export const MARKS = [['held', 'Held up'], ['weak', 'Weak'], ['missed', 'Missed it']];
 export const markLabel = (m) => (MARKS.find((x) => x[0] === m) || [m, m])[1];
@@ -41,13 +41,14 @@ export function autopsyScreen(ctx, id) {
   const predictions = R.predictionsOf(store.events, today);
   const p = predictions.find((x) => x.id === id);
   if (!p) { ctx.replace('#/journal'); return document.createTextNode(''); }
-  const due = LE.autopsyDue(predictions, store.events, cfg);
+  const due = autopsyDueOf(ctx, predictions, store.events);
   const need = LE.needsAutopsy(p, due);
   if (!need || due.done.has(p.id)) { ctx.replace(`#/journal/${p.id}`); return document.createTextNode(''); }
 
   const startedAt = Date.now();
-  const miss = need.kind === 'miss';
   const side = LE.sideOf(p);
+  const miss = !side.hit;
+  const every = need.kind === 'case';
   const luck = luckRead(ctx, p);
   const marks = {};
   const minChars = cfg.lessons.autopsy.min_chars;
@@ -84,16 +85,18 @@ export function autopsyScreen(ctx, id) {
       prediction: p.id, kind: need.kind, audit, knew: knew.value.trim(), missed: missedBox.value.trim(), verdict,
       suggested: miss ? luck.kind : null, chance: luck.chance, rule: rule.value.trim(), ms: Date.now() - startedAt,
     }));
-    const left = LE.autopsyDue(R.predictionsOf(store.events, today), store.events, cfg).pending;
+    const left = autopsyDueOf(ctx, R.predictionsOf(store.events, today), store.events).pending;
     ctx.replace(left.length ? `#/autopsy/${left[0].p.id}` : `#/journal/${p.id}`);
   });
 
   return focusFrame({ title: 'Autopsy', closeTo: '#/journal', closeLabel: 'Back to the Journal' },
     h('section', null,
-      h('div', { class: 'tags' }, h('span', { class: 'tag' }, 'Autopsy'), h('span', { class: 'tag', id: 'autopsy-kind' }, miss ? `A miss at ${pct(side.c)}` : `A confident hit, sampled`)),
+      h('div', { class: 'tags' }, h('span', { class: 'tag' }, 'Autopsy'), h('span', { class: 'tag', id: 'autopsy-kind' }, miss ? `A miss at ${pct(side.c)}` : every ? `A hit at ${pct(side.c)}` : `A confident hit, sampled`)),
       h('p', { class: 'claim', id: 'autopsy-claim' }, p.text),
       h('p', { class: 'cap' }, `You said ${pct(p.c)} · ${OUTCOME[p.outcome]}.`),
-      h('p', { class: 'lede' }, miss
+      h('p', { class: 'lede' }, every
+        ? `From Unit 8 on, every case that resolves gets an autopsy, the hits too: being right for the wrong reason is how a record flatters you. About ninety seconds.`
+        : miss
         ? `A miss this sure gets an autopsy before your next journal step. About ninety seconds, and the answers go into the case file.`
         : `One in ${cfg.lessons.autopsy.hit_sample_every} confident hits is looked at too, to catch being right for the wrong reason.`)),
     h('section', { class: 'card stack', id: 'autopsy-audit' },

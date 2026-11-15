@@ -10,6 +10,7 @@ import { addDays, localDay, callsOf, rangesOf } from './record.js';
 import { ledger } from './progress.js';
 import * as RS from './reasoning.js';
 import * as UP from './update.js';
+import * as KN from './know.js';
 
 const EPS = 1e-9;
 const inBand = (c, [lo, hi]) => c.c >= lo - EPS && c.c <= hi + EPS;
@@ -230,6 +231,26 @@ const whiplash = {
   },
 };
 
+// L12 rewritten memory (Block 9): over the last `window` memory checks the recalled forecast sat `min_shift` or more closer to what happened than the recorded one,
+// on average. It clears when the next `clear_window` checks (after the drill, from the ready day on) average a drift within `clear_within`, either way.
+const memoryDrift = {
+  fire({ events, predictions, t }, since) {
+    const obs = KN.memoryObs(events, predictions).filter((o) => !since || o.t > since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const drift = KN.memoryStats(w, 0).drift;
+    if (drift < t.min_shift - EPS) return null;
+    return { evidence: { n: w.length, drift, from: w[0].t, to: w[w.length - 1].t }, strength: drift / t.min_shift };
+  },
+  retest({ events, predictions, t }, since, readyDay) {
+    const obs = KN.memoryObs(events, predictions).filter((o) => (!since || o.t > since) && (!readyDay || o.d >= readyDay));
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const drift = KN.memoryStats(w, 0).drift;
+    return { pass: Math.abs(drift) <= t.clear_within + EPS, evidence: { n: w.length, drift } };
+  },
+};
+
 // Missed days (L15) is a habit flag: no lesson, no re-test. It fires on missed days in the last window_days, and clears
 // after clear_days played days in a row that each hold the minimum session.
 function missedDays(ctx, sinceDay) {
@@ -282,6 +303,7 @@ export const TRIGGERS = {
   L09: baseNeglect,
   L10: frozen,
   L11: whiplash,
+  L12: memoryDrift,
   L13: domainBlind,
   L15: { habit: true },
 };
@@ -343,6 +365,10 @@ export function retestProgress(chain, events, { cfg, predictions, today, news = 
   if (chain.trigger === 'L10') {
     const stale = UP.frozenCards(predictions || [], news, today, t).filter((c) => c.waited >= t.clear_stale_days).length;
     return { step: wait.step, readyDay: wait.readyDay, need: 1, have: stale === 0 && today >= wait.readyDay ? 1 : 0, ready: today >= wait.readyDay, stale };
+  }
+  if (chain.trigger === 'L12') {
+    const have12 = KN.memoryObs(events, predictions || []).filter((o) => (!sinceT || o.t > sinceT) && (!wait.readyDay || o.d >= wait.readyDay)).length;
+    return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have12, t.clear_window), ready: today >= wait.readyDay };
   }
   if (chain.trigger === 'L11') {
     const have11 = UP.whiplashObs(predictions || [], today, t, sinceT, wait.readyDay).length;
@@ -453,7 +479,7 @@ export function sideOf(p) {
   return { yes, c: yes ? c0 : 1 - c0, hit: yes === (p.outcome === 'yes') };
 }
 
-export function autopsyDue(predictions, events, cfg) {
+export function autopsyDue(predictions, events, cfg, allFrom = null) {
   const A = cfg.lessons.autopsy;
   const done = new Map(events.filter((e) => e.type === 'autopsy').map((e) => [e.prediction, e]));
   const resolved = predictions.filter((p) => p.state === 'resolved' && p.outcome !== 'void' && p.scored)
@@ -462,9 +488,14 @@ export function autopsyDue(predictions, events, cfg) {
   let confidentHits = 0;
   for (const p of resolved) {
     const s = sideOf(p);
-    if (s.c < A.min_confidence - EPS) continue;
-    if (!s.hit) needed.push({ p, kind: 'miss' });
-    else if (++confidentHits % A.hit_sample_every === 0) needed.push({ p, kind: 'hit_sample' });
+    let kind = null;
+    if (s.c >= A.min_confidence - EPS) {
+      if (!s.hit) kind = 'miss';
+      else if (++confidentHits % A.hit_sample_every === 0) kind = 'hit_sample';
+    }
+    // From Unit 8 on (`allFrom` is the time Unit 8 opened) every case that resolves gets an autopsy, whatever its confidence and result.
+    if (!kind && allFrom && p.resolvedAt > allFrom) kind = 'case';
+    if (kind) needed.push({ p, kind });
   }
   return { pending: needed.filter((n) => !done.has(n.p.id)), done, needed };
 }
