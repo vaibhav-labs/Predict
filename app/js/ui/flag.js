@@ -56,7 +56,7 @@ export function flagScreen(ctx, id) {
       h('p', { class: 'muted' }, retestText(chain, cfg)));
   } else if (chain.state === 'escalated') {
     action = h('section', { class: 'card stack', id: 'flag-action' }, h('span', { class: 'eyebrow' }, 'Sent to the weekly review'),
-      h('p', null, 'This pattern has come back three times. The weekly review (Block 5) builds a set from your own misses. Until then it waits: it will not open a second lesson beside this one.'));
+      h('p', null, 'This pattern has come back three times. The weekly review builds a drill set from your own misses and puts it in your letter on the Coach tab. Until it does, this waits: it will not open a second lesson beside this one.'));
   } else if (chain.state === 'cleared') {
     action = h('section', { class: 'card stack', id: 'flag-action' }, h('span', { class: 'eyebrow' }, 'Cleared'), h('p', null, `Cleared on ${chain.clearedDay}. If the pattern comes back it opens a new lesson, judged only on calls made from now on.`));
   }

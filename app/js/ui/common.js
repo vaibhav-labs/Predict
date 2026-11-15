@@ -62,3 +62,17 @@ export function picker(options, selected, onPick, attrs = {}) {
 export const cap1 = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
 export const DOMAIN_NAMES = { work: 'Work', life: 'Life', world: 'World' };
 export const HORIZON_NAMES = { week: 'Up to a week', month: 'A month', longer: 'Longer' };
+
+// Ask Predict: the message goes to the clipboard, never over the network. Where the browser will not copy, it shows the text to select.
+export async function copyMessage(ctx, text, fallback) {
+  try {
+    await navigator.clipboard.writeText(text);
+    ctx.toast('Copied. Paste it into your chat with Predict.');
+  } catch {
+    fallback.hidden = false;
+    fallback.value = text;
+    fallback.focus();
+    fallback.select();
+    ctx.toast('Could not copy automatically. The message is below: select and copy it yourself.');
+  }
+}

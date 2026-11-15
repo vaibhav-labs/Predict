@@ -9,6 +9,7 @@ import { tabFrame, focusFrame, picker } from './common.js';
 import { caseFile, chainCard, baselineCaption } from './casefile.js';
 import { pendingAutopsies } from './autopsy.js';
 import { lessonState } from '../flags.js';
+import { promptsFor } from '../engine/coach.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
 const DUE_OPTIONS = [['tomorrow', 'Tomorrow'], ['week', 'This week'], ['month', 'This month'], ['longer', 'Longer']];
@@ -146,6 +147,20 @@ function composeScreen(ctx) {
       return flags;
     }
     claimField.addEventListener('input', runChecker);
+    // Up to three ideas from Predict's weekly review for today. Tapping one starts the claim; it is still the player's to rewrite.
+    const ideas = promptsFor(ctx.coach, R.localDay());
+    const ideasBox = ideas.length ? h('div', { class: 'stack', id: 'prompt-ideas' },
+      h('span', { class: 'cap' }, 'Three ideas from Predict for today'),
+      ...ideas.map((it, i) => {
+        const b = h('button', { class: 'ghost prompt-chip', type: 'button', 'data-i': String(i) }, it.text);
+        b.addEventListener('click', () => {
+          const was = draft.flaggedEver; // a wording Predict suggested is not the player's own wording being caught
+          draft.text = it.text; if (it.domain) draft.domain = it.domain; if (it.due) draft.due = it.due;
+          render();
+          draft.flaggedEver = was;
+        });
+        return b;
+      })) : null;
     askBtn.addEventListener('click', () => {
       const flags = runChecker();
       const msg = `Predict, can you help me sharpen this prediction so a stranger could score it?\nClaim: "${claimField.value}"\n${flags.length ? `What the checker caught: ${flags.map((f) => f.message).join('; ')}\n` : ''}Please propose a sharper version with a clear date and a measurable outcome.`;
@@ -167,6 +182,7 @@ function composeScreen(ctx) {
 
     return h('section', { class: 'stack' },
       h('div', { class: 'eyebrow' }, 'The claim'),
+      ideasBox,
       claimField, flagsBox, askBtn, fallback,
       h('div', { class: 'eyebrow' }, 'Domain'), domainPicker,
       h('div', { class: 'eyebrow' }, 'Due'), duePicker,
@@ -324,8 +340,20 @@ function detailBody(ctx, p, today, paint, predictions) {
 
 function resolveCard(ctx, p, paint) {
   let outcome = null;
+  // Predict's check of the world, when the weekly review made one: it comes with its source and is only a suggestion.
+  const found = ctx.coach && ctx.coach.outcomes[p.id];
+  let usedCheck = false;
   const note = h('textarea', { class: 'field', rows: 2, placeholder: 'A one-line note on what happened (optional).' });
   const picked = picker([['yes', 'Happened'], ['no', "Didn't happen"], ['void', 'Void']], null, (v) => { outcome = v; });
+  const checkBox = found ? h('div', { class: 'stack', id: 'predict-check' },
+    h('span', { class: 'eyebrow' }, `Predict looked this up on ${found.checked}`),
+    h('p', null, `${OUTCOME_LABEL[found.result]}.${found.note ? ' ' + found.note : ''}`),
+    h('a', { class: 'srclink', href: found.source, rel: 'noopener noreferrer', target: '_blank', id: 'predict-check-source' }, found.source),
+    h('button', { class: 'ghost', type: 'button', id: 'use-check' }, 'Use this answer')) : null;
+  if (checkBox) checkBox.querySelector('#use-check').addEventListener('click', () => {
+    outcome = found.result; usedCheck = true;
+    picked.querySelectorAll('.pick').forEach((b) => { const on = b.dataset.value === outcome; b.className = `pick${on ? ' on' : ''}`; b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  });
   const goBtn = h('button', { class: 'btn', type: 'button', id: 'resolve' }, 'Resolve');
   const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
   goBtn.addEventListener('click', async () => {
@@ -334,7 +362,9 @@ function resolveCard(ctx, p, paint) {
     goBtn.disabled = true;
     const outcomeYes = outcome === 'yes';
     const scoring = outcome === 'void' ? { raw: null, edge: null } : J.journalScore(ctx.S, p.c, p.b, outcomeYes, ctx.cfg.journal.edge_weight);
-    await ctx.store.append(R.makeEvent('resolve', { prediction: p.id, outcome, note: note.value.trim() || undefined, raw: scoring.raw, edge: p.scored ? scoring.edge : null }));
+    // The source link travels with the answer only when the player used Predict's check and agreed with it.
+    const cited = usedCheck && found && outcome === found.result;
+    await ctx.store.append(R.makeEvent('resolve', { prediction: p.id, outcome, note: note.value.trim() || undefined, raw: scoring.raw, edge: p.scored ? scoring.edge : null, source: cited ? found.source : undefined, checked: cited ? found.checked : undefined }));
     // A card that needs an autopsy goes to it at once; the case file waits behind it.
     const now = R.predictionsOf(ctx.store.events, R.localDay());
     const mine = now.find((x) => x.id === p.id);
@@ -342,6 +372,6 @@ function resolveCard(ctx, p, paint) {
     paint();
   });
   return h('section', { class: 'card stack' },
-    h('div', { class: 'eyebrow' }, 'What happened?'), picked, note,
+    h('div', { class: 'eyebrow' }, 'What happened?'), checkBox, picked, note,
     h('div', { class: 'foot' }, goBtn));
 }

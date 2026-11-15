@@ -155,10 +155,17 @@ export function dayNumber(events, today) {
 // pure function of the log and the clock, like dayNumber above.
 export function predictionsOf(events, today = localDay()) {
   const resolves = new Map(events.filter((e) => e.type === 'resolve').map((e) => [e.prediction, e]));
-  return events.filter((e) => e.type === 'prediction').map((p) => {
+  // Predict's own number for a card (a `baseline` event, written when it arrived before the due day) replaces the locked baseline for
+  // scoring and shows as its source. The first one wins; the number locked with the card stays on it as `b0`.
+  const adopted = new Map();
+  for (const e of events) if (e.type === 'baseline' && !adopted.has(e.prediction)) adopted.set(e.prediction, e);
+  return events.filter((e) => e.type === 'prediction').map((p0) => {
+    const a0 = adopted.get(p0.id), r0 = resolves.get(p0.id);
+    const a = a0 && (!r0 || a0.t < r0.t) ? a0 : null; // a number that arrives after the card resolved changes nothing
+    const p = a ? { ...p0, b: a.b, bSource: 'predict', b0: p0.b, bRef: a.ref } : p0;
     const r = resolves.get(p.id);
     const state = r ? 'resolved' : p.due <= today ? 'due' : 'open';
-    return { ...p, state, outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, resolvedAt: r ? r.t : undefined };
+    return { ...p, state, ...(r && r.source ? { source: r.source, checkedDay: r.checked } : {}), outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, resolvedAt: r ? r.t : undefined };
   }).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : byTime(a, b)));
 }
 export const dueList = (predictions) => predictions.filter((p) => p.state === 'due');
