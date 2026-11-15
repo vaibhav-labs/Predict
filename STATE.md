@@ -1,9 +1,10 @@
 # Predict: build state
 
 Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are both on `main`, merged and
-live at https://vaibhav-labs.github.io/Predict/ (commit `e6b8eb3`); `tests.yml`'s browser suite is green
-on that commit, on both `block-2` and `main`. Neither has been tried on a phone yet · Next: the Block 1
-and Block 2 phone checks (below); Block 3 (The Mirror) only when the player says so
+live at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`); `tests.yml`'s browser suite is green
+on `main`, with a real click race in the test harness found and fixed along the way (see "Workflows"
+below). Neither block has been tried on a phone yet · Next: the Block 1 and Block 2 phone checks
+(below); Block 3 (The Mirror) only when the player says so
 
 ## Report for the player (Block 2, 2026-11-15)
 
@@ -107,14 +108,17 @@ Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirr
   refusing edits, a due card on the right day under a controlled clock, resolve, and the outcome card's
   numbers against an independent computation.
 - **Workflows.** `pages.yml` deploys on every push to `main` after `check_data.py` and the engine tests;
-  green on both the Block 1 and the Block 2 push. `tests.yml` runs the three browser suites on pull
-  requests and pushes to `main` and `block-*`, and never blocks a deploy; a failing check now also
-  becomes a GitHub Actions annotation (`T.annotate_failure` in `tools/test_pwa.py`), readable from the
-  public API without a login, since the job log itself needs one. Its first run (the Block 1 push to
-  `main`, commit `944ee64`) failed at the play-through step with no annotation (added after) and no
-  accessible log; the very next run, on the Block 2 push to `block-2` (commit `e6b8eb3`), passed clean,
-  and so did `main`'s own run of the same commit after merging — so whatever `944ee64` hit did not
-  reproduce. Left as an unexplained one-off rather than investigated further.
+  green on every push so far. `tests.yml` runs the three browser suites on pull requests and pushes to
+  `main` and `block-*`, pinned to `ubuntu-24.04` and `playwright==1.65.2` with a runner-diagnostics
+  `::notice::` as its first step, and never blocks a deploy; a failing check now also becomes a GitHub
+  Actions annotation (`T.annotate_failure` in `tools/test_pwa.py`), readable from the public API without
+  a login, since the job log itself needs one. That annotation caught a real bug on commit `945a226`: a
+  click race in the test's own `tab()` helper (`tools/test_flow.py`) — it queried the nav link, then
+  called `.click()` on that handle, and if the SPA's route replaced the screen in between, the handle
+  pointed at a detached element. Fixed in `fa252f5` by clicking the selector instead of a cached handle,
+  which Playwright auto-waits and re-resolves on. That almost certainly explains the first run's failure
+  too (commit `944ee64`, before this annotation existed to say which check): same helper, same app, and
+  the fix is in the test harness, not `app/`. Green since, on both `block-2` and `main`.
 
 ## Not done, on purpose or not yet known
 
@@ -219,7 +223,7 @@ in Block 2's scope needed a decision only the player could make.
 ## Waiting on the player
 
 1. ~~The one-time GitHub setup.~~ Done: the repo is live at https://vaibhav-labs.github.io/Predict/,
-   now serving Block 2, commit `e6b8eb3` on `main`.
+   now serving Block 2, commit `fa252f5` on `main`.
 2. The first phone check, about five minutes (`design/platform.md`, section 10): install from Safari,
    play from the icon, open it in airplane mode, read the "This device" card on the Coach tab. Day 1 is
    the day Block 1 passes its exit test on the phone. Block 2's phone check (above) is still open too.
@@ -228,8 +232,9 @@ in Block 2's scope needed a decision only the player could make.
 4. Before Block 5: create the private `Predict-data` repo and a fine-grained token for it, and write the context note.
 5. ~~`tests.yml`'s first real run (commit `944ee64`) failed with no readable log.~~ Resolved: failing
    checks now post a GitHub annotation, readable from the public API without a login
-   (`T.annotate_failure`); the `block-2` push (`e6b8eb3`) and `main`'s run of the same commit after
-   merging both came back green with none, so the original failure looks like a one-off, not a real bug.
+   (`T.annotate_failure`). That mechanism then caught a real click race in the test's own `tab()`
+   helper on a later push (`945a226`), fixed in `fa252f5` — almost certainly the same bug that failed
+   `944ee64` silently. Green since.
 
 ## How to resume
 
