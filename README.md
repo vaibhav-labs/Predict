@@ -3,10 +3,12 @@
 A 15-minute daily game that trains calibrated judgment: you stake a confidence on a claim, reality
 scores you, and patterns of misses become lessons.
 
-**Status:** Block 1 of 10 is built: the confidence call, the 240-question starter bank, the baseline and
-Unit 1 practice, saved history with Export and Import, the calibration curve, and the installable,
-offline-capable app shell. The rest is designed and built one block at a time. `STATE.md` has the detail
-and the next step. The app is served by GitHub Pages at https://vaibhav-labs.github.io/Predict/.
+**Status:** Blocks 1 and 2 of 10 are built. Block 1, the Dial: the confidence call, the 240-question
+starter bank, the baseline and Unit 1 practice, saved history with Export and Import, the calibration
+curve, and the installable, offline-capable app shell. Block 2, the Journal: the prediction card with
+its six-link chain, an offline checker, lock, resolve, and edge score against a hidden baseline. The
+rest is designed and built one block at a time. `STATE.md` has the detail and the next step. The app is
+served by GitHub Pages at https://vaibhav-labs.github.io/Predict/.
 
 Everything personal stays off this repo. The code, tables and question bank are public; your calls,
 predictions and coach letters live on your phone, and later in a private repo of your own.
@@ -47,7 +49,7 @@ node --test tools/test_engine.mjs            # scoring, record and question draw
 sh tools/build_site.sh                       # assemble site/
 cd site && python3 -m http.server 8000       # then open http://localhost:8000
 python3 tools/test_pwa.py                    # install, offline, update (needs Playwright and Chromium)
-python3 tools/test_flow.py                   # the whole first-hour flow, about 2 minutes
+python3 tools/test_flow.py                   # the whole first-hour flow, about 3 minutes
 ```
 
 ## Re-run the evidence
@@ -75,8 +77,9 @@ does not deploy.
 
 ## Next step
 
-Install the app on a phone, play a session and read the "This device" card on the Coach tab
-(`design/platform.md`, section 10). Block 2, the Journal, comes after that.
+The phone check for both blocks: install the app on a phone, play a session, write a real prediction
+with its full chain, and read the "This device" card on the Coach tab (`design/platform.md`, section
+10). Block 3, the Mirror, comes only when the player says so.
 
 ## Licence
 

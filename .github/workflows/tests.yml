@@ -18,9 +18,16 @@ concurrency:
 
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      PLAYWRIGHT_VERSION: '1.65.2'
     steps:
+      - name: Runner diagnostics
+        run: |
+          OS_RELEASE=$(awk '{printf "%s%%0A", $0}' /etc/os-release)
+          PY_VERSION=$(python3 --version 2>&1)
+          echo "::notice title=Runner diagnostics::${OS_RELEASE}${PY_VERSION}%0Aplaywright ${PLAYWRIGHT_VERSION} (pinned)"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -34,7 +41,7 @@ jobs:
         run: node --test tools/test_engine.mjs
       - name: Install Playwright and Chromium
         run: |
-          python3 -m pip install playwright
+          python3 -m pip install "playwright==${PLAYWRIGHT_VERSION}"
           python3 -m playwright install --with-deps chromium
       - name: Install, offline and update tests
         run: python3 tools/test_pwa.py
