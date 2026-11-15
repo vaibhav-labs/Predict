@@ -557,7 +557,7 @@ def phase_shell(S):
     check("Coach starts with an empty record and shows this build",
           text(page, "#record-summary") == "0 events, 0 calls. Not exported yet." and text(page, "#build") == "flowtest", f"{text(page, '#record-summary')} | {text(page, '#build')}")
     tab(page, "path")
-    chips = [t.strip() for t in page.eval_on_selector_all(".chip", "els => els.map(e => e.textContent)")]
+    chips = [t.strip() for t in page.eval_on_selector_all(".units .chip", "els => els.map(e => e.textContent)")]
     check("Path lists four lesson cards, Unit 0 at 0 of 60, Unit 1 open, the rest locked",
           len(page.query_selector_all("#lessons a")) == 4 and chips[0] == f"0 of {BASE_TOTAL}" and chips[1] == "Practice" and set(chips[2:]) == {"Locked"}, str(chips))
     # the narrowest phone we care about (iPhone SE size)
@@ -763,7 +763,7 @@ def phase_baseline_3(S):
     check("Today after the baseline: Done, and Unit 1 practice is next",
           text(page, "#stat-base") == "Done" and text(page, "#gym-line") == f"{PRACTICE_PER} calls · Unit 1 practice, 0 of {PRACTICE_TOTAL} so far", f"{text(page, '#stat-base')} | {text(page, '#gym-line')}")
     tab(page, "path")
-    chips = [t.strip() for t in page.eval_on_selector_all(".chip", "els => els.map(e => e.textContent)")]
+    chips = [t.strip() for t in page.eval_on_selector_all(".units .chip", "els => els.map(e => e.textContent)")]
     check("Path marks Unit 0 as Done", chips[0] == "Done", str(chips))
 
 
@@ -803,7 +803,7 @@ def phase_practice(S):
           f"{text(page, '#gym-line')} | {text(page, '#stat-calls')}")
     check_mirror(S, S.expected, "after practice")
     tab(page, "path")
-    chips = [t.strip() for t in page.eval_on_selector_all(".chip", "els => els.map(e => e.textContent)")]
+    chips = [t.strip() for t in page.eval_on_selector_all(".units .chip", "els => els.map(e => e.textContent)")]
     check("Path shows the practice calls on Unit 1", chips[1] == f"{PRACTICE_PER} calls", str(chips))
 
 
@@ -866,7 +866,7 @@ def snapshot(S):
     tab(page, "mirror")
     mirror = dict(stats=page.eval_on_selector("#stats", "e => e.innerText"), curve=page.eval_on_selector("#curve", "e => e.outerHTML") if page.query_selector("#curve") else None)
     tab(page, "path")
-    path = text(page, ".top .date") + " | " + " | ".join(t.strip() for t in page.eval_on_selector_all(".chip", "els => els.map(e => e.textContent)"))
+    path = text(page, ".top .date") + " | " + " | ".join(t.strip() for t in page.eval_on_selector_all(".units .chip", "els => els.map(e => e.textContent)"))
     return dict(today=today, mirror=mirror, path=path, events=read_db(page)["events"])
 
 
@@ -1033,6 +1033,13 @@ def phase_reuse(S):
         order.append(q["id"])
     z = order[0]
     fake.append(dict(id="fake-d-0001", t=t0.strftime("%Y-%m-%dT%H:%M:%S.000Z"), d="2026-01-01", type="dispute", q=z))
+    # The calls above are months old, so the missed-days flag (a 5-call minimum session) would open on the days since. Give the
+    # record that flag already opened and cleared two days ago, so this phase is about the bank, not about the habit.
+    now = datetime.datetime.now(datetime.timezone.utc)
+    t_open, t_clear = now - datetime.timedelta(days=3), now - datetime.timedelta(days=2)
+    stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    fake.append(dict(id="fake-f-0001", t=stamp(t_open), d=t_open.strftime("%Y-%m-%d"), type="flag", state="open", trigger="L15", fire=1, evidence=dict(missed=[], days=7), chain=1))
+    fake.append(dict(id="fake-f-0002", t=stamp(t_clear), d=t_clear.strftime("%Y-%m-%d"), type="flag", state="cleared", flag="fake-f-0001", evidence=dict(days=5)))
     path = write_file(S, "bank-used-up.jsonl", json.dumps(dict(type="header", format="predict-record", version=1)) + "\n" + "\n".join(json.dumps(e) for e in fake) + "\n")
     tab(page, "coach")
     msg, summary = import_file(S, path)
@@ -1056,7 +1063,7 @@ def phase_reuse(S):
     check("then the questions answered longest ago come back, oldest first, in order", shown[2:] == exp_reuse, f"{[BY_ID[s]['claim'][:18] for s in shown[2:6]]}...")
     check("no disputed question came back, not the ones flagged earlier and not the oldest one", not (set(shown) & all_disputed), str(set(shown) & all_disputed))
     check("no question repeated inside the session", len(set(shown)) == PRACTICE_PER)
-    check("the session was saved with the 18 calls", len(db_calls(page)) == BASE_TOTAL + PRACTICE_PER + len(fake) - 1 + PRACTICE_PER, str(len(db_calls(page))))
+    check("the session was saved with the 18 calls", len(db_calls(page)) == BASE_TOTAL + PRACTICE_PER + len([e for e in fake if e['type'] == 'call']) + PRACTICE_PER, str(len(db_calls(page))))
     tab(page, "today")
     check("Today counts every call, imported ones included",
           text(page, "#stat-calls") == str(len(db_calls(page))), f"{text(page, '#stat-calls')} vs {len(db_calls(page))}")

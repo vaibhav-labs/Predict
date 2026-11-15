@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { cfg, S, ROOT, py, near } from './common.mjs';
+import { cfg, S, ROOT, py, near, table } from './common.mjs';
+import { compileCheckerRules, checkClaim } from '../../app/js/engine/journal.js';
 import { withDir, readEvents, walkJS, sameTimeline, scenario, summary } from './walk.mjs';
 import * as R from '../../app/js/engine/record.js';
 import * as LE from '../../app/js/engine/lessons.js';
@@ -512,4 +513,15 @@ test('retest progress and the drills a flag and a failed exam ask for', () => {
   assert.deepEqual([sure.kind, sure.calls, shy.kind, shy.calls], ['wheel', 20, 'forced', 20]);
   assert.deepEqual(shy.steps, [0.5, 0.8, 0.85, 0.9, 0.95, 0.99]);
   assert.equal(G.repairDrillOf(null, cfg).kind, 'wheel');
+});
+
+test('the rewrite drill: every vague claim is caught by the checker and every sharp example passes it', () => {
+  const rules = compileCheckerRules(table('checker_rules.csv'));
+  const rows = table('vague_claims.csv');
+  assert.ok(rows.length >= 10 && new Set(rows.map((r) => r.id)).size === rows.length);
+  for (const r of rows) {
+    assert.ok(checkClaim(r.vague, rules).length > 0, `${r.id}: "${r.vague}" should be flagged`);
+    assert.deepEqual(checkClaim(r.sharp_example, rules), [], `${r.id}: "${r.sharp_example}" should pass`);
+    assert.ok(r.hint.length > 10 && r.sharp_example !== r.vague);
+  }
 });

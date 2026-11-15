@@ -3,15 +3,24 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
 import * as J from '../engine/journal.js';
+import * as LE from '../engine/lessons.js';
 import { signed, pct } from '../engine/scoring.js';
 import { tabFrame, focusFrame, picker } from './common.js';
 import { caseFile, chainCard, baselineCaption } from './casefile.js';
+import { pendingAutopsies } from './autopsy.js';
+import { lessonState } from '../flags.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
 const DUE_OPTIONS = [['tomorrow', 'Tomorrow'], ['week', 'This week'], ['month', 'This month'], ['longer', 'Longer']];
 const OUTCOME_LABEL = { yes: 'Happened', no: "Didn't happen", void: 'Void' };
 
 export function journalScreen(ctx, arg) {
+  // An autopsy that is due comes before the next journal step: writing a prediction, or resolving another due card.
+  const pending = pendingAutopsies(ctx);
+  if (pending.length && arg) {
+    const target = arg === 'write' ? null : R.predictionsOf(ctx.store.events, R.localDay()).find((p) => p.id === arg);
+    if (arg === 'write' || (target && target.state === 'due')) { ctx.replace(`#/autopsy/${pending[0].p.id}`); return document.createTextNode(''); }
+  }
   if (arg === 'write') return composeScreen(ctx);
   if (arg) return detailScreen(ctx, arg);
   return listScreen(ctx);
@@ -45,7 +54,14 @@ function listScreen(ctx) {
   const resolved = R.resolvedList(predictions).slice(-10).reverse();
   const writtenToday = predictions.filter((p) => p.d === today);
 
-  const cta = writtenToday.length
+  const pending = pendingAutopsies(ctx);
+  const cta = pending.length
+    ? h('section', { class: 'card nudge stack', id: 'autopsy-due' },
+      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Autopsy first'), h('span', { class: 'cap' }, `${pending.length} due`)),
+      h('p', null, pending[0].kind === 'miss' ? 'A card missed at 85% or more. Its autopsy comes before your next journal step.' : 'A confident hit was picked for review. Its autopsy comes before your next journal step.'),
+      h('p', { class: 'claim', style: 'font-size:18px' }, pending[0].p.text),
+      h('a', { class: 'btn', href: `#/autopsy/${pending[0].p.id}`, id: 'autopsy-start' }, 'Start the autopsy'))
+    : writtenToday.length
     ? h('section', { class: 'card stack' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today, written'), h('span', { class: 'cap' }, `${writtenToday.length} today`)),
       h('div', { id: 'today-written' }, writtenToday.map((p) => predictionRow(ctx, p, today))),
@@ -104,9 +120,15 @@ function composeScreen(ctx) {
     progress.replaceChildren(...[0, 1, 2].map((i) => h('i', { class: i <= step ? 'on' : '' })));
   }
 
+  // The rules the player wrote at their autopsies sit above each of their next few cards.
+  const rules = lessonState(ctx).rules;
+  const ruleBox = rules.length ? h('section', { class: 'card stack', id: 'rule-card' },
+    h('span', { class: 'eyebrow' }, rules.length > 1 ? 'Your rules' : 'Your rule'),
+    ...rules.map((r) => h('p', { class: 'rule' }, h('b', null, r.rule), h('span', { class: 'cap' }, ` · from ${r.autopsy.d}, ${ruleCardsLeft(ctx, r)} cards left`)))) : null;
+
   function render() {
     paintHeader();
-    body.replaceChildren(step === 0 ? stepClaim() : step === 1 ? stepChain() : stepLock());
+    body.replaceChildren(...(ruleBox ? [ruleBox] : []), step === 0 ? stepClaim() : step === 1 ? stepChain() : stepLock());
     window.scrollTo(0, 0);
   }
 
@@ -230,6 +252,8 @@ function composeScreen(ctx) {
   return el;
 }
 
+const ruleCardsLeft = (ctx, r) => ctx.cfg.lessons.autopsy.rule_card_cards - r.since;
+
 function field(label, value, onInput) {
   const input = h('input', { class: 'field', type: 'text', value });
   if (onInput) input.addEventListener('input', () => onInput(input.value));
@@ -295,7 +319,7 @@ function detailBody(ctx, p, today, paint, predictions) {
     return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
       header, baselineLine, chainCard(p), resolveCard(ctx, p, paint));
   }
-  return caseFile(ctx, p, header, predictions);
+  return caseFile(ctx, p, header, predictions, paint);
 }
 
 function resolveCard(ctx, p, paint) {
@@ -311,6 +335,10 @@ function resolveCard(ctx, p, paint) {
     const outcomeYes = outcome === 'yes';
     const scoring = outcome === 'void' ? { raw: null, edge: null } : J.journalScore(ctx.S, p.c, p.b, outcomeYes, ctx.cfg.journal.edge_weight);
     await ctx.store.append(R.makeEvent('resolve', { prediction: p.id, outcome, note: note.value.trim() || undefined, raw: scoring.raw, edge: p.scored ? scoring.edge : null }));
+    // A card that needs an autopsy goes to it at once; the case file waits behind it.
+    const now = R.predictionsOf(ctx.store.events, R.localDay());
+    const mine = now.find((x) => x.id === p.id);
+    if (mine && LE.needsAutopsy(mine, LE.autopsyDue(now, ctx.store.events, ctx.cfg))) { ctx.replace(`#/autopsy/${p.id}`); return; }
     paint();
   });
   return h('section', { class: 'card stack' },

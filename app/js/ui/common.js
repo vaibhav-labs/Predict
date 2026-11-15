@@ -42,7 +42,7 @@ export function soonCard(block, what) {
 export const unitRow = (ctx, id) => ctx.units.find((u) => u.id === id);
 
 // How many of the ten build blocks are in this version (shown on Today).
-export const BLOCKS_BUILT = 3;
+export const BLOCKS_BUILT = 4;
 
 // A row of choice buttons where exactly one is on. Used for domain, due date, outcome and the Mirror's switches.
 export function picker(options, selected, onPick, attrs = {}) {

@@ -5,8 +5,13 @@ import { signed, pct } from '../engine/scoring.js';
 
 const CIRC = 2 * Math.PI * 34;
 
-export function makeDial(S) {
+// `opts.allowed` (a list of confidences) locks the steps outside it, as a drill does: the dial still moves everywhere, but a
+// locked step shows `opts.hint` and `ok()` says no, so the Lock button can wait. `opts.onChange(ok)` is called after every move.
+export function makeDial(S, opts = {}) {
   const steps = S.steps;
+  const allowed = opts.allowed ? new Set(opts.allowed.map((c) => Math.round(c * 100))) : null;
+  const okAt = (kk) => !allowed || allowed.has(Math.round(steps[Math.abs(kk)] * 100));
+  const hint = h('p', { class: 'msg err', id: 'dial-hint', hidden: true });
   const maxK = steps.length - 1;
   let k = 0, lastSign = 1;
 
@@ -43,6 +48,9 @@ export function makeDial(S) {
     wheelFill.setAttribute('stroke-dasharray', `${(c * CIRC).toFixed(1)} ${CIRC.toFixed(1)}`);
     wheelNum.textContent = String(Math.round(c * 100));
     wheelText.replaceChildren(h('b', null, `A wheel that wins ${Math.round(c * 100)} spins in 100.`), ' Would you rather bet on your answer, or on the wheel?');
+    hint.hidden = okAt(k);
+    hint.textContent = okAt(k) ? '' : (opts.hint || 'That step is locked in this drill.');
+    if (opts.onChange) opts.onChange(okAt(k));
   }
   input.addEventListener('input', () => {
     k = Number(input.value);
@@ -56,7 +64,8 @@ export function makeDial(S) {
     h('section', null,
       h('div', { class: 'dial' }, input, h('div', { class: 'inset' }, fill)),
       ticks,
-      h('div', { class: 'ends', 'aria-hidden': 'true' }, h('span', null, '← No'), h('span', null, 'Yes →'))),
+      h('div', { class: 'ends', 'aria-hidden': 'true' }, h('span', null, '← No'), h('span', null, 'Yes →')),
+      hint),
     h('section', { class: 'pay' },
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'If you are right'), right),
       h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'If you are wrong'), wrong)),
@@ -64,7 +73,7 @@ export function makeDial(S) {
       s('svg', { width: 88, height: 88, viewBox: '0 0 88 88', 'aria-hidden': 'true' }, s('circle', { class: 'w0', cx: 44, cy: 44, r: 34 }), wheelFill, wheelNum),
       h('div', { class: 'eqt' }, h('span', { class: 'eyebrow' }, 'Equivalent bet'), wheelText, h('span', { class: 'cap' }, 'Prefer the wheel? Lower the dial.'))));
 
-  return { el, value, input };
+  return { el, value, input, ok: () => okAt(k) };
 }
 
 // A static wheel for the lesson cards.

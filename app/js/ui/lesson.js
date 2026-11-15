@@ -4,14 +4,9 @@ import { LESSONS } from '../lessons.js';
 import { focusFrame } from './common.js';
 import { wheel } from './dial.js';
 
-export function lessonScreen(ctx, id) {
-  const idx = LESSONS.findIndex((l) => l.id === id);
-  if (idx < 0) { ctx.nav('#/path'); return document.createTextNode(''); }
-  const lesson = LESSONS[idx];
-  const next = LESSONS[idx + 1];
-  const isRead = R.lessonsRead(ctx.store.events).has(id);
-
-  const body = lesson.blocks(ctx.S).map((b) => {
+// A lesson card's blocks as page elements (also used by the pattern-flag lesson).
+export function renderBlocks(blocks) {
+  return blocks.map((b) => {
     if (b.p) return h('p', null, b.p.map((part) => (typeof part === 'string' ? part : h('b', null, part.b))));
     if (b.table) {
       return h('table', { class: 'tbl' },
@@ -21,6 +16,16 @@ export function lessonScreen(ctx, id) {
     if (b.wheel) return wheel(b.wheel);
     return null;
   });
+}
+
+export function lessonScreen(ctx, id) {
+  const idx = LESSONS.findIndex((l) => l.id === id);
+  if (idx < 0) { ctx.nav('#/path'); return document.createTextNode(''); }
+  const lesson = LESSONS[idx];
+  const next = LESSONS[idx + 1];
+  const isRead = R.lessonsRead(ctx.store.events).has(id);
+
+  const body = renderBlocks(lesson.blocks(ctx.S));
 
   const doneBtn = h('button', { class: 'btn', type: 'button', id: 'lesson-done' }, isRead ? (next ? 'Next card' : 'Back to Path') : 'Got it');
   doneBtn.addEventListener('click', async () => {

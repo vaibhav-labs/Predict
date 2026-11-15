@@ -127,6 +127,11 @@ function minimumRun(ctx, fromDay) {
   return run;
 }
 
+// How far the missed-days flag has got: played days in a row that held the minimum, out of the clear_days it needs.
+export const habitProgress = (chain, events, { today, cfg }) => ({
+  run: minimumRun({ events, today, t: cfg.lessons.triggers.L15 }, chain.openedDay), need: cfg.lessons.triggers.L15.clear_days,
+});
+
 export const TRIGGERS = {
   L01: bandTrigger(+1),
   L02: bandTrigger(-1),

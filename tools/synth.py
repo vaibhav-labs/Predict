@@ -92,6 +92,20 @@ class Rec:
         base = pts(pred["b"]) if yes else pts(1 - pred["b"])
         return self._add("resolve", day, minute, prediction=pred["id"], outcome=outcome, note=note, raw=raw, edge=EDGE_WEIGHT * (raw - base) if pred["scored"] else None)
 
+    # ---- the Unit 1 exam (Block 4): an attempt, and its sittings of sealed calls ----
+    def exam_start(self, day, minute, n=200, reused=0):
+        return self._add("exam", day, minute, state="start", unit="U1", n=n, reused=reused)["id"]
+
+    def exam_sitting(self, attempt, day, minute, rows, n, of=10):
+        """One sitting. rows = [(question, stated confidence, side)], a question being a dict of the exam bank."""
+        sid = self._add("session", day, minute, mode="exam", unit="U1", size=len(rows), exam=attempt, n=n, of=of)["id"]
+        for i, (q, c, side) in enumerate(rows):
+            hit = (side == "yes") == q["answer"]
+            self._add("call", day, minute + 1 + i, session=sid, mode="exam", unit="U1", exam=attempt, q=q["id"], claim=q["claim"], domain=q["domain"], diff=q["diff"],
+                      side=side, c=c, truth=q["answer"], hit=hit, points=pts(c) if hit else pts(1 - c), rule="brier_points", ms=4000)
+        self.end(sid, day, minute + len(rows) + 1)
+        return sid
+
     # ---- output ----
     def sorted(self):
         return sorted(self.events, key=lambda e: (e["t"], e["id"]))
@@ -299,6 +313,36 @@ def autopsy_player(seed=13, start="2026-09-01"):
         if i in (0, 4):
             r._add("autopsy", add_days(day, 1), 430, prediction=p["id"], kind="miss", knew="I knew the usual rate.", missed="I did not ask who decides.", verdict="judgment", rule="Ask who decides first.")
     return r
+
+
+def eligible_player(seed=17, start="2026-09-01"):
+    """A calibrated player who has done the 60-call baseline (three days) and the 90 practice calls (five days): the Unit 1 exam is open."""
+    r = Rec(seed)
+    for k in range(8):
+        day = add_days(start, k)
+        if k < 3:
+            r.play_day(day, 20, pol_calibrated, mode="baseline", unit="U0")
+        else:
+            r.play_day(day, 18, pol_calibrated)
+        r.prediction(day, 400, 0.6, 0.5)
+    return r
+
+
+def exam_rows(bank, groups, rng):
+    """Calls for an exam from real questions: groups = [(stated, how many, how many of them right)]. Questions are drawn in a random
+    order without repeats, the side is the right one for the first `right` calls of a group and the wrong one for the rest."""
+    order = list(bank)
+    rng.shuffle(order)
+    rows, k = [], 0
+    for c, n, right in groups:
+        for i in range(n):
+            q = order[k]
+            k += 1
+            yes_is_right = q["answer"]
+            side = ("yes" if yes_is_right else "no") if i < right else ("no" if yes_is_right else "yes")
+            rows.append((q, c, side))
+    rng.shuffle(rows)
+    return rows
 
 
 # ---- Monte Carlo draws: the same players as sim/scoring_sim.py, written out for the JS engine to judge --------------------

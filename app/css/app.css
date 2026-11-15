@@ -235,3 +235,16 @@ textarea.field{min-height:64px;padding:12px 14px;line-height:1.4;font:400 15px/1
 .status.wide dd{justify-content:flex-start;border-top:0;padding:4px 0 12px;font:400 14px/1.4 var(--sans);min-height:0}
 .tbl.grid td,.tbl.grid th{font-size:12px;padding:9px 2px}
 @media (prefers-reduced-motion:no-preference){.btn,.ghost{transition:opacity .15s}}
+/* ---- Block 4: audit marks, the rule card, notes, the exam ---- */
+.card.nudge{border-left:4px solid var(--seal)}
+.chip.mark{height:22px;padding:0 8px;font-size:11px}
+.chip.mark-held{border-color:var(--green);color:var(--green)}
+.chip.mark-weak{border-color:var(--yellow);color:var(--brown)}
+.chip.mark-missed{border-color:var(--seal);color:var(--seal)}
+#rule-card{border-left:4px solid var(--ink)}
+#rule-card p.rule{margin:0;font:400 15px/1.4 var(--sans)}
+#instant-note{border-left:4px solid var(--yellow)}
+.recheck .picker{margin-top:2px}
+.tbl td.bad{color:var(--seal);font-weight:600}
+#gate-attempts{margin-top:4px}
+#wheel-check{border-left:4px solid var(--ink)}
