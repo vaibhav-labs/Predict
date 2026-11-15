@@ -71,6 +71,24 @@
     },
     "chain": {
       "session_size": 10
+    },
+    "update": {
+      "_doc": "Unit 6 (updating): an evidence stream gives a prior, then news; the player types the new probability. The truth is the share among the cases that fit the prior AND the news (counted in the record, at least min_cases of them). Within `tolerance` points is a hit; points = max(floor, round(full_points x (1 - miss / tolerance))). `gain` = how much closer the answer is than leaving the prior alone: |prior - truth| - miss.",
+      "tolerance": 7,
+      "full_points": 100,
+      "floor": -100,
+      "session_size": 6,
+      "exam_session_size": 20,
+      "reseen_days": 90,
+      "min_cases": 60,
+      "drill_move_min": 8,
+      "update_rule": {
+        "note": "A journal update changes the probability from its day on. One update a card a day (a second the same day replaces the first). Only an open card can be updated. A reason of at least min_reason_chars is required; the card's tripwire is shown as the prompt. A resolved card's score is the time-weighted average of the daily scores from lock day to resolve day, each forecast carried forward until changed (edge = edge_weight x (average points - baseline points)).",
+        "min_reason_chars": 3,
+        "large_move": 0.25,
+        "reverse_days": 14,
+        "reverse_share": 0.5
+      }
     }
   },
   "journal": {
@@ -152,6 +170,10 @@
       "U5": [
         "L08",
         "L09"
+      ],
+      "U6": [
+        "L10",
+        "L11"
       ]
     },
     "range_repair_calls": 10,
@@ -164,8 +186,13 @@
     "rate_repair_calls": 10,
     "opens_after": {
       "U4": "U3",
-      "U5": "U4"
-    }
+      "U5": "U4",
+      "U6": "U5"
+    },
+    "update_exam_calls": 40,
+    "update_pass_within": 32,
+    "update_gain_min": 0,
+    "update_repair_calls": 10
   },
   "sim": {
     "seed": 20261114,
@@ -501,6 +528,29 @@
         "clear_window": 30,
         "drill": {
           "kind": "domain",
+          "calls": 8
+        }
+      },
+      "L10": {
+        "kind": "frozen",
+        "window": 5,
+        "news_days": 7,
+        "clear_stale_days": 7,
+        "drill": {
+          "kind": "stream",
+          "calls": 5
+        }
+      },
+      "L11": {
+        "kind": "whiplash",
+        "window": 10,
+        "large": 0.25,
+        "reverse_days": 14,
+        "reverse_share": 0.5,
+        "clear_window": 10,
+        "clear_reversed_below": 3,
+        "drill": {
+          "kind": "move",
           "calls": 8
         }
       }

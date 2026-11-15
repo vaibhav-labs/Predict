@@ -9,6 +9,7 @@
 import { addDays, localDay, callsOf, rangesOf } from './record.js';
 import { ledger } from './progress.js';
 import * as RS from './reasoning.js';
+import * as UP from './update.js';
 
 const EPS = 1e-9;
 const inBand = (c, [lo, hi]) => c.c >= lo - EPS && c.c <= hi + EPS;
@@ -196,6 +197,39 @@ const domainBlind = {
   },
 };
 
+// Updating patterns (Block 8). L10 frozen forecasts: `window` or more open cards, older than news_days days, that the weekly review found news for and
+// that were not updated since. It clears when no such card has waited clear_stale_days days or more for an update after the drill.
+const frozen = {
+  fire({ predictions, news, today, t }, since) {
+    const cards = UP.frozenCards(predictions, news, today, t).filter((c) => !since || c.written > since.slice(0, 10));
+    if (cards.length < t.window) return null;
+    return { evidence: { n: cards.length, cards: cards.map((c) => c.prediction), longest: Math.max(...cards.map((c) => c.waited)) }, strength: cards.length / t.window };
+  },
+  retest({ predictions, news, today, t }, since, readyDay) {
+    const cards = UP.frozenCards(predictions, news, today, t).filter((c) => c.waited >= t.clear_stale_days);
+    return { pass: cards.length === 0, evidence: { stale: cards.length, cards: cards.map((c) => c.prediction) } };
+  },
+};
+// L11 whiplash: of the last `window` large updates (25 points or more) that can be judged, half or more were reversed within reverse_days days.
+// It clears when fewer than clear_reversed_below of the next clear_window large updates were reversed.
+const whiplash = {
+  fire({ predictions, today, t }, since) {
+    const obs = UP.whiplashObs(predictions, today, t, since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const reversed = w.filter((m) => m.reversed).length;
+    if (reversed / w.length < t.reverse_share - EPS) return null;
+    return { evidence: { n: w.length, reversed, from: w[0].t, to: w[w.length - 1].t }, strength: reversed / w.length };
+  },
+  retest({ predictions, today, t }, since, readyDay) {
+    const obs = UP.whiplashObs(predictions, today, t, since, readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const reversed = w.filter((m) => m.reversed).length;
+    return { pass: reversed < t.clear_reversed_below, evidence: { n: w.length, reversed } };
+  },
+};
+
 // Missed days (L15) is a habit flag: no lesson, no re-test. It fires on missed days in the last window_days, and clears
 // after clear_days played days in a row that each hold the minimum session.
 function missedDays(ctx, sinceDay) {
@@ -246,6 +280,8 @@ export const TRIGGERS = {
   L07: gapTrigger(RS.chainObs),
   L08: gapTrigger(RS.ownObs),
   L09: baseNeglect,
+  L10: frozen,
+  L11: whiplash,
   L13: domainBlind,
   L15: { habit: true },
 };
@@ -294,7 +330,7 @@ export function waitingFor(chain, cfg) {
 
 // How far a chain's next re-test has got: the observations that would count (made after the drill, from the ready day on),
 // and how many it needs. `have` is capped at `need`.
-export function retestProgress(chain, events, { cfg, predictions, today }) {
+export function retestProgress(chain, events, { cfg, predictions, today, news = {} }) {
   const wait = waitingFor(chain, cfg);
   if (!wait) return null;
   const t = cfg.lessons.triggers[chain.trigger];
@@ -304,6 +340,14 @@ export function retestProgress(chain, events, { cfg, predictions, today }) {
   const sinceT = wait.since || '';
   const predObs = { L07: () => RS.chainObs(predictions || [], sinceT, wait.readyDay), L08: () => RS.ownObs(predictions || [], sinceT, wait.readyDay), L09: () => RS.neglectRetestObs(predictions || [], t, sinceT, wait.readyDay),
     L13: () => RS.domainObs(predictions || [], cfg.journal, chain.evidence && chain.evidence.domain, sinceT, wait.readyDay) }[chain.trigger];
+  if (chain.trigger === 'L10') {
+    const stale = UP.frozenCards(predictions || [], news, today, t).filter((c) => c.waited >= t.clear_stale_days).length;
+    return { step: wait.step, readyDay: wait.readyDay, need: 1, have: stale === 0 && today >= wait.readyDay ? 1 : 0, ready: today >= wait.readyDay, stale };
+  }
+  if (chain.trigger === 'L11') {
+    const have11 = UP.whiplashObs(predictions || [], today, t, sinceT, wait.readyDay).length;
+    return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have11, t.clear_window), ready: today >= wait.readyDay };
+  }
   const have = predObs ? predObs().length : chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length
     : chain.trigger === 'L05' || chain.trigger === 'L06' ? ranges.length : calls.filter((c) => inBand(c, t.band)).length;
   return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have, t.clear_window), ready: today >= wait.readyDay };
@@ -316,12 +360,12 @@ const lastChain = (chains, id) => chains.filter((c) => c.trigger === id).pop() |
 
 // What to write to the record now. Returns { append: [event fields], notices } and never writes anything itself, so
 // running it twice in a row appends nothing the second time. Call it when a session ends, after a lock, and when Today opens.
-export function evaluate(events, { today = localDay(), cfg, predictions }) {
+export function evaluate(events, { today = localDay(), cfg, predictions, news = {} }) {
   const L = cfg.lessons;
   const chains = flagsOf(events, cfg);
   const calls = naturalCalls(events, cfg);
   const preds = predictions.slice().sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.id < b.id ? -1 : 1));
-  const base = { events, calls, ranges: naturalRanges(events), predictions: preds, today, cfg };
+  const base = { events, calls, ranges: naturalRanges(events), predictions: preds, today, cfg, news };
   const append = [];
 
   // 1. Re-tests that have enough observations, and the L15 run. `stays` is whether each chain is still in repair afterwards.
@@ -403,8 +447,10 @@ export function instantNote(call, question, earlierCalls, S, cfg) {
 // hit_sample_every confident hits is sampled too (the 5th, 10th ... in the order they resolved), so right-for-the-wrong-
 // reason gets caught. Until it is filed, the next journal step waits.
 export function sideOf(p) {
-  const yes = p.c >= 0.5;
-  return { yes, c: yes ? p.c : 1 - p.c, hit: yes === (p.outcome === 'yes') };
+  // The forecast that stood when the card resolved (an update replaces the locked number).
+  const c0 = typeof p.cNow === 'number' ? p.cNow : p.c;
+  const yes = c0 >= 0.5;
+  return { yes, c: yes ? c0 : 1 - c0, hit: yes === (p.outcome === 'yes') };
 }
 
 export function autopsyDue(predictions, events, cfg) {

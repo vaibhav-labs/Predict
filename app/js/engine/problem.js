@@ -8,6 +8,7 @@ import { examsOf } from './gate.js';
 import { ACTIVE, flagsOf } from './lessons.js';
 import { shuffle, availablePool } from './draw.js';
 import { scoreRange, checkInput } from './range.js';
+import { gateU6 } from './update.js';
 
 // ---- the worksheet: combine the parts' ranges into a range for the whole -------------------------------------------------
 // Each part is a (low, high) the player would bet 19 to 1 on. In log space a product is a sum: the centres add, and the
@@ -106,9 +107,9 @@ export function gateU5(probs, gates) {
   if (n > 0 && within < gates.rate_pass_within) reasons.push('within');
   return { n, hits: within, within, meanMiss: n ? probs.reduce((s, p) => s + p.miss, 0) / n : null, bias, points: probs.reduce((s, p) => s + p.points, 0), pass: n > 0 && reasons.length === 0, reasons, dir: reasons.length ? (bias > 0 ? 'too high' : 'too low') : null, need: gates.rate_pass_within };
 }
-export const gateOf = (unit) => (unit === 'U4' ? gateU4 : gateU5);
-export const examTotal = (unit, gates) => (unit === 'U4' ? gates.fermi_exam_calls : gates.rate_exam_calls);
-export const examSitting = (unit, cfg) => (unit === 'U4' ? cfg.problems.fermi.exam_session_size : cfg.problems.rate.exam_session_size);
+export const gateOf = (unit) => (unit === 'U4' ? gateU4 : unit === 'U6' ? gateU6 : gateU5);
+export const examTotal = (unit, gates) => (unit === 'U4' ? gates.fermi_exam_calls : unit === 'U6' ? gates.update_exam_calls : gates.rate_exam_calls);
+export const examSitting = (unit, cfg) => (unit === 'U4' ? cfg.problems.fermi.exam_session_size : unit === 'U6' ? cfg.problems.update.exam_session_size : cfg.problems.rate.exam_session_size);
 
 // Where the player stands on a Unit 4 or 5 gate. `open` says the unit before it is passed.
 export function problemGateStatus(events, cfg, unit, { open = false, practice = 0, practiceRequired = 0 } = {}) {
@@ -130,7 +131,7 @@ export const sittingSize = (status, cfg) => Math.min(examSitting(status.unit, cf
 
 // The repair drill after a failed exam: more Fermi problems when the worksheet ranges were off; more base-rate problems otherwise.
 export function problemRepairOf(unit, cfg) {
-  return unit === 'U4' ? { kind: 'fermi', calls: cfg.gates.fermi_repair_calls } : { kind: 'rate', calls: cfg.gates.rate_repair_calls };
+  return unit === 'U4' ? { kind: 'fermi', calls: cfg.gates.fermi_repair_calls } : unit === 'U6' ? { kind: 'update', calls: cfg.gates.update_repair_calls } : { kind: 'rate', calls: cfg.gates.rate_repair_calls };
 }
 
 // ---- problem sessions in the record ------------------------------------------------------------------------------------------
