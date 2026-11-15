@@ -254,6 +254,31 @@ if os.path.exists(_upr):
     add(f"- **Open risk: a half-hearted mover passes.** A player who takes only 60% of every deserved move (k 0.6, noise 3) passes {pct(US['under-reacts (k 0.6, noise 3)']['exam_pass'])}: with a tolerance of 7 and "
         "streams that are mostly small moves, under-reaction is forgiven. If real players do this, tighten `update_pass_within` or add a floor on the share of a big move taken (the Mirror already shows that share).")
 
+# 5e (Block 9): the know-yourself gates and the memory-drift pattern, from sim/know_sim.py ------------------------------
+_knr = os.path.join(OUT, "know_results.json")
+if os.path.exists(_knr):
+    KS = json.load(open(_knr))
+    add("\n## 5e. Knowing yourself: choice gates and memory drift (Block 9)\n")
+    add("`sim/know_sim.py` plays the Units 7 to 9 exams on the real exam pool (`know.json`). A player knows an item with probability s and picks the right option; otherwise they guess "
+        "among the item's options (2 for act or hold, 4 for the rest). U7 is 28 counter-argument items (22 right), U8 30 luck-or-judgment items (24 right, plus the memory half below) and "
+        "U9 30 decision items, ten each of act, break-even and value (24 right).\n")
+    add(table(["Player", "U7 pass", "U8 right-half pass", "U9 pass"],
+              [[n, pct(r["U7"]["pass"]), pct(r["U8"]["pass"]), pct(r["U9"]["pass"])] for n, r in KS["choice"].items()]))
+    add("\n- **A guesser never passes, a player who knows 7 items in 10 passes about half the time, one who knows 85% passes 96 to 98%.** The bar sits where a real skill gap shows and "
+        "a lucky streak cannot carry a guesser: a pure guesser needs 22 of 28 at one chance in four per item.")
+    add("- **The second half of the Unit 8 gate is the memory check.** The exam also needs the mean drift of the last 30 checks to be within 5 points of zero either way. Each check gives "
+        "a shift (recalled minus recorded, positive when it moved toward what happened); a player's bias is the average of that shift and sd is the noise around it.\n")
+    add(table(["Memory player", "Drift gate passes", "L12 fires (last 10 at 10+)", "Re-test clears (next 10 within 5)"],
+              [[n, pct(r["gate_pass"]), pct(r["l12_fires"]), pct(r["retest_clears"])] for n, r in KS["memory"].items()]))
+    kn = KS["memory"]
+    add(f"\n- **Noise alone rarely fails the gate.** An honest player with an sd of 12 points still passes {pct(kn['honest but noisy (b 0, sd 12)']['gate_pass'])} (the mean of 30 checks has a standard error of "
+        f"12/sqrt(30) = 2.2 points), and with an sd of 20 it is {pct(kn['honest, very noisy (b 0, sd 20)']['gate_pass'])}.")
+    add(f"- **A rewrite of 8 points fails the gate every time, yet L12 fires on it only {pct(kn['rewrites often (b 8, sd 4)']['l12_fires'])} of the time.** The pattern waits for a mean shift of 10 points over the "
+        "last 10 checks, the gate for 5 over 30. A player in between fails the exam with no lesson attached: they keep taking memory checks, and the window moves on as the old checks leave it. "
+        f"The heavy rewriter (12 points) triggers it {pct(kn['heavy rewrite (b 12, sd 4)']['l12_fires'])}.")
+    add("- **Open risk: the gap between L12 (10 points) and the gate (5 points).** If real players sit in the 5 to 10 band, lower `min_shift` to 0.07: at an sd of 20 points that would also fire "
+        "on about 13% of honest but very noisy players, so it needs real data on how noisy recall is before it moves.")
+
 # 6 ------------------------------------------------------------------
 add("\n## 6. Real predictions: raw points against edge\n")
 add("- **Intent:** logging sure things must not pay.")
