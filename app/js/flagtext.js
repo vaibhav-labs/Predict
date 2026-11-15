@@ -24,6 +24,7 @@ export function evidenceText(chain, cfg) {
     case 'L10': return `${e.n} of your open predictions have waited ${t.news_days} days or more with news in the weekly review and no update: the longest has waited ${e.longest} days. News that nobody acts on is not information, it is a note.`;
     case 'L11': return `${e.reversed} of your last ${e.n} large updates (${whole(t.large)} points or more) were reversed within ${t.reverse_days} days. Each swing felt justified by the news. Together they say the news was worth less than the move.`;
     case 'L12': return `Over your last ${e.n} memory checks, the number you remembered sat ${Math.round(e.drift * 100)} points closer to what happened than the number on the record. Memory rewrites toward the outcome: what you now think you thought is not what you thought.`;
+    case 'L14': return `${Math.round(e.share * e.n)} of your last ${e.n} calls on the 1% dial (${pct(e.share)}) sat on a multiple of ten. A dial with fifty steps is wasted on five numbers: 63 and 67 are different beliefs.`;
     case 'L13': return `In ${e.domain} you earned ${Math.round(e.meanEdge * 10) / 10} edge points a card over your last ${e.n} resolved predictions: a forecast that just said the baseline would have done better there.`;
     case 'L15': return `You missed ${(e.missed || []).length} of the last ${e.days} days.`;
     default: return '';
@@ -45,6 +46,7 @@ export function retestText(chain, cfg) {
   if (chain.trigger === 'L10') return `Two re-tests clear this flag: update the open predictions that have news waiting (with a line on why), so that none has waited ${t.clear_stale_days} days or more. The first check is ${d1} days after the drill, the second ${d2} days after it.`;
   if (chain.trigger === 'L11') return `Two re-tests clear this flag, on your next ${t.clear_window} large updates (${whole(t.large)} points or more): fewer than ${t.clear_reversed_below} of them may be reversed within ${t.reverse_days} days. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal journal: nothing extra to do.`;
   if (chain.trigger === 'L12') return `Two re-tests clear this flag, on your next ${t.clear_window} memory checks: on average the number you remember must sit within ${whole(t.clear_within)} points of the record, either way. The first starts ${d1} days after the drill, the second ${d2} days after it. The checks come from your normal journal reveals and the recall practice on Today.`;
+  if (chain.trigger === 'L14') return `Two re-tests clear this flag, on your next ${t.clear_window} calls on the 1% dial: fewer than ${whole(t.clear_below)}% of them may sit on a multiple of ten. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal Unit 10 practice.`;
   if (chain.trigger === 'L13') return `Two re-tests clear this flag, on your next ${t.clear_window} resolved predictions in ${(chain.evidence || {}).domain || 'that domain'}: their average edge must be zero or better. The first starts ${d1} days after the drill, the second ${d2} days after it.`;
   const what = chain.trigger === 'L03' ? `your next ${t.clear_window} calls, with fewer than ${whole(t.clear_share)}% of them at ${bandText(t.zone)}`
     : chain.trigger === 'L04' ? `your next ${t.clear_window} journal predictions, every one accepted first time`
@@ -70,6 +72,7 @@ export function drillText(chain, cfg) {
     case 'domain': return `${d.calls} base-rate problems in ${(chain.evidence || {}).domain || 'your weak domain'}: practice at the part you skip, starting from how often it happens.`;
     case 'stream': return `${d.calls} evidence-stream steps: the rate before the news, the news, and your new number. Learn to move as far as the news is worth.`;
     case 'move': return `${d.calls} how-far-should-this-move steps, each one with news worth a big move (${cfg.problems.update.drill_move_min} points or more). See how far the record says to go.`;
+    case 'fine': return `${d.calls} calls on the 1% dial under the sharp rule, with every multiple of ten locked: say 63 or 67, whichever you actually believe.`;
     case 'recall': return `${d.calls} recall checks on old gym calls: type how sure you were before the record is shown, then see what you really said.`;
     case 'rewrite': return `Rewrite ${d.items} vague predictions until each one passes the checker.`;
     default: return '';
@@ -77,4 +80,4 @@ export function drillText(chain, cfg) {
 }
 
 // Where a flag's drill happens.
-export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : chain.trigger === 'L12' ? `#/recall/drill-${chain.id}` : ['L07', 'L08', 'L09', 'L10', 'L11', 'L13'].includes(chain.trigger) ? `#/prob/drill-${chain.id}` : `#/gym/drill-${chain.id}`);
+export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : chain.trigger === 'L12' ? `#/recall/drill-${chain.id}` : chain.trigger === 'L14' ? `#/fine/drill-${chain.id}` : ['L07', 'L08', 'L09', 'L10', 'L11', 'L13'].includes(chain.trigger) ? `#/prob/drill-${chain.id}` : `#/gym/drill-${chain.id}`);

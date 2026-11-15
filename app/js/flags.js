@@ -6,6 +6,7 @@ import * as G from './engine/gate.js';
 import * as RG from './engine/range.js';
 import * as PB from './engine/problem.js';
 import * as KN from './engine/know.js';
+import * as FN from './engine/fine.js';
 import { unitRow } from './ui/common.js';
 
 // From the day Unit 8 opens (the time Unit 7 was passed) every case that resolves gets an autopsy. Before that, only the cases the first rule picks.
@@ -104,5 +105,21 @@ export async function judgeProblemExam(ctx, attemptId) {
   const v = PB.gateOf(attempt.unit)(attempt.calls, ctx.cfg.gates, { memory });
   const extra = KN.isChoiceUnit(attempt.unit) ? { right: v.hits, ...(attempt.unit === 'U8' ? { memoryDrift: v.memoryDrift, memoryN: v.memoryN } : {}) } : attempt.unit === 'U4' ? { medianMiss: v.medianMiss, meanRatio: v.meanRatio } : attempt.unit === 'U6' ? { meanMiss: v.meanMiss, bias: v.bias, within: v.within, meanGain: v.meanGain } : { meanMiss: v.meanMiss, bias: v.bias, within: v.within };
   await ctx.store.append(R.makeEvent('exam', { state: 'result', exam: attempt.id, unit: attempt.unit, pass: v.pass, n: v.n, hits: v.hits, coverage: attempt.unit === 'U4' ? v.coverage : v.hits / v.n, points: v.points, reasons: v.reasons, dir: v.dir, ...extra }));
+  return true;
+}
+
+// Unit 10 (Fine grain): opens when Unit 9 is passed. The practice that counts toward its exam is the fine calls of practice sessions; the exam is judged once,
+// when its last call is in (400 calls, the average confidence within 3 points of the hit rate).
+export function fineGateState(ctx) {
+  const events = ctx.store.events;
+  const open = problemGateState(ctx, ctx.cfg.gates.opens_after.U10).passed;
+  const practice = FN.fineCalls(events).filter((c) => c.mode === 'practice').length;
+  return FN.fineGateStatus(events, ctx.cfg, { open, practice, practiceRequired: Number(unitRow(ctx, 'U10').practice_calls) });
+}
+export async function judgeFineExam(ctx, attemptId) {
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === attemptId && a.unit === 'U10');
+  if (!attempt || attempt.result || attempt.calls.length < attempt.total) return false;
+  const v = FN.gateFine(attempt.calls.filter((c) => c.type === 'call'), ctx.cfg.gates);
+  await ctx.store.append(R.makeEvent('exam', { state: 'result', exam: attempt.id, unit: 'U10', pass: v.pass, n: v.n, hits: v.hits, meanConf: v.meanConf, hitRate: v.hitRate, index: v.index, points: v.points, reasons: v.reasons, dir: v.dir }));
   return true;
 }

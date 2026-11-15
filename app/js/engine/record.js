@@ -211,7 +211,7 @@ export function summarize(calls) {
   if (!n) return { n: 0, hits: 0, hitRate: null, meanConf: null, gap: null, points: 0, avgPoints: null };
   const hits = calls.filter((c) => c.hit).length;
   const meanConf = calls.reduce((s, c) => s + c.c, 0) / n;
-  const points = calls.reduce((s, c) => s + c.points, 0);
+  const points = calls.reduce((s, c) => s + (typeof c.core === 'number' ? c.core : c.points), 0); // a call on the 1% dial counts at the core rule here
   return { n, hits, hitRate: hits / n, meanConf, gap: meanConf - hits / n, points, avgPoints: points / n };
 }
 

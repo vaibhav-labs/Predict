@@ -38,6 +38,7 @@ export function makeScoring(cfg) {
     max: b.max_confidence,
     noteThreshold: b.note_threshold,
     rule: core,
+    sharpRule: b.sharp_rule,
     points, hit, miss, score, expected,
     // The 22 numbers on the payout table: eleven steps, hit and miss.
     table() { return b.dial_steps.map((c) => ({ c, hit: hit(c), miss: miss(c) })); },

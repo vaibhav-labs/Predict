@@ -29,6 +29,13 @@
       "brier_points": "Core rule, Units 0-9. Quadratic (Brier) rule rescaled so 50% scores 0 and certainty scores +100. Bounded at -300.",
       "log_points": "Sharp mode, Units 10-12. Logarithmic rule rescaled the same way. Unbounded below, so 100% is not allowed.",
       "dial_steps": "The eleven confidence steps on the dial until Unit 10 (then 1% steps). A step is the probability given to the chosen side."
+    },
+    "fine": {
+      "min": 0.5,
+      "max": 0.99,
+      "step": 0.01,
+      "rule": "log_points",
+      "note": "Unit 10 (Fine grain, Block 10): the dial moves in 1% steps from 50 to 99 and the call is scored by the sharp (log) rule. Only Unit 10 sessions use it: a call there is saved with fine true, its sharp points in `points` and what the same call scores under the core rule in `core`, so the level and the seven-day score never swing on a 1% call."
     }
   },
   "interval": {
@@ -122,6 +129,13 @@
         "exam_family": null,
         "exam_session_size": 15
       }
+    },
+    "fine": {
+      "practice_session_size": 14,
+      "drill_size": 20,
+      "reseen_days": 90,
+      "practice_calls_required": 84,
+      "round_to": 10
     }
   },
   "journal": {
@@ -210,6 +224,9 @@
       ],
       "U8": [
         "L12"
+      ],
+      "U10": [
+        "L14"
       ]
     },
     "range_repair_calls": 10,
@@ -226,7 +243,10 @@
       "U6": "U5",
       "U7": "U6",
       "U8": "U7",
-      "U9": "U8"
+      "U9": "U8",
+      "U10": "U9",
+      "U11": "U10",
+      "U12": "U10"
     },
     "update_exam_calls": 40,
     "update_pass_within": 32,
@@ -243,7 +263,11 @@
     "decision_repair_calls": 8,
     "memory_window": 30,
     "memory_min_checks": 30,
-    "memory_drift_max": 0.05
+    "memory_drift_max": 0.05,
+    "fine_exam_calls": 400,
+    "fine_index_tolerance": 0.03,
+    "fine_sitting": 20,
+    "fine_repair_calls": 20
   },
   "sim": {
     "seed": 20261114,
@@ -615,6 +639,19 @@
         "drill": {
           "kind": "recall",
           "calls": 10
+        }
+      },
+      "L14": {
+        "kind": "round_habit",
+        "window": 100,
+        "min_share": 0.9,
+        "clear_window": 100,
+        "clear_below": 0.7,
+        "round_to": 10,
+        "drill": {
+          "kind": "fine",
+          "calls": 20,
+          "lock_multiples_of": 10
         }
       }
     },

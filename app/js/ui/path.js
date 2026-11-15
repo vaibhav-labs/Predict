@@ -1,6 +1,8 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS } from '../lessons.js';
+import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS, FINE_LESSONS } from '../lessons.js';
+import { finePathCards } from './fine.js';
+import { fineGateState } from '../flags.js';
 import * as KN from '../engine/know.js';
 import { tabFrame, unitRow } from './common.js';
 import { lessonState, gateState, rangeGateState, problemGateState } from '../flags.js';
@@ -25,6 +27,7 @@ export function pathScreen(ctx) {
   const g7 = problemGateState(ctx, 'U7');
   const g8 = problemGateState(ctx, 'U8');
   const g9 = problemGateState(ctx, 'U9');
+  const g10 = fineGateState(ctx);
   const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (KN.isChoiceUnit(unit) ? cfg.problems.choice[unit].families.includes(p.family) : unit === 'U4' ? p.family === 'fermi' : unit === 'U6' ? p.family === 'update' : p.family === 'rate' || p.family === 'class')).length;
   const ls = lessonState(ctx);
   const status = (u) => {
@@ -35,6 +38,7 @@ export function pathScreen(ctx) {
     if (u.id === 'U5') return g5.passed ? { text: 'Passed', on: true } : g5.open ? { text: probsDone('U5') ? `${probsDone('U5')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     if (u.id === 'U6') return g6.passed ? { text: 'Passed', on: true } : g6.open ? { text: probsDone('U6') ? `${probsDone('U6')} steps` : 'Open', on: true } : { text: 'Locked', on: false };
     for (const [id, g] of [['U7', g7], ['U8', g8], ['U9', g9]]) if (u.id === id) return g.passed ? { text: 'Passed', on: true } : g.open ? { text: probsDone(id) ? `${probsDone(id)} problems` : 'Open', on: true } : { text: 'Locked', on: false };
+    if (u.id === 'U10') return g10.passed ? { text: 'Passed', on: true } : g10.open ? { text: g10.practice ? `${g10.practice} calls` : 'Open', on: true } : { text: 'Locked', on: false };
     return { text: 'Locked', on: false };
   };
   const lessonCard = (id, unitName, list, open) => open ? h('section', { class: 'card', id }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `${unitName} lessons`), h('span', { class: 'cap' }, 'under a minute each')),
@@ -92,6 +96,7 @@ export function pathScreen(ctx) {
       h('a', { class: 'ghost', href: '#/prob/decisions', id: 'decision-practice' }, 'Start decisions'),
       h('a', { class: 'ghost', href: '#/decide', id: 'decision-cards' }, 'Decision cards')], probsDone('U9')) : null,
     problemExamCard(ctx, 'U9'),
+    finePathCards(ctx, lessonCard, FINE_LESSONS),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,

@@ -74,7 +74,7 @@ for tid, t in cfg["lessons"]["triggers"].items():
     if str(window) != row["min_sample"]:
         errors.append(f"{tid}: scoring.json looks at {window} observations, data/lesson_triggers.csv says min_sample {row['min_sample']}")
     drill = t.get("drill")
-    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite", "stepwise", "budget", "chain", "plan", "classpick", "domain", "stream", "move", "recall"}:
+    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite", "stepwise", "budget", "chain", "plan", "classpick", "domain", "stream", "move", "recall", "fine"}:
         errors.append(f"{tid}: unknown drill kind {drill['kind']!r}")
 with open(os.path.join(ROOT, "data", "vague_claims.csv"), encoding="utf-8", newline="") as f:
     vague = list(csv.DictReader(f))

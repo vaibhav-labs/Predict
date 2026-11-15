@@ -22,7 +22,7 @@ export function ledger(events, today, habit) {
     let row = per.get(e.d);
     if (!row) { row = { d: e.d, calls: 0, callPoints: 0, edgePoints: 0 }; per.set(e.d, row); }
     // A call of an exam not yet judged keeps the day played but pays nothing yet (its score is sealed).
-    if (e.type === 'call' || e.type === 'range' || e.type === 'prob') { row.calls += 1; if (!isSealed(e, judged)) row.callPoints += e.points; }
+    if (e.type === 'call' || e.type === 'range' || e.type === 'prob') { row.calls += 1; if (!isSealed(e, judged)) row.callPoints += (typeof e.core === 'number' ? e.core : e.points); }
     else if (e.type === 'resolve' && typeof e.edge === 'number') row.edgePoints += e.edge;
   }
   const empty = { rows: [], byDay: new Map(), streak: 0, todayPlayed: false, total: 0, career: 0, habitTotal: 0, skillTotal: 0 };
