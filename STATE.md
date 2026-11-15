@@ -87,6 +87,10 @@ Blocks 1 and 2 are built and merged into `main`. Five tabs: Today, Journal, Mirr
   Void) pays edge points (weight 2) against the baseline and shows the table of what the edge would have
   been at every one of the gym's other confidence steps. One scored card a day; extra ones are logged
   unscored.
+- **How to play.** A help screen (`#/help`, opened from the "?" next to the date on Today) explaining the
+  daily loop, the dial, baseline vs practice, the journal's six-link chain, the calibration gap, and the
+  journal's baseline and edge, plus what is not built yet (belts, levels, streak, Predict reading or
+  answering inside the app). Not tied to a build block: added on request, independent of `data/build_blocks.csv`.
 - **Mirror.** The calibration curve, from 20 calls on, with thin bands (under 10 calls) drawn as such.
 - **Path and lessons.** The units, and the four Unit 1 lesson cards, whose numbers are computed from the payout table.
 - **Coach tab.** Export the record (a `.jsonl` file through the share sheet, or a download), the calls as a

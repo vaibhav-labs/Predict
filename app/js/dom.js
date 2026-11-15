@@ -32,7 +32,7 @@ export function s(tag, attrs, ...children) {
 }
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 
-// The five tab icons and the close icon (line icons, 24 px).
+// The five tab icons, the close icon, and a couple more (line icons, 24 px).
 const ICONS = {
   today: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   journal: '<path d="M7 4.5h9.5A1.5 1.5 0 0 1 18 6v13.5H8.5A1.5 1.5 0 0 1 7 18V4.5z"/><path d="M10 9h5M10 12.5h5"/>',
@@ -43,6 +43,7 @@ const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   wrong: '<circle cx="12" cy="12" r="9.5"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
   right: '<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.5l3 3 6-6.5"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.3a2.7 2.7 0 1 1 3.8 2.5c-.7.4-1.1.9-1.1 1.9"/><path d="M12 17v.01"/>',
 };
 export function icon(name, size = 24, width = 1.6) {
   const el = document.createElementNS(SVG_NS, 'svg');

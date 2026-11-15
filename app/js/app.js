@@ -12,6 +12,7 @@ import { pathScreen } from './ui/path.js';
 import { lessonScreen } from './ui/lesson.js';
 import { coachScreen } from './ui/coach.js';
 import { journalScreen } from './ui/journal.js';
+import { helpScreen } from './ui/help.js';
 import { compileCheckerRules } from './engine/journal.js';
 
 const root = document.getElementById('app');
@@ -39,6 +40,7 @@ const routes = {
   mirror: (c) => mirrorScreen(c),
   coach: (c) => coachScreen(c),
   path: (c) => pathScreen(c),
+  help: (c) => helpScreen(c),
   lesson: (c, arg) => lessonScreen(c, arg),
   summary: (c, arg) => summaryScreen(c, arg),
   gym: async (c, arg, token) => { await gymScreen(c, root, token); return null; },

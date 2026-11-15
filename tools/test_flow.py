@@ -519,6 +519,16 @@ def phase_shell(S):
     check("Today starts at Day 1 with no calls and offers baseline session 1",
           text(page, "#day") == "Day 1" and text(page, "#stat-calls") == "0" and text(page, "#stat-base") == f"0 of {BASE_TOTAL}" and text(page, "#gym-line") == gap_line and text(page, "#start") == "Start session",
           f"{text(page, '#day')} | {text(page, '#stat-calls')} | {text(page, '#stat-base')} | {text(page, '#gym-line')}")
+
+    page.click("#help-link")
+    page.wait_for_selector(".prose")
+    check("Today's help link opens How to play, with no mention of Claude or a network request",
+          text(page, ".tt") == "How to play" and len(page.query_selector_all(".prose")) >= 5, text(page, ".tt"))
+    audit(S, "help")
+    page.click(".x")
+    page.wait_for_selector("#start")
+    check("closing How to play returns to Today", page.evaluate("location.hash") in ("#/today", ""), page.evaluate("location.hash"))
+
     for name, label in TABS:
         tab(page, name)
         head = text(page, ".top .mark")
