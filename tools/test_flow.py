@@ -1022,7 +1022,9 @@ def phase_reuse(S):
     fresh = [q["id"] for q in BANK if q["id"] not in used]
     y = fresh[:2]
     old = [q for q in BANK if q["id"] not in used and q["id"] not in y]
-    t0 = datetime.datetime(2026, 1, 1)
+    # Seen within the last 90 days (a question is not served again inside that window, so only a bank with nothing left outside it
+    # falls back to the questions answered longest ago): 30 days back, a minute apart.
+    t0 = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None, hour=8, minute=0, second=0, microsecond=0) - datetime.timedelta(days=30)
     fake, order = [], []
     for i, q in enumerate(old):
         t = t0 + datetime.timedelta(minutes=i)
@@ -1032,8 +1034,8 @@ def phase_reuse(S):
                          points=hit_pts(c) if q["answer"] else miss_pts(c), rule=RULE, ms=4000))
         order.append(q["id"])
     z = order[0]
-    fake.append(dict(id="fake-d-0001", t=t0.strftime("%Y-%m-%dT%H:%M:%S.000Z"), d="2026-01-01", type="dispute", q=z))
-    # The calls above are months old, so the missed-days flag (a 5-call minimum session) would open on the days since. Give the
+    fake.append(dict(id="fake-d-0001", t=t0.strftime("%Y-%m-%dT%H:%M:%S.000Z"), d=t0.strftime("%Y-%m-%d"), type="dispute", q=z))
+    # The calls above are a month old, so the missed-days flag (a 5-call minimum session) would open on the days since. Give the
     # record that flag already opened and cleared two days ago, so this phase is about the bank, not about the habit.
     now = datetime.datetime.now(datetime.timezone.utc)
     t_open, t_clear = now - datetime.timedelta(days=3), now - datetime.timedelta(days=2)
@@ -1328,11 +1330,11 @@ def phase_final(S):
     leaked = []
     for d, _, names in os.walk(os.path.join(REPO, "app")):
         for n in names:
-            if n.endswith((".js", ".css", ".html", ".json", ".webmanifest")):
-                with open(os.path.join(d, n), encoding="utf-8") as f:
-                    if "claude" in f.read().lower():
-                        leaked.append(os.path.relpath(os.path.join(d, n), REPO))
-    check("and the word is nowhere in the app's files either", not leaked, ", ".join(leaked))
+            # every file, the icons too: a picture can carry provenance text that names its maker
+            with open(os.path.join(d, n), "rb") as f:
+                if b"claude" in f.read().lower():
+                    leaked.append(os.path.relpath(os.path.join(d, n), REPO))
+    check("and the word is nowhere in the app's files either, pictures included", not leaked, ", ".join(leaked))
 
 
 PHASES = [
