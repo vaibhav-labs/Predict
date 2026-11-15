@@ -288,6 +288,36 @@ Section 5 is the closed form. This is the same game on the real range bank (`app
 - **A rewrite of 8 points fails the gate every time, yet L12 fires on it only 5.6% of the time.** The pattern waits for a mean shift of 10 points over the last 10 checks, the gate for 5 over 30. A player in between fails the exam with no lesson attached: they keep taking memory checks, and the window moves on as the old checks leave it. The heavy rewriter (12 points) triggers it 94.3%.
 - **Open risk: the gap between L12 (10 points) and the gate (5 points).** If real players sit in the 5 to 10 band, lower `min_shift` to 0.07: at an sd of 20 points that would also fire on about 13% of honest but very noisy players, so it needs real data on how noisy recall is before it moves.
 
+## 5f. Fine grain: the Unit 10 gate and the round-number habit (Block 10)
+
+`sim/fine_sim.py` plays the exam (400 fresh calls from the 480 exam questions of `tails.json`) as a player who takes the side the base rate favours and states the base rate plus a bias, in whole percents between 50 and 99. The gate is an average confidence within 1.5 points of the hit rate.
+
+| Player | Passes | Mean gap (points) | Spread (points) |
+|---|---|---|---|
+| says the record's number (shift 0) | 99.8% | -0.39 | 0.36 |
+| a point shy (shift -1) | 64.5% | -1.40 | 0.36 |
+| a point too sure (shift +1) | 100.0% | +0.41 | 0.36 |
+| three points too sure (shift +3) | 52.1% | +1.40 | 0.36 |
+| mildly overconfident (shift +5) | 15.4% | +1.85 | 0.36 |
+| typically overconfident (shift +10) | 3.9% | +2.29 | 0.37 |
+| shy (shift -5) | 0.0% | -5.39 | 0.36 |
+
+- **Finding that moved the tolerance from 3 points to 1.5.** Every claim in the bank has a base rate under 15% or over 85%, so a player who knows the base rates hits about 97% of the time. Confidence tops out at 99%, so the biggest gap an overconfident player can open is about +2.3 points, and with a 3 point tolerance the gate could not fail anyone who was too sure: every overconfident profile passed 100%. At 1.5 points the same profiles pass 3% to 16%, and a player who says the record's numbers still passes about 99%. The rewrite also matches the original design target (a mildly overconfident player about 18%, a typical one near zero).
+- **Too shy fails at once.** A player five points under the record fails every time: the high end of the dial is where this unit pays, and a player who never goes there is not done.
+- **Open risk: a player a point shy passes about two in three.** The spread over 400 calls from this pool is 0.36 points, and the gate's width is 1.5 on each side, so small biases in either direction are not detected. Widening the exam to 600 calls would tighten it, at the price of more sittings; wait for real data before paying that.
+
+| Rounds to a multiple of ten | L14 fires (over 90 in 100) | Re-test clears if the habit halves |
+|---|---|---|
+| 0% of calls | 0.0% | 100.0% |
+| 20% of calls | 0.0% | 100.0% |
+| 50% of calls | 0.0% | 100.0% |
+| 80% of calls | 0.2% | 100.0% |
+| 90% of calls | 44.9% | 100.0% |
+| 95% of calls | 97.4% | 100.0% |
+| 100% of calls | 100.0% | 100.0% |
+
+- **L14 is a rule for the extreme habit, by design.** It stays silent until a player rounds nine calls in ten (it fires 45% at exactly 90% and 97% at 95%); a player who rounds half the time never trips it, though a 1% dial wasted on five numbers is already costing them. The Mirror still shows the share on the Unit 10 summary. Lower `min_share` to 0.7 if real records show the milder habit.
+
 ## 6. Real predictions: raw points against edge
 
 - **Intent:** logging sure things must not pay.
