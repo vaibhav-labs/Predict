@@ -136,7 +136,8 @@
       "reseen_days": 90,
       "practice_calls_required": 84,
       "round_to": 10
-    }
+    },
+    "multi": {"min_percent": 1, "outcomes_min": 3, "outcomes_max": 4}
   },
   "journal": {
     "scored_predictions_per_day": 1,

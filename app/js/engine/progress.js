@@ -6,7 +6,7 @@ import { roundHalfEven } from './scoring.js';
 
 // A day is played when the player did something that scores or counts: a call, a locked prediction, a resolved one.
 // Reading a lesson or opening the app does not count, so a streak can only be kept by doing the work.
-const PLAYED = new Set(['call', 'range', 'prob', 'prediction', 'resolve', 'update', 'memory', 'decision', 'decision_review']);
+const PLAYED = new Set(['call', 'range', 'prob', 'prediction', 'resolve', 'update', 'memory', 'decision', 'decision_review', 'multi']);
 const MAX_SPAN_DAYS = 5000; // a record with an absurd date (a phone clock gone wrong) must not hang the screen
 
 // One row per calendar day from the first played day to today, with the streak after that day, the habit points

@@ -284,3 +284,7 @@ ol.steps#chain-steps li{min-height:46px;justify-content:space-between}
 ol.steps#chain-steps li span{flex:1}
 .nudge{display:flex;gap:12px;justify-content:center;margin-top:12px}
 .nudge .ghost{min-width:72px;min-height:44px}
+
+.mrow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.mrow.truth .mlab{font-weight:600}
+.mrow .mine{font-weight:600}

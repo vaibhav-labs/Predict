@@ -2545,6 +2545,56 @@ def phase_b10(E):
     F.audit(E, "L14 drill")
     E.ctx.close()
 
+    # -- several outcomes: three or four chances adding up to 100, scored by the log rule -------------------------------------
+    import math as _m
+    multi = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "multi.json"), encoding="utf-8"))["questions"]
+    by_id = {q["id"]: q for q in multi}
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_multi.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#multi-card")
+    check("the Path has the several-outcomes card with 0 answered", "0 answered" in text(page, "#multi-count"), text(page, "#multi-card")[:100])
+    go(page, "#/multi")
+    page.wait_for_selector("#multi-0")
+    qid = None
+    lead = text(page, "#multi-lead")
+    q = next(x for x in multi if x["lead"] == lead)
+    k = len(q["outcomes"])
+    check("a question shows its lead, its ask and one box for each outcome", k in (3, 4) and len(page.query_selector_all("input.field.num")) == k and text(page, "#multi-ask") == q["ask"], lead)
+    check("Lock waits while the boxes are empty", page.is_disabled("#multi-lock"))
+    F.audit(E, "multi question")
+    shot(E, "b10-multi.png")
+    # 40/30/20: a three-outcome sum of 90 is refused with the total shown; a four-outcome pad is filled to reach 100
+    base = [60, 30, 10] if k == 3 else [50, 25, 15, 10]
+    for i, v in enumerate(base[:-1]):
+        page.fill(f"#multi-{i}", str(v))
+    page.fill(f"#multi-{k - 1}", str(base[-1] - 5))
+    check("a total of 95 shows the total and an error and keeps Lock off", text(page, "#multi-total") == "95%" and "add up" in text(page, "#multi-msg") and page.is_disabled("#multi-lock"), text(page, "#multi-msg"))
+    page.fill(f"#multi-{k - 1}", "0")
+    page.fill(f"#multi-0", str(base[0] + base[-1]))
+    check("an outcome at 0% is refused", "at least 1" in text(page, "#multi-msg") and page.is_disabled("#multi-lock"), text(page, "#multi-msg"))
+    for i, v in enumerate(base):
+        page.fill(f"#multi-{i}", str(v))
+    check("a total of exactly 100 turns the total to 100% and opens Lock", text(page, "#multi-total") == "100%" and not page.is_disabled("#multi-lock"))
+    page.wait_for_timeout(450)
+    page.click("#multi-lock")
+    page.wait_for_selector("#multi-result", timeout=5000)
+    ev = of_type(page, "multi")[-1]
+    want = round(100 * _m.log2(k * base[q["truth"]] / 100) / _m.log2(k))
+    wref = round(100 * _m.log2(k * max(q["ref"][q["truth"]], 0.01)) / _m.log2(k))
+    check("the answer is saved as a multi event with the percents, the truth and both scores", ev["q"] == q["id"] and ev["p"] == base and ev["truth"] == q["truth"] and ev["points"] == want and abs(ev["refPoints"] - wref) <= 1 and ev["unit"] == "U10", str(ev))
+    check("the reveal shows your points, the record's points and the truth row", text(page, "#multi-points") == signed(want) and "what happened" in text(page, f"#multi-row-{q['truth']}") and "record" in text(page, "#multi-row-0"), text(page, "#multi-result")[:160])
+    check("the other rows do not say what happened", all("what happened" not in text(page, f"#multi-row-{i}") for i in range(k) if i != q["truth"]))
+    F.audit(E, "multi reveal")
+    page.wait_for_timeout(450)
+    page.click("#multi-next")
+    page.wait_for_selector("#multi-0", timeout=5000)
+    check("the next question is a different one", text(page, "#multi-lead") != lead)
+    go(page, "#/path")
+    page.wait_for_selector("#multi-card")
+    check("the card now counts one answer and gives the average", "1 answered" in text(page, "#multi-count") and "average" in text(page, "#multi-mean"), text(page, "#multi-card")[:120])
+    E.ctx.close()
+
 
 def verdict_player(E, want_pass):
     """The last sitting of the 400-call exam: 380 sealed calls are on file, the player makes 20 more, and the verdict follows."""

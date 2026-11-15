@@ -24,6 +24,7 @@ import { problemScreen, problemSummaryScreen, problemExamScreen } from './ui/pro
 import { recallScreen } from './ui/recall.js';
 import { decideScreen } from './ui/decide.js';
 import { fineScreen, fineSummaryScreen, fineExamScreen } from './ui/fine.js';
+import { multiScreen } from './ui/multi.js';
 import { runLessonEngine } from './flags.js';
 import * as SY from './sync.js';
 import { compileCheckerRules } from './engine/journal.js';
@@ -69,6 +70,7 @@ const routes = {
   recall: (c, arg, token) => recallScreen(c, arg, token),
   decide: (c, arg) => decideScreen(c, arg),
   fine: async (c, arg, token) => { await fineScreen(c, root, token, arg); return null; },
+  multi: (c, arg) => multiScreen(c, arg),
   fsummary: (c, arg) => fineSummaryScreen(c, arg),
   fexam: (c, arg) => fineExamScreen(c, arg),
   gym: async (c, arg, token) => { await gymScreen(c, root, token, arg); return null; },
@@ -94,7 +96,7 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, updates, know, tails, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, updates, know, tails, multi, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
@@ -107,6 +109,7 @@ async function boot() {
       getOK('./content/questions/updates.json').then((r) => r.json()),
       getOK('./content/questions/know.json').then((r) => r.json()),
       getOK('./content/questions/tails.json').then((r) => r.json()),
+      getOK('./content/questions/multi.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
       getOK('./data/belts.csv').then((r) => r.text()),
@@ -125,6 +128,7 @@ async function boot() {
     const rangeById = new Map(ranges.questions.map((q) => [q.id, q]));
     const problemMap = new Map(fermi.questions.concat(rates.questions, updates.questions.flatMap(stepsOf), know.questions).map((q) => [q.id, q]));
     const tailMap = new Map(tails.questions.map((q) => [q.id, q]));
+    const multiMap = new Map(multi.questions.map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
@@ -157,6 +161,8 @@ async function boot() {
       fineBank: tails.questions.filter((q) => q.pool === 'practice'),
       fineExamBank: tails.questions.filter((q) => q.pool === 'exam'),
       fineById: (id) => tailMap.get(id),
+      multiBank: multi.questions,
+      multiById: (id) => multiMap.get(id),
       problemById: (id) => problemMap.get(id),
       triggers: parseTable(triggersText),
       vagueClaims: parseTable(vagueText),
