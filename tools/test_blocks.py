@@ -2637,6 +2637,128 @@ def verdict_player(E, want_pass):
         check("the repair drill is 20 calls and tagged Repair drill", text(page, ".cnt") == "1 of 20" and "Repair drill" in text(page, "#mode-tag"))
     E.ctx.close()
 
+def put_meta(page, key, value):
+    """Write a value into the phone's `meta` store (how the weekly review's file sits in the cache) straight through IndexedDB."""
+    page.evaluate("""([k, v]) => new Promise((res, rej) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const tx = r.result.transaction('meta', 'readwrite'); tx.objectStore('meta').put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }; r.onerror = () => rej(r.error); })""", [key, value])
+
+
+def phase_b11(E):
+    """Unit 11, with the machine: Predict's forecast stays sealed until your first number is locked; first, final and Predict are scored three ways."""
+    import math as _m
+    # -- closed until the Unit 10 exam is passed -------------------------------------------------------------------------------
+    page = open_app(E, "2026-12-01", synth.u10_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b11_closed.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U11-card")
+    check("before the Unit 10 exam is passed the Path says Unit 11 is not open", text(page, "#pgate-U11-status") == "Not open yet", text(page, "#pgate-U11-card")[:100])
+    go(page, "#/world")
+    page.wait_for_function("location.hash === '#/path'", timeout=5000)
+    check("opening the list while closed sends you back to the Path", page.evaluate("location.hash") == "#/path")
+    E.ctx.close()
+
+    # -- open: a record with one question already finalised and due, and the review's file in the cache ---------------------------
+    def fc(id_, text_, opens, due, p, **more):
+        return {"text": text_, "p": p, "written": "2026-11-15", "opens": opens, "due": due, "ref": f"Reference class for {id_}: about {int(p * 100)} in 100", "result": None, "source": None, "checked": None, **more}
+    raw = {"version": 1, "week": "2026-W48", "written": "2026-11-30", "forecasts": {
+        "w-a": {"text": "By 20 December, will the pilot city report more than 3 cm of snow in a single day?", "p": 0.37, "written": "2026-11-15", "opens": "2026-11-30", "due": "2026-12-20", "ref": "Winters since 1990 in this city: 37 days in 100 of this kind turned out that way"},
+        "w-b": {"text": "A question that has not opened yet", "p": 0.81, "written": "2026-11-15", "opens": "2026-12-05", "due": "2026-12-30", "ref": "Hidden reference class"},
+        "w-c": {"text": "A question that closed before you forecast it", "p": 0.66, "written": "2026-11-15", "opens": "2026-11-20", "due": "2026-11-28", "ref": "Closed reference class"},
+        "w-e": {"text": "By 29 November, will the central bank have changed its rate?", "p": 0.3, "written": "2026-11-15", "opens": "2026-11-20", "due": "2026-11-29", "ref": "Meetings since 2000: 30 in 100 moved", "result": "no", "source": "https://example.org/rates", "checked": "2026-11-30"}}}
+    r = synth.u10_passed_player(U1_EXAM, start=START)
+    r._add("world", "2026-11-22", 10, state="first", q="w-e", text=raw["forecasts"]["w-e"]["text"], due="2026-11-29", opens="2026-11-20", p=0.55, ms=9000)
+    r._add("world", "2026-11-22", 12, state="final", q="w-e", p=0.45, machine=0.3, machineWritten="2026-11-15", machineRef=raw["forecasts"]["w-e"]["ref"], ms=9000)
+    page = open_app(E, "2026-12-01", r.write(os.path.join(E.tmp, "b11_open.jsonl")))
+    put_meta(page, "coach", {"raw": raw, "fetched": "2026-11-30T20:00:00Z"})
+    page.reload()
+    page.wait_for_selector(".nav")
+    go(page, "#/today")
+    page.wait_for_selector("#u11-card")
+    check("Unit 11 is open: Today has its card with two questions waiting", "2 waiting" in text(page, "#u11-count"), text(page, "#u11-card")[:120])
+    F.audit(E, "today with Unit 11")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U11-card")
+    check("the Path shows Unit 11 collecting: 1 of 60 is not yet settled, 0 of 60", text(page, "#pgate-U11-status") == "Collecting" and "0 of 60" in text(page, "#pgate-U11-card"), text(page, "#pgate-U11-card")[:120])
+    check("Predict's numbers are nowhere on the Today or the Path screens", all(x not in page.content() for x in ("37%", "81%", "66%")))
+    go(page, "#/world")
+    page.wait_for_selector("#world-gate")
+    check("the list shows the measure at 0 of 60 and groups: one to say what happened, one open", "0 of 60" in text(page, "#world-count") and page.query_selector("#world-due") is not None and page.query_selector("#world-open") is not None, text(page, "main")[:200])
+    body = page.content()
+    check("a question that has not opened is not listed and its number is not in the page", "has not opened yet" not in body and "81%" not in body and "0.81" not in body)
+    check("a question that closed before it was forecast is not offered", "closed before you forecast" not in text(page, "main"))
+    F.audit(E, "world list")
+    shot(E, "b11-list.png")
+    go(page, "#/world/w-b")
+    page.wait_for_function("location.hash === '#/world'", timeout=5000)
+    check("a question that has not opened cannot be reached by its address", page.evaluate("location.hash") == "#/world")
+
+    # -- the sealed first number ----------------------------------------------------------------------------------------------
+    go(page, "#/world/w-a")
+    page.wait_for_selector("#world-sealed")
+    html = page.content()
+    check("before the first number is locked Predict's number is not in the page at all", "37%" not in html and "0.37" not in html and page.query_selector("#world-machine") is None and "37 days in 100" not in html, "")
+    check("the sealed card says so", "Sealed" in text(page, "#world-sealed"))
+    F.audit(E, "world sealed")
+    shot(E, "b11-sealed.png")
+    for _ in range(10):
+        page.click("#dial-up")
+    check("ten taps on +1 make 60% Yes on the 1% dial", "60%" in text(page, "main"), text(page, "main")[:120])
+    page.wait_for_timeout(450)
+    page.click("#world-lock")
+    page.wait_for_selector("#world-machine", timeout=5000)
+    first = [e for e in of_type(page, "world") if e["state"] == "first" and e["q"] == "w-a"]
+    check("the first number is saved before anything of Predict's is shown", len(first) == 1 and near(first[0]["p"], 0.60) and first[0]["due"] == "2026-12-20" and "machine" not in first[0], str(first))
+    check("now Predict's number and its reason are shown beside the player's own", text(page, "#world-machine") == "37%" and text(page, "#world-first") == "60%" and "37 days in 100" in text(page, "#world-ref"), text(page, "#world-numbers"))
+    check("the second dial starts at the first number", "60%" in text(page, ".big"), text(page, ".big"))
+    F.audit(E, "world reveal")
+    shot(E, "b11-reveal.png")
+    # leaving and coming back lands on the same step: the first number is kept
+    go(page, "#/world")
+    page.wait_for_selector("#world-reveal")
+    check("a question with a first number waits under Finalise", "See Predict" in text(page, "#world-reveal"), text(page, "#world-reveal")[:100])
+    go(page, "#/world/w-a")
+    page.wait_for_selector("#world-final")
+    for _ in range(20):
+        page.click("#dial-down")
+    check("twenty taps on -1 from 60% Yes make 40% Yes (a call of 60% on No)", "40%" in text(page, ".big") or "No · 60%" in text(page, ".big"), text(page, ".big"))
+    page.wait_for_timeout(450)
+    page.click("#world-final")
+    page.wait_for_function("location.hash === '#/world'", timeout=5000)
+    fin = [e for e in of_type(page, "world") if e["state"] == "final" and e["q"] == "w-a"]
+    check("the final number is saved with the number the player saw", len(fin) == 1 and near(fin[0]["p"], 0.40) and near(fin[0]["machine"], 0.37) and fin[0]["machineWritten"] == "2026-11-15", str(fin))
+    page.wait_for_selector("#world-waiting")
+    check("the question now waits for its day", "Locked" in text(page, "#world-waiting") and "20 Dec 2026" in text(page, "#world-waiting"), text(page, "#world-waiting")[:120])
+    check("a second first number cannot be written: the question no longer offers one", page.query_selector("#world-lock") is None)
+
+    # -- a closed question ---------------------------------------------------------------------------------------------------
+    go(page, "#/world/w-c")
+    page.wait_for_selector("#world-wait")
+    check("a question that closed before you forecast it says so and shows no number of Predict's", "not scored" in text(page, "#world-wait") and "66%" not in page.content())
+
+    # -- settling: Predict's reading with its source, the player confirms --------------------------------------------------------
+    go(page, "#/world/w-e")
+    page.wait_for_selector("#world-checked")
+    check("a due question shows what Predict read, with its page, and asks the player", "it did not happen" in text(page, "#world-checked") and page.get_attribute("#world-checked a", "href") == "https://example.org/rates" and page.is_disabled("#world-resolve"), text(page, "#world-checked"))
+    F.audit(E, "world settle")
+    page.click("#world-outcome [data-value=no]")
+    page.wait_for_timeout(450)
+    page.click("#world-resolve")
+    page.wait_for_selector("#world-done", timeout=5000)
+    res = [e for e in of_type(page, "world") if e["state"] == "resolve"]
+    check("the result is saved as confirmed from Predict's page", len(res) == 1 and res[0]["outcome"] == "no" and res[0]["via"] == "predict" and res[0]["source"] == "https://example.org/rates", str(res))
+    pt = lambda q: round(100 * (1 + _m.log2(q)))
+    want = (pt(0.45), pt(0.55), pt(0.70))  # first 55% yes (45% on no), final 45% yes (55% on no), Predict 30% yes (70% on no)
+    done = text(page, "#world-done")
+    check("the settled row shows the three numbers and their sharp points", all(x in done for x in ("55%", "45%", "30%", signed(want[0]), signed(want[1]), signed(want[2]))), done)
+    go(page, "#/world")
+    page.wait_for_selector("#world-gate")
+    check("the measure now reads 1 of 60 with the three averages", "1 of 60" in text(page, "#world-count") and signed(want[0]) in text(page, "#world-means") and signed(want[2]) in text(page, "#world-means"), text(page, "#world-gate"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#world-record")
+    tbl = text(page, "#wr-table")
+    check("the Mirror has the three averages over the one settled question, flagged as a hint", text(page, "#wr-n") == "n=1" and signed(want[0]) in tbl and signed(want[1]) in tbl and signed(want[2]) in tbl and "hint" in text(page, "#world-record"), tbl)
+    F.audit(E, "mirror with Unit 11")
+    check("the app never said Claude on a Unit 11 screen", "claude" not in page.content().lower())
+    E.ctx.close()
+
 
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
@@ -2654,6 +2776,7 @@ PHASES = [
     ("b8", "Block 8: updating", phase_b8),
     ("b9", "Block 9: knowing yourself", phase_b9),
     ("b10", "Block 10: fine grain", phase_b10),
+    ("b11", "Block 10: with the machine", phase_b11),
 ]
 
 

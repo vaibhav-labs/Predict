@@ -3,6 +3,7 @@ import * as R from '../engine/record.js';
 import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS, FINE_LESSONS } from '../lessons.js';
 import { finePathCards } from './fine.js';
 import { multiPathCard } from './multi.js';
+import { worldPathCard } from './world.js';
 import { fineGateState } from '../flags.js';
 import * as KN from '../engine/know.js';
 import { tabFrame, unitRow } from './common.js';
@@ -99,6 +100,7 @@ export function pathScreen(ctx) {
     problemExamCard(ctx, 'U9'),
     finePathCards(ctx, lessonCard, FINE_LESSONS),
     multiPathCard(ctx),
+    worldPathCard(ctx),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,

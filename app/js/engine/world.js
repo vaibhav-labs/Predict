@@ -30,7 +30,7 @@ export function worldQuestions(events, coach, today) {
     Object.assign(q, { text: f.text, due: f.due, opens: f.opens, machine: f.p, machineRef: f.ref, machineWritten: f.written, listed: true, predictResult: f.result, predictSource: f.source, predictChecked: f.checked });
   }
   for (const e of worldEvents(events)) {
-    const q = get(e.id);
+    const q = get(e.q);
     if (e.state === 'first' && !q.first) { q.first = e; q.text = q.text || e.text; q.due = q.due || e.due; q.opens = q.opens || e.opens; }
     else if (e.state === 'final' && q.first && !q.final) { q.final = e; q.machine = e.machine; q.machineWritten = e.machineWritten || q.machineWritten; q.machineRef = e.machineRef || q.machineRef; }
     else if (e.state === 'resolve' && q.final && !q.resolve) q.resolve = e;

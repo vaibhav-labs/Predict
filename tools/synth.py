@@ -575,6 +575,11 @@ def u10_ready_player(exam_bank, seed=61, start="2026-09-01", conf=0.95):
     return r
 
 
+def u10_passed_player(exam_bank, seed=61, start="2026-09-01"):
+    """Unit 10 passed on top of the ready player (a recorded pass): Units 11 and 12 are open."""
+    return _pass_unit(u10_ready_player(exam_bank, seed, start), "U10", add_days(start, 84), 400)
+
+
 def range_policy(f):
     """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
     import ref_range

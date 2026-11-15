@@ -167,7 +167,7 @@ test('world questions: states by day, Predict\'s number hidden until opened, the
   const f = (id, opens, due, p = 0.37) => [id, { text: `Will ${id} happen?`, p, written: '2026-11-01', opens, due, ref: 'a base rate', result: null, source: null, checked: null }];
   const coach = { forecasts: Object.fromEntries([f('w-a', '2026-11-10', '2026-12-01'), f('w-b', '2026-11-20', '2026-12-10'), f('w-c', '2026-11-01', '2026-11-12')]) };
   const today = '2026-11-14';
-  const ev = (state, id, rest) => ({ type: 'world', state, id, t: `${today}T10:00:00Z`, d: today, ...rest });
+  const ev = (state, id, rest) => ({ type: 'world', state, q: id, t: `${today}T10:00:00Z`, d: today, ...rest });
   let qs = WD.worldQuestions([], coach, today);
   assert.deepEqual(qs.map((q) => [q.id, q.state]), [['w-c', 'expired'], ['w-a', 'open']], 'w-b has not opened and is not listed; w-c is past due and was never forecast');
   const events = [ev('first', 'w-a', { text: 'Will w-a happen?', due: '2026-12-01', opens: '2026-11-10', p: 0.6 })];
