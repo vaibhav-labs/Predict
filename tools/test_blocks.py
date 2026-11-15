@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 9 of 10 built)", "Block 9 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 10 of 10 built)", "Block 10 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 

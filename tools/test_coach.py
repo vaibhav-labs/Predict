@@ -22,7 +22,7 @@ const out = {};
 for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
   const c = parseCoach(JSON.parse(fs.readFileSync(dir + '/' + f, 'utf8')));
   out[f] = { kept: { letter: c.letter ? 1 : 0, sources: c.letter ? c.letter.sources.length : 0, drills: c.drills.length, prompt_days: c.prompts.length,
-    prompt_items: c.prompts.reduce((n, p) => n + p.items.length, 0), baselines: Object.keys(c.baselines).length, outcomes: Object.keys(c.outcomes).length, reads: Object.keys(c.reads).length }, dropped: c.dropped };
+    prompt_items: c.prompts.reduce((n, p) => n + p.items.length, 0), baselines: Object.keys(c.baselines).length, outcomes: Object.keys(c.outcomes).length, reads: Object.keys(c.reads).length, forecasts: Object.keys(c.forecasts).length }, dropped: c.dropped };
 }
 console.log(JSON.stringify(out));
 """ % ROOT
