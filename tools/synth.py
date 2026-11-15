@@ -520,6 +520,11 @@ def u7_passed_player(exam_bank, seed=47, start="2026-09-01"):
     return _pass_unit(u6_passed_player(exam_bank, seed, start), "U7", add_days(start, 64), 28)
 
 
+def u8_passed_player(exam_bank, seed=53, start="2026-09-01"):
+    """Unit 8 passed on top: Unit 9 opens, so decision cards are open."""
+    return _pass_unit(u7_passed_player(exam_bank, seed, start), "U8", add_days(start, 68), 30)
+
+
 def range_policy(f):
     """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
     import ref_range
