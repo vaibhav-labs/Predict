@@ -401,6 +401,31 @@ opens, so an Import, an Erase or a new day changes it at once, and an independen
 
 ---
 
+### 4.11 Reasoning tools (Block 7: Units 4 and 5)
+
+- **Unit 4, Fermi.** A problem is a whole you cannot look up (for instance the minutes of lateness that one airport's late flights add up to in a month) that is a multiplier `k` times the
+  product of parts (flights, share that land late, minutes late each). The player types a 90% (low, high) for every part on the *break-it-down worksheet*. The worksheet combines in log
+  space: the centres add and the half-widths add in quadrature (independent errors), so the whole is narrower than the product of the lows and the product of the highs, which the screen also
+  shows. The combined range is scored exactly as a range (4.2): hit when low <= truth <= high, points against the reference interval (log10). Each part is also shown held or missed.
+  Practice and drills first ask for a direct guess of the whole (comparison only, never counted), then show worksheet against direct at the reveal. Exams skip the direct guess.
+- **Unit 4 gate.** 20 Fermi problems from the exam pool, two sealed sittings of 10; pass when >= 16 hold AND the median miss factor (10 to the |log10 truth - log midpoint|) is <= 3. A fail says
+  too narrow (hits) or too far off (factor) and sends the player to a 6-problem repair drill. Exact pass chances: true 90% skill 96%, 70% skill 24% (`tools/ref_problem.py`, sim part H).
+  Practice is 16 problems (sessions of 8). Chain problems (steps each given as a rate among the cases that passed the one before; the answer is the product, within 7 points) are practice in the
+  lesson slot: they pay points but count toward neither gate nor Mirror.
+- **Unit 5, outside view.** Rate problems: type a percent, a hit when within 7 points, points = max(-100, round(100 x (1 - miss / 7))). Reference-class ladders: pick the narrowest group that
+  still holds 30 or more cases (right +60, wrong -30). Gate: 40 rate problems from the exam pool, two sealed sittings of 20, >= 32 within 7 (85% skill passes 87%, 70% skill 11%); repair drill 10.
+  Practice 36 problems (sessions of 12: nine rate, three ladder). The unit's last row, "15 journal cards carry an accepted base rate" (an outside-view rate within 10 points of the baseline recorded at lock),
+  is tracked and shown on the Mirror but does not block (as with Unit 2's own gate).
+- **Opens.** Unit 4 when the Unit 3 exam is passed, Unit 5 when Unit 4 is passed (`gates.opens_after`).
+- **Journal additions.** A prediction may carry `steps` (a chain multiplier: at least two steps, each with a probability; the product is shown) and `own` (an own-task or deadline tag). The outside-view
+  rate is graded against the baseline at lock and in the case file once Unit 5 is open.
+- **Triggers (4.4).** L07 chain blindness (resolved chain cards, last 15, mean stated minus yes rate >= 0.15), L08 planning fallacy (own-task cards, last 20, same), L09 base-rate neglect (resolved scored
+  forecasts at least 25 points from their baseline with no logged evidence, last 15, mean edge < 0), L13 domain blind spot (per journal domain, last 30 resolved scored non-trivial cards, mean edge < 0).
+  Drills: L07 ten chain problems, L08 eight plan-type rate problems, L09 eight reference ladders, L13 eight rate problems from the weak domain. Drill problems never count toward a gate, a trigger or the Mirror.
+  Rust: L07 returning after Unit 4, L08 or L09 after Unit 5.
+- **Banks.** 116 Fermi problems (68 practice, 48 exam) from the flight, weather, market and country records (reference interval holds 86.8% and 89.6%); 144 rate problems, 40 ladders and 40 chains
+  counted again by `tools/check_rates.py` from the records. Events `psession`, `prob`, `psession_end` (section 5).
+
 ## 5. Data model (the player's record)
 
 | Collection | One document is | Key fields |
@@ -420,6 +445,11 @@ question, claim text, domain, difficulty, side, confidence, truth, hit, points, 
 (a question dropped after 60 seconds), `dispute` (a question flagged), `lesson` (a card read) and `export`
 (a backup made). Events of a type the app does not know are kept and ignored, so a newer record never
 breaks an older app. An Export file is a header line followed by the events, one JSON object per line.
+
+**As built in Block 7.** Three more event types. `psession` (mode practice, drill or exam; unit U4 or U5; family fermi, rate, chain or class; size; `plan`, the problem ids in order; for a drill the flag or the exam it repairs; for an exam sitting the attempt and its number), `prob`
+(session, mode, unit, family, exam, question id, kind, domain, jdomain, claim, milliseconds; a Fermi problem adds parts[low, high, truth, hit], the combined low and high, truth, the reference interval, hit, width ratio, score, points, the miss factor
+and optionally the direct first guess; a rate or chain problem adds guess, truth, miss, signed, hit, points; a ladder adds choice, right, hit, points) and `psession_end`. `exam` start and result events carry `unit` U4 or U5; the result carries hits, coverage, points,
+reasons, direction and the unit's own figures (median miss and mean ratio, or mean miss and bias). Exam problems are sealed until the verdict. A `prediction` may carry `steps` and `own`.
 
 **As built in Block 6.** Three more event types. `rsession` (mode practice, drill or exam; size; `plan`, the question ids in order; for a drill the flag or the exam it repairs; for an exam sitting the attempt, its number and
 how many sittings), `range` (session, mode, unit U3, exam, question id, kind, domain, claim, scale, low, high, truth, the reference interval, hit, width, reference width, ratio, interval score, points, milliseconds) and
@@ -494,3 +524,4 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 2026-11-15 | 4.4, 4.5, 4.9, 4.8, build block 4 | Block 4 built: the lesson engine and its screens. Pattern triggers L01 to L04 and L15 with flags, lessons, drills (wheel, forced, zone-locked, rewrite) and two re-tests; the instant note after a miss; the sealed 200-call Unit 1 exam with repair drill, retake and rust; the autopsy with its link audit, rule card and 3 and 10-day rechecks; the five-lens case file; the 90-day no-repeat rule and the 70/30 new-versus-review split; a passed Unit 1 gate counts toward the belts. Verified against independent Python references (`tools/ref_lessons.py`) and synthetic players | Build note, not a design change: every threshold is the one fixed in `data/scoring.json`. Readings taken where the docs left a choice (luck below 20%, exam sealing, the exam's 10 sittings, L15's minimum session) are listed under "Block 4 assumptions" in STATE.md. `design/balance-report.md` 4c adds the re-test pass rates and the honest cost of L02's re-test |
 | 2026-11-15 | 4.7, 4.3, 4.9, 4.8, platform, build block 5 | Block 5 built: the Coach. The record syncs to the player's private `Predict-data` repo through the GitHub contents API (one file a day, a union by event id, never an overwrite, refuses a public repo, the token stays on the phone). The weekly review's file `coach/latest.json` is read through a strict check and shown as the weekly letter, drill set, three ideas a day, Predict's read in the case file, Predict's baselines (adopted only if they arrive before the due day) and checked outcomes (only with an https source). Question top-ups load from `topups.json`. The review itself is a scheduled task described in `design/coach.md` with `tools/weekly_packet.py`, `coach_validate.py` and `merge_topups.py` | Build note, with one amendment: `platform.md`'s rule "no requests to other sites" now reads "none, except api.github.com after the player connects a private repository". No scoring or pacing number changed. The unattended loop (open risk: can the coach loop run unattended) cannot be proven from here: it needs the player's repo and token |
 | 2026-11-16 | 4.2, 4.4, 4.5, 5, 6, build block 6 | Block 6 built: ranges (Unit 3). The reference interval per question (middle 90% of the other comparable cases) and points against its width settle open value 6; the sealed 60-range exam (50 to 58 hold); triggers L05 and L06 with the stepwise and width-budget drills; events `rsession`, `range`, `rsession_end`; a range bank of 380 from the committed records, every reference interval re-derived by `tools/check_ranges.py`; `sim/range_sim.py` on the real bank | Roadmap |
+| 2026-11-16 | 4.4, 4.5, 4.11, 5, build block 7 | Block 7 built: reasoning tools. The break-it-down worksheet (log-space combination, centres add and spreads in quadrature), Fermi scoring as a range, the Unit 4 gate (16 of 20 hold, median miss within 3), base-rate problems, reference-class ladders and probability chains, the Unit 5 gate (32 of 40 within 7), triggers L07, L08, L09 and L13 with their drills, the outside-view grade, events `psession`, `prob`, `psession_end` and `steps`/`own` on a prediction; banks of 116 Fermi, 144 rate, 40 ladder and 40 chain problems re-derived by `tools/check_fermi.py` and `tools/check_rates.py` | Roadmap |

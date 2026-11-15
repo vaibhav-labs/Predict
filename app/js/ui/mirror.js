@@ -1,9 +1,12 @@
 // The Mirror: where the numbers live. A first calibration curve with an error bar on every band, the bias map split by
 // topic, domain and horizon, the journal-only record, level, streak, the seven-day score and the belts.
 // Every statistic shows its sample size, and a group too small to say anything says "too few".
-import { gateState, rangeGateState } from '../flags.js';
+import { gateState, rangeGateState, problemGateState } from '../flags.js';
+import * as PB from '../engine/problem.js';
+import * as RS from '../engine/reasoning.js';
 import * as RG from '../engine/range.js';
 import { KIND_NAMES } from './ranges.js';
+import { KIND_NAMES as PROB_KINDS } from './problems.js';
 import { h, s } from '../dom.js';
 import * as R from '../engine/record.js';
 import * as J from '../engine/journal.js';
@@ -183,10 +186,30 @@ export function mirrorScreen(ctx) {
       h('span', { class: 'cap', style: 'min-width:74px;text-align:right' }, k.verdict)))),
     h('p', { class: 'cap' }, 'Drills do not count here. The error bar is the range of true rates your ranges do not rule out; a group with fewer than ' + cfg.thin_below + ' ranges says "too few" and claims nothing.')) : null;
 
+  // ---- problems (Units 4 and 5): Fermi worksheets and base rates; drills do not count ----
+  const probs = PB.naturalProbs(R.probsOf(events));
+  const fermis = probs.filter((p) => p.family === 'fermi');
+  const rates = probs.filter((p) => p.family === 'rate' || p.family === 'chain');
+  const classes = probs.filter((p) => p.family === 'class');
+  const fd = PB.describeFermi(fermis, { thinBelow: cfg.thin_below, coverage: ctx.cfg.interval.coverage });
+  const rtd = PB.describeRates(rates, { thinBelow: cfg.thin_below });
+  const accepted = RS.acceptedBaseRates(predictions, ctx.cfg);
+  const reasonCard = probs.length || predictions.length ? h('section', { class: 'card stack', id: 'reasoning-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Reasoning'), h('span', { class: 'cap num', id: 'rs-n' }, `n=${probs.length}`)),
+    h('table', { class: 'tbl', id: 'rs-table' }, h('tbody', null,
+      fermis.length ? row('Fermi ranges that held', `${fd.hits} of ${fd.n} (${pct(fd.rate)})`, fd.thin ? `under ${cfg.thin_below}: a hint` : 'a true 90% range: 9 in 10') : null,
+      fermis.length ? row('Median miss', `${fd.medianMiss.toFixed(1)}×`, 'from the middle of the range') : null,
+      fd.directN ? row('Worksheet vs first guess', `${fd.worksheetHits} vs ${fd.directHits} held`, `of ${fd.directN} with a first guess`) : null,
+      rates.length ? row('Base rates within 7', `${rtd.within} of ${rtd.n} (${pct(rtd.rate)})`, rtd.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      rates.length ? row('Lean', `${rtd.bias > 0 ? '+' : rtd.bias < 0 ? '−' : ''}${Math.abs(rtd.bias).toFixed(1)} pts`, rtd.thin ? 'too few to say' : rtd.bias > 3 ? 'too high' : rtd.bias < -3 ? 'too low' : 'about even') : null,
+      classes.length ? row('Right reference group', `${classes.filter((p) => p.hit).length} of ${classes.length}`, '') : null,
+      row('Journal cards with an accepted base rate', String(accepted), `of 15 the unit asks for`))),
+    h('p', { class: 'cap' }, 'Drills do not count here. A group with fewer than ' + cfg.thin_below + ' problems is a hint, not a result.')) : null;
+
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
-  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
+  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : []), ...(problemGateState(ctx, 'U4').passed ? ['U4'] : []), ...(problemGateState(ctx, 'U5').passed ? ['U5'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
   const belts = P.beltRows(ctx.belts, beltFacts);
   const beltCard = h('section', { class: 'card stack', id: 'belts' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Belts'), h('span', { class: 'cap' }, 'feedback, not play')),
@@ -207,7 +230,7 @@ export function mirrorScreen(ctx) {
         row('Points', sum.n ? signed(sum.points) : '–', sum.n ? `${signed(Math.round(sum.avgPoints))} a call` : ''))));
 
   return tabFrame('mirror', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Mirror'), h('span', { class: 'date' }, base.complete ? 'Baseline done' : `Baseline ${base.done} of ${base.total}`)),
-    standingCard, curveCard, biasCard, rangeCard, jcard, beltCard, stats);
+    standingCard, curveCard, biasCard, rangeCard, reasonCard, jcard, beltCard, stats);
 }
 
 function row(label, value, note) {

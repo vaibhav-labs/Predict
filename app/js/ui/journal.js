@@ -8,7 +8,8 @@ import { signed, pct } from '../engine/scoring.js';
 import { tabFrame, focusFrame, picker } from './common.js';
 import { caseFile, chainCard, baselineCaption } from './casefile.js';
 import { pendingAutopsies } from './autopsy.js';
-import { lessonState } from '../flags.js';
+import { lessonState, problemGateState } from '../flags.js';
+import { stepsOf, chainProductOf, outsideGrade } from '../engine/reasoning.js';
 import { promptsFor } from '../engine/coach.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
@@ -106,7 +107,10 @@ function composeScreen(ctx) {
   const jcfg = ctx.cfg.journal;
   const startedAt = Date.now();
   let step = 0;
-  const draft = { domain: null, due: null, text: '', flaggedEver: false, outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5 };
+  const draft = { domain: null, due: null, text: '', flaggedEver: false, outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5, steps: [], own: false };
+  // The reasoning tools show up as their units open: a chain multiplier from Unit 4, an own-task tag and the outside-view grade from Unit 5.
+  const chainOpen = problemGateState(ctx, 'U4').open;
+  const gradeOpen = problemGateState(ctx, 'U5').open;
 
   const title = h('span', { class: 'tt' }, 'Write a prediction');
   const count = h('span', { class: 'cnt num' });
@@ -170,6 +174,7 @@ function composeScreen(ctx) {
     const domainPicker = picker(DOMAINS, draft.domain, (v) => { draft.domain = v; });
     const duePicker = picker(DUE_OPTIONS, draft.due, (v) => { draft.due = v; });
 
+    const ownPicker = gradeOpen ? picker([['no', 'No'], ['yes', 'Yes']], draft.own ? 'yes' : 'no', (v) => { draft.own = v === 'yes'; }) : null;
     const nextBtn = h('button', { class: 'btn', type: 'button' }, 'Next: the chain');
     const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
     nextBtn.addEventListener('click', () => {
@@ -186,6 +191,7 @@ function composeScreen(ctx) {
       claimField, flagsBox, askBtn, fallback,
       h('div', { class: 'eyebrow' }, 'Domain'), domainPicker,
       h('div', { class: 'eyebrow' }, 'Due'), duePicker,
+      ownPicker ? h('div', { class: 'stack', id: 'own-task' }, h('div', { class: 'eyebrow' }, 'Your own task?'), h('p', { class: 'cap' }, 'Yes if this is about something you plan to finish or deliver yourself. Plans usually run late; the lessons watch for it.'), ownPicker) : null,
       h('div', { class: 'foot' }, nextBtn));
   }
 
@@ -213,6 +219,25 @@ function composeScreen(ctx) {
     addEvidence.addEventListener('click', () => { draft.evidence.push({ text: '', dir: 'up', test: false }); paintEvidence(); });
     paintEvidence();
 
+    // The chain multiplier (Unit 4): things that must all happen, each with its own probability. They multiply.
+    const stepRows = Array.from({ length: 5 }, (_, i) => {
+      const st = draft.steps[i] || { text: '', p: '' };
+      return { text: field(`Step ${i + 1}`, st.text), pct: numberField('Chance it happens (%)', st.p === '' ? '' : Math.round(st.p * 100), 0, 100) };
+    });
+    const stepProduct = h('p', { class: 'cap', id: 'chain-product', role: 'status' });
+    const readSteps = () => stepRows.map((r) => ({ text: r.text.input.value.trim(), p: r.pct.input.value.trim() === '' ? null : Number(r.pct.input.value) / 100 }))
+      .filter((r) => r.text && r.p !== null && Number.isFinite(r.p) && r.p > 0 && r.p <= 1);
+    const paintProduct = () => {
+      const st = readSteps();
+      stepProduct.textContent = st.length >= 2 ? `The steps multiply to ${pct(chainProductOf(st))}. Every one has to happen, so the whole is lower than the weakest step (${pct(Math.min(...st.map((x) => x.p)))}).` : 'Two or more steps make a chain: the app multiplies them for you.';
+    };
+    stepRows.forEach((r) => [r.text.input, r.pct.input].forEach((el) => el.addEventListener('input', paintProduct)));
+    paintProduct();
+    const chainBox = chainOpen ? h('div', { class: 'stack', id: 'chain-box' },
+      h('div', { class: 'eyebrow' }, 'Chain steps (optional)'),
+      h('p', { class: 'cap' }, 'If the claim needs several things to all go right, list them (up to five), each with the chance you give it. Leave blank if it does not.'),
+      ...stepRows.map((r) => h('div', { class: 'card soft stack' }, r.text.el, r.pct.el)), stepProduct) : null;
+
     const caseText = field('The strongest reason you are wrong', draft.caseAgainst.text);
     const caseNumber = numberField('A number for it', draft.caseAgainst.number, 0, 100);
     const tripText = field('What would change your mind', draft.tripwire.text);
@@ -225,6 +250,11 @@ function composeScreen(ctx) {
     nextBtn.addEventListener('click', () => {
       if (Date.now() < armedAt) return;
       draft.outsideView = { text: outsideText.input.value.trim(), rate: Number(outsideRate.input.value) / 100 };
+      if (chainOpen) {
+        const st = readSteps();
+        if (st.length === 1) { ctx.toast('A chain needs two steps or more. Add another, or clear this one.'); return; }
+        draft.steps = st;
+      }
       draft.caseAgainst = { text: caseText.input.value.trim(), number: Number(caseNumber.input.value) };
       draft.tripwire = { text: tripText.input.value.trim(), number: Number(tripNumber.input.value) };
       if (!draft.outsideView.text || !draft.caseAgainst.text || !draft.tripwire.text) { ctx.toast('Write all three: outside view, case against and tripwire.'); return; }
@@ -234,6 +264,7 @@ function composeScreen(ctx) {
     return h('section', { class: 'stack' },
       h('div', { class: 'eyebrow' }, 'Outside view'), outsideText.el, outsideRate.el,
       h('div', { class: 'eyebrow' }, 'Evidence (up to three)'), evidenceRows, addEvidence,
+      chainBox,
       h('div', { class: 'eyebrow' }, 'Case against'), caseText.el, caseNumber.el,
       h('div', { class: 'eyebrow' }, 'Tripwire'), tripText.el, tripNumber.el,
       h('div', { class: 'foot' }, nextBtn, backBtn));
@@ -250,6 +281,20 @@ function composeScreen(ctx) {
 
     const backBtn = h('button', { class: 'ghost', type: 'button' }, 'Back');
     backBtn.addEventListener('click', () => { step = 1; render(); });
+    // What the reasoning tools say about this card before it is locked: the chain's product, and the outside-view grade against the baseline.
+    const notes = [];
+    const chainSteps = stepsOf(draft);
+    const chainNote = chainSteps.length >= 2 ? h('p', { class: 'note', id: 'chain-note' }, '') : null;
+    const paintChain = () => { if (chainNote) { const prod = chainProductOf(chainSteps); chainNote.textContent = draft.c > prod + 1e-9 ? `Your steps multiply to ${pct(prod)}, and you are about to say ${pct(draft.c)}. That claims every step is likelier than you said. Lower the number or change a step.` : `Your steps multiply to ${pct(prod)}. Your number is at or under it.`; } };
+    if (chainNote) { notes.push(chainNote); paintChain(); input.addEventListener('input', paintChain); }
+    if (gradeOpen) {
+      const today = R.localDay();
+      const predictions = R.predictionsOf(ctx.store.events, today);
+      const horizon = J.horizonFor(draft.due, jcfg);
+      const { b, source } = J.baselineFor({ domain: draft.domain, horizon, own: R.ownBaseRate(predictions, draft.domain, horizon), starterTable: ctx.journalBaselines, cfg: jcfg });
+      const g = outsideGrade({ chain: { outsideView: draft.outsideView }, b, bSource: source }, ctx.cfg);
+      if (g) notes.push(h('p', { class: 'note', id: 'outside-grade' }, `Your outside-view rate is ${pct(g.stated)}; the baseline for ${draft.domain}, ${horizon} is ${pct(g.reference)}. ${g.accepted ? 'That is within ' + Math.round(g.within * 100) + ' points: accepted.' : 'That is more than ' + Math.round(g.within * 100) + ' points away. Is there a reason this case is unlike the usual ones?'}`));
+    }
     const lockBtn = h('button', { class: 'btn', type: 'button', id: 'lock' }, 'Lock in');
     const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
     lockBtn.addEventListener('click', async () => {
@@ -260,6 +305,7 @@ function composeScreen(ctx) {
 
     return h('section', { class: 'stack' },
       h('div', { class: 'eyebrow' }, 'How sure are you the claim will happen?'), readout, input,
+      ...notes,
       h('p', { class: 'cap' }, 'A lock is final: this card cannot be edited afterwards.'),
       h('div', { class: 'foot' }, lockBtn, backBtn));
   }
@@ -296,6 +342,9 @@ async function lockPrediction(ctx, draft, ms) {
     // What the checker said when the card was locked, and whether the player ever saw it say something while writing:
     // the case file and the lessons read these, so a rewrite that was never needed is told apart from one that was.
     flags: J.checkClaim(draft.text, ctx.checkerRules).map((f) => f.flag), flagged: draft.flaggedEver,
+    // The reasoning tools: a chain's steps (two or more) and the own-task tag. Absent unless used, so older cards read as before.
+    ...(Array.isArray(draft.steps) && draft.steps.length >= 2 ? { steps: draft.steps } : {}),
+    ...(draft.own ? { own: true } : {}),
   });
   await store.append(ev);
   ctx.nav(`#/journal/${ev.id}`);

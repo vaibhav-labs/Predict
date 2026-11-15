@@ -7,8 +7,11 @@ import * as J from '../engine/journal.js';
 import * as LE from '../engine/lessons.js';
 import { signed, pct, gapPts } from '../engine/scoring.js';
 import { focusFrame, DOMAIN_NAMES, HORIZON_NAMES } from './common.js';
+import { stepsOf, chainProductOf, outsideGrade, isOwnTask } from '../engine/reasoning.js';
 import { markLabel, luckRead, recheckCard, USED } from './autopsy.js';
 
+import { problemGateState } from '../flags.js';
+const problemUnlocked = (ctx) => problemGateState(ctx, 'U5').open;
 const OUTCOME_LABEL = { yes: 'Happened', no: "Didn't happen", void: 'Void' };
 
 export function baselineCaption(p) {
@@ -25,13 +28,16 @@ function chainLine(label, text, mark, note) {
 
 // The six-link chain exactly as it was locked. Open and due cards show it too. With an `audit` (filed at the autopsy) each link
 // carries its mark; with `tests`, each signal says how it did on its own test: would it also have held in the cases that missed?
-export function chainCard(p, { id, title = 'Your chain', audit = null, tests = false, after = [] } = {}) {
+export function chainCard(p, { id, title = 'Your chain', audit = null, tests = false, after = [], cfg = null } = {}) {
   const a = audit || {};
   const test = (ev) => (tests ? (ev.test ? 'Its own test: it would also have held in the cases that missed.' : 'Its own test: it would not have held in the cases that missed.') : null);
   return h('section', { class: 'card stack', id },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, title)),
     chainLine('Outside view', `${p.chain.outsideView.text} (${Math.round(p.chain.outsideView.rate * 100)}%)`, a.outside),
     ...p.chain.evidence.map((ev, i) => chainLine(`Signal ${i + 1} (${ev.dir === 'up' ? 'supports' : 'against'})`, ev.text, (a.evidence || [])[i], test(ev))),
+    ...(stepsOf(p).length >= 2 ? [chainLine('Chain steps', stepsOf(p).map((x) => `${x.text} (${Math.round(x.p * 100)}%)`).join(' · '), null, `Together: ${Math.round(chainProductOf(stepsOf(p)) * 1000) / 10}%. You said ${Math.round(p.c * 100)}%.`)] : []),
+    ...(cfg && outsideGrade(p, cfg) ? [chainLine('Outside-view grade', outsideGrade(p, cfg).accepted ? 'Accepted: within the baseline.' : 'Not accepted: far from the baseline.', null, `You said ${Math.round(outsideGrade(p, cfg).stated * 100)}%; the baseline was ${Math.round(outsideGrade(p, cfg).reference * 100)}%.`)] : []),
+    ...(isOwnTask(p) ? [chainLine('Your own task', 'You tagged this as something you were doing yourself.')] : []),
     chainLine('Case against', `${p.chain.caseAgainst.text} (${p.chain.caseAgainst.number})`, a.caseAgainst),
     chainLine('Tripwire', `${p.chain.tripwire.text} (to ${p.chain.tripwire.number})`, a.tripwire),
     ...after);
@@ -148,7 +154,7 @@ export function caseFile(ctx, p, header, predictions, repaint) {
     header,
     banner,
     lensWhat(ctx, p, env),
-    chainCard(p, { id: 'lens-reasoning', title: '2 · Your reasoning', audit: autopsy ? autopsy.audit : null, tests: true, after: read }),
+    chainCard(p, { id: 'lens-reasoning', title: '2 · Your reasoning', audit: autopsy ? autopsy.audit : null, tests: true, after: read, cfg: problemUnlocked(ctx) ? ctx.cfg : null }),
     lensLuck(ctx, p, env),
     lensPattern(ctx, p, env),
     lensNext(ctx, p, env));

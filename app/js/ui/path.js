@@ -1,11 +1,12 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS, RANGE_LESSONS } from '../lessons.js';
+import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS } from '../lessons.js';
 import { tabFrame, unitRow } from './common.js';
-import { lessonState, gateState, rangeGateState } from '../flags.js';
+import { lessonState, gateState, rangeGateState, problemGateState } from '../flags.js';
 import { patternRow } from './patterns.js';
 import { examCard } from './exam.js';
 import { rangeExamCard } from './ranges.js';
+import { problemExamCard } from './problems.js';
 
 export function pathScreen(ctx) {
   const events = ctx.store.events;
@@ -16,13 +17,24 @@ export function pathScreen(ctx) {
   const gate = gateState(ctx);
   const rgate = rangeGateState(ctx);
   const rangesDone = R.rangesOf(events).filter((r) => r.mode === 'practice').length;
+  const g4 = problemGateState(ctx, 'U4');
+  const g5 = problemGateState(ctx, 'U5');
+  const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (unit === 'U4' ? p.family === 'fermi' : p.family === 'rate' || p.family === 'class')).length;
   const ls = lessonState(ctx);
   const status = (u) => {
     if (u.id === 'U0') return base.complete ? { text: 'Done', on: true } : { text: `${base.done} of ${base.total}`, on: true };
     if (u.id === 'U1') return gate.passed ? { text: 'Passed', on: true } : { text: practice ? `${practice} calls` : 'Practice', on: true };
     if (u.id === 'U3') return rgate.passed ? { text: 'Passed', on: true } : rgate.open ? { text: rangesDone ? `${rangesDone} ranges` : 'Open', on: true } : { text: 'Locked', on: false };
+    if (u.id === 'U4') return g4.passed ? { text: 'Passed', on: true } : g4.open ? { text: probsDone('U4') ? `${probsDone('U4')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
+    if (u.id === 'U5') return g5.passed ? { text: 'Passed', on: true } : g5.open ? { text: probsDone('U5') ? `${probsDone('U5')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     return { text: 'Locked', on: false };
   };
+  const lessonCard = (id, unitName, list, open) => open ? h('section', { class: 'card', id }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `${unitName} lessons`), h('span', { class: 'cap' }, 'under a minute each')),
+    h('div', null, list.map((l) => h('a', { class: 'lesson-link', href: `#/lesson/${l.id}` },
+      h('span', { class: `tick${read.has(l.id) ? ' on' : ''}`, 'aria-hidden': 'true' }, read.has(l.id) ? icon('check', 14, 2.4) : null),
+      h('span', { class: 't' }, h('b', null, l.title), h('em', null, l.blurb)),
+      h('span', { class: 'cap' }, read.has(l.id) ? 'Read' : 'Open'))))) : null;
+  const practiceCard = (id, unitName, blurb, links, done) => h('section', { class: 'card stack', id }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `${unitName} practice`), h('span', { class: 'cap num' }, `${done} problems so far`)), h('p', null, blurb), ...links);
   const patterns = ls.chains.slice().reverse().slice(0, 8);
   const arcs = [...new Set(ctx.units.map((u) => u.arc))];
 
@@ -45,6 +57,15 @@ export function pathScreen(ctx) {
       h('p', null, 'Ten ranges a session: a low and a high you are 90% sure of, scored against what the record says a 90% range needs.'),
       h('a', { class: 'ghost', href: '#/range/practice', id: 'range-practice' }, 'Start ranges')) : null,
     rangeExamCard(ctx),
+    lessonCard('fermi-lessons-card', 'Unit 4', FERMI_LESSONS, g4.open),
+    g4.open ? practiceCard('fermi-practice-card', 'Unit 4', 'Eight Fermi problems a session: guess the whole, then break it into parts on the worksheet, each with a low and a high you are 90% sure of.', [
+      h('a', { class: 'ghost', href: '#/prob/fermi', id: 'fermi-practice' }, 'Start Fermi problems'),
+      h('a', { class: 'ghost', href: '#/prob/chain', id: 'chain-practice' }, 'Chain problems: multiply the steps')], probsDone('U4')) : null,
+    problemExamCard(ctx, 'U4'),
+    lessonCard('rate-lessons-card', 'Unit 5', RATE_LESSONS, g5.open),
+    g5.open ? practiceCard('rate-practice-card', 'Unit 5', 'Twelve problems a session: start outside. How often does this happen to cases like this one, and which group do you start from?', [
+      h('a', { class: 'ghost', href: '#/prob/rate', id: 'rate-practice' }, 'Start base rates')], probsDone('U5')) : null,
+    problemExamCard(ctx, 'U5'),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,

@@ -210,6 +210,31 @@ if os.path.exists(_rng):
         "reference widths on a miss-heavy average and others (income per person) 1.0, so points swing by kind; the Mirror shows the split.")
     add("- **Open risk:** the reference interval is the record's, so a player with knowledge the record lacks can beat it. That is the intent: it is the outside view, and beating it is the skill.")
 
+# 5c (Block 7): the Fermi and base-rate games on the real banks, from sim/problem_sim.py -------------------------
+_prb = os.path.join(OUT, "problem_results.json")
+if os.path.exists(_prb):
+    PS = json.load(open(_prb))
+    add("\n## 5c. Fermi and base rates on the real banks (Block 7)\n")
+    add("`sim/problem_sim.py` plays the Unit 4 and Unit 5 exams on the real exam pools (`fermi.json` 48 problems, `rates.json` 60 rate problems) with the real rules from "
+        "`data/scoring.json`. A Fermi player guesses every part with a log-normal error (natural-log sd in the first column) and states a range of factor f around the guess; the worksheet "
+        "combines the parts and the whole is judged against its truth and reference interval. A calibrated player states f = exp(1.645 sd). A rate player answers the truth plus "
+        "Gaussian noise (sd in points) and a lean.\n")
+    add(table(["Fermi player", "Hits of 20", "Median miss", "Points a problem", "Exam pass (16 hold and median miss within 3)"],
+              [[name, f"{r['mean_hits']:.1f}", f"{r['median_miss']:.2f}x", f"{r['points_per_problem']:+.0f}", pct(r["exam_pass"])] for name, r in PS["fermi"].items()]))
+    add("")
+    add(table(["Rate player", "Within 7 of 40", "Points a problem", "Exam pass (32 or more within 7)"],
+              [[name, f"{r['mean_within']:.1f}", f"{r['points_per_problem']:+.0f}", pct(r["exam_pass"])] for name, r in PS["rate"].items()]))
+    fp = PS["fermi"]
+    add(f"\n- **The Fermi gate separates calibrated from overconfident:** a calibrated player passes about {pct(fp['typical, calibrated (error sd 0.4)']['exam_pass'])} whatever their skill (a rough guesser "
+        f"{pct(fp['rough, calibrated (sd 0.7)']['exam_pass'])}, a precise one {pct(fp['precise, calibrated (error sd 0.2)']['exam_pass'])}); an overconfident one almost never "
+        f"({pct(fp['typical, overconfident (sd 0.4, says 1.3x)']['exam_pass'])}). Skill shows in the points, not the pass.")
+    add(f"- **Open risk: padding passes the gate.** A humble player who says 3x passes {pct(fp['typical, humble (sd 0.4, says 3x)']['exam_pass'])} (Unit 3 caps hits at 58 of 60 to stop this; Unit 4 does not), "
+        f"but earns {fp['typical, humble (sd 0.4, says 3x)']['points_per_problem']:+.0f} a problem against {fp['typical, calibrated (error sd 0.4)']['points_per_problem']:+.0f} for the calibrated player. "
+        "If padding shows up in a real record, add an upper bound on hits or a width cap to the Unit 4 gate (one line in `data/scoring.json` and `gateU4`).")
+    rp = PS["rate"]
+    add(f"- **The Unit 5 gate asks for a real outside view:** a player within 3 points on average passes {pct(rp['knows the record (sd 3)']['exam_pass'])}, within 5 {pct(rp['close (sd 5)']['exam_pass'])}, "
+        f"within 8 {pct(rp['rough (sd 8)']['exam_pass'])}; a lean of 6 points high with that noise {pct(rp['rough, leans high (sd 8, +6)']['exam_pass'])}.")
+
 # 6 ------------------------------------------------------------------
 add("\n## 6. Real predictions: raw points against edge\n")
 add("- **Intent:** logging sure things must not pay.")

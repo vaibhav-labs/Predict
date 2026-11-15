@@ -6,6 +6,31 @@ branch `block-3`, and the rebuilt question bank (judgment and prediction, not tr
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
 
+## Report for the player (Block 7, Reasoning tools, 2026-11-16)
+
+Units 4 and 5 are built and tested. Unit 4 opens when you pass the Unit 3 exam; Unit 5 opens when you pass Unit 4.
+
+**Unit 4, Fermi.** A problem asks for a big quantity you cannot look up (the minutes of lateness one airport's late flights add up to in a month, a month's rain, a decade's market growth).
+You break it into parts and give each a low and a high you are 90% sure of on the *break-it-down worksheet*; the app combines them for you (the middles multiply, the spreads combine in quadrature, so the whole is
+narrower than lows times lows), shows what the naive product would give, and scores the combined range like a range. In practice you first make a gut guess for the whole, and the reveal says whether the worksheet beat it.
+The gate: 20 fresh problems, two sealed sittings of 10; 16 or more must hold the truth and the median miss must be within a factor of 3. Probability chains (steps that each look likely and multiply to less) are practice in the lesson slot.
+
+**Unit 5, outside view.** Rate problems ask how often something happens to cases like this one (within 7 points counts); ladders ask which group to start from (the narrowest with 30 or more cases). The gate: 40 fresh rate
+problems, two sealed sittings of 20; 32 or more within 7. A fail says whether you ran high or low, then a repair drill of 10. The "15 journal cards with an accepted base rate" row is tracked on the Mirror and does not block.
+
+**Four new patterns.** L07 chains you make too generous, L08 your own plans running too sure, L09 forecasts far from the base rate with no evidence, L13 a domain where your edge is below zero. Each has a lesson card (Unit 4 has three, Unit 5 four),
+a drill, and re-tests. Unit 4 and Unit 5 Rust come from L07 and from L08 or L09.
+
+**Where you see it.** Today gets a card for each open unit and exam rows in "Needs you"; the Path has both units, their cards, practice and the exam cards; the Mirror has a Reasoning card (Fermi held, median miss, worksheet against first guess,
+base rates within 7 and your lean, accepted base rates); Help explains all of it. Drill problems never count.
+
+**Tests:** engine 147 (28 new: the app against `tools/ref_problem.py` on every Fermi problem and six players, twenty hand-worked worksheets, the gates' exact binomials, the four triggers); a browser phase `b7`
+(60 checks: closed until Unit 3 is passed, the worksheet and its live combined range, a session against the independent points, the sealed Unit 4 exam, a Unit 5 session of rate problems and ladders, ten chains, a failed Unit 5 exam and its repair drill).
+Banks: 116 Fermi, 144 rate, 40 ladder and 40 chain problems; `tools/check_fermi.py` and `tools/check_rates.py` re-derive them from the records.
+
+**Assumptions I made (see Block 7 assumptions below):** the worksheet treats parts as independent; chain problems count toward nothing; the journal changes (a chain multiplier and an own-task tag at the claim step, the outside-view grade at lock) are listed in the
+journal section of Block 7 assumptions.
+
 ## Report for the player (Block 6, Ranges, 2026-11-16)
 
 Unit 3 is built and tested. It opens when you pass the Unit 1 exam.
@@ -440,6 +465,19 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **Range exams are drawn from the exam pool, no repeats within an attempt, fresh before reused;** a fourth attempt has to reuse the longest-ago ranges.
 - **Drill ranges pay points but never count toward a pattern or the Mirror's coverage.** The re-tests count practice and judged exam ranges.
 - **No spreadsheet export of ranges:** they are in the Export file (every event is); the CSV copy of calls is for calls only.
+
+## Block 7 assumptions
+
+- **Opens in a chain:** Unit 4 after the Unit 3 exam, Unit 5 after the Unit 4 exam (`gates.opens_after`). Unit 5's "15 journal cards carry an accepted base rate" is shown, not enforced.
+- **The worksheet combines in log space** (centres add, half-widths in quadrature) because the parts' errors are assumed independent; a Fermi range is scored like a range (interval points against the reference interval). The unit's constant multiplier (a share of 100, a percent) is part of the problem.
+- **Median miss factor** is 10 to the |log10 truth minus the log10 midpoint of the range|; the Unit 4 gate needs it at or below 3 as well as 16 of 20 holding.
+- **Practice has a direct first guess for comparison; exams do not.** The first guess never counts toward anything.
+- **A percent problem counts when within 7 points,** points = max(-100, round(100 x (1 - miss / 7))). A ladder is right when the player picks the narrowest group with 30 or more cases (+60, else -30).
+- **Chain problems** (steps with conditional rates, truth = the product) are practice only: they pay points and count toward no gate, trigger or Mirror row.
+- **Drill problems never count** toward a gate, a trigger or the Mirror; exam problems are sealed until the verdict.
+- **Journal additions:** `steps` (>= 2 steps with probabilities = a chain card) and `own` are optional fields; L07/L08 read them. An outside-view rate is "accepted" when within 10 points of the baseline recorded at lock (b0 if present, else b).
+- **L13 reads per journal domain** (work, life, world) with a non-trivial card meaning scored and not 'trivial' per the journal rules.
+- **Fermi reference intervals** hold 86.8% (practice) and 89.6% (exam); the exam pool uses seed 12 of the generator, chosen because seed 1 gave z=-2.5 (documented in `tools/make_fermi.py`).
 
 ## Decisions
 

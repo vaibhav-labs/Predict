@@ -18,6 +18,10 @@ export function evidenceText(chain, cfg) {
     case 'L04': return `${e.rejects} of your last ${e.n} journal predictions needed a rewrite before a stranger could have scored them.`;
     case 'L05': return `Only ${e.hits} of your last ${e.n} ranges held the truth. A true 90% range holds about ${Math.round(0.9 * e.n)}. Your ranges are too narrow: you are giving up the one thing a 90% range promises.`;
     case 'L06': return `${e.hits} of your last ${e.n} ranges held the truth, and they were on average ${Number(e.meanRatio).toFixed(1)} times as wide as the record says they need to be. A range that always holds is padded, and the score charges for every bit of padding.`;
+    case 'L07': return `Your last ${e.n} resolved chain cards (predictions that needed several things to all happen) were stated at ${pct(e.meanStated)} on average, and ${pct(e.rate)} of them happened: ${whole(e.gap)} points too sure. Each step looked likely; the chain is the product.`;
+    case 'L08': return `Your last ${e.n} resolved predictions about your own tasks and deadlines were stated at ${pct(e.meanStated)} on average, and ${pct(e.rate)} of them happened: ${whole(e.gap)} points too sure. Your own record is the base rate to start from.`;
+    case 'L09': return `In your last ${e.n} resolved forecasts that sat ${whole(t.distance)} points or more from the recorded base rate with no evidence logged, you earned ${Math.round(e.meanEdge)} edge points a card on average: worse than the base rate alone. Start outside, then adjust, and log why.`;
+    case 'L13': return `In ${e.domain} you earned ${Math.round(e.meanEdge * 10) / 10} edge points a card over your last ${e.n} resolved predictions: a forecast that just said the baseline would have done better there.`;
     case 'L15': return `You missed ${(e.missed || []).length} of the last ${e.days} days.`;
     default: return '';
   }
@@ -31,6 +35,11 @@ export function retestText(chain, cfg) {
     const [d1, d2] = cfg.lessons.retest_after_days;
     return `Two re-tests clear this flag, on your next ${t.clear_window} ranges: between ${t.clear_hits[0]} and ${t.clear_hits[1]} of them must hold the truth. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal practice: nothing extra to do.`;
   }
+  if (chain.trigger === 'L07' || chain.trigger === 'L08') {
+    return `Two re-tests clear this flag, on your next ${t.clear_window} ${chain.trigger === 'L07' ? 'chain cards' : 'own-task predictions'} to resolve: how sure you said you were must be within ${whole(t.clear_gap)} points of how often they happened. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal journal: nothing extra to do.`;
+  }
+  if (chain.trigger === 'L09') return `Two re-tests clear this flag, on your next ${t.clear_window} forecasts that sit ${whole(t.distance)} points or more from the recorded base rate: every one has to carry logged evidence. The first starts ${d1} days after the drill, the second ${d2} days after it.`;
+  if (chain.trigger === 'L13') return `Two re-tests clear this flag, on your next ${t.clear_window} resolved predictions in ${(chain.evidence || {}).domain || 'that domain'}: their average edge must be zero or better. The first starts ${d1} days after the drill, the second ${d2} days after it.`;
   const what = chain.trigger === 'L03' ? `your next ${t.clear_window} calls, with fewer than ${whole(t.clear_share)}% of them at ${bandText(t.zone)}`
     : chain.trigger === 'L04' ? `your next ${t.clear_window} journal predictions, every one accepted first time`
       : `your next ${t.clear_window} calls stated at ${bandText(t.band)}, within ${whole(t.clear_gap)} points of honest`;
@@ -49,10 +58,14 @@ export function drillText(chain, cfg) {
     case 'zone_locked': return `${d.calls} calls with the ${bandText(cfg.lessons.triggers[chain.trigger].zone)} zone locked: pick ${whole(d.min)}% or more.`;
     case 'stepwise': return `${d.calls} ranges built one end at a time: first the low end, then the high end, each one a number you would be surprised to see the truth cross.`;
     case 'budget': return `${d.calls} ranges with a width budget: no range may be wider than ${d.budget_ratio} times the width the record says a 90% range needs. A range over the budget will not lock.`;
+    case 'chain': return `${d.calls} chain problems: each lists steps with how often each holds among the cases that passed the ones before. Say what share pass them all, then see the product.`;
+    case 'plan': return `${d.calls} base-rate problems about plans and schedules: how often do projects, budgets and flight times turn out as planned? Start from the record, not the story.`;
+    case 'classpick': return `${d.calls} reference-class problems: a case and a ladder of groups from everything down to a handful. Pick the narrowest group that still holds ${cfg.problems.rate.class_min_cases} cases.`;
+    case 'domain': return `${d.calls} base-rate problems in ${(chain.evidence || {}).domain || 'your weak domain'}: practice at the part you skip, starting from how often it happens.`;
     case 'rewrite': return `Rewrite ${d.items} vague predictions until each one passes the checker.`;
     default: return '';
   }
 }
 
 // Where a flag's drill happens.
-export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : `#/gym/drill-${chain.id}`);
+export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : ['L07', 'L08', 'L09', 'L13'].includes(chain.trigger) ? `#/prob/drill-${chain.id}` : `#/gym/drill-${chain.id}`);

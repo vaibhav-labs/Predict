@@ -25,12 +25,12 @@ export const fmt = (q, x) => Number(x).toLocaleString('en-US', { minimumFraction
 // How wide a range is, in words: the difference for a linear question, "N times" (high over low) for a log one.
 export const widthText = (q, low, high) => (q.scale === 'log' ? `${(high / low).toFixed(1)} times` : fmt(q, high - low));
 
-function claimNode(q, attrs) {
+export function claimNode(q, attrs) {
   return h('p', { class: (q.lead + q.ask).length > 150 ? 'claim long' : 'claim', ...attrs }, h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask));
 }
 
 // The line of numbers after a range: the truth, your range, and the reference interval, all drawn on the question's own scale.
-function numberLine(q, low, high, hit) {
+export function numberLine(q, low, high, hit) {
   const pts = [low, high, q.ref_low, q.ref_high, q.truth].map((x) => RG.scaled(q, x));
   const lo = Math.min(...pts), hi = Math.max(...pts), pad = (hi - lo) * 0.08 || 1;
   const pos = (x) => (((RG.scaled(q, x) - (lo - pad)) / (hi - lo + 2 * pad)) * 100).toFixed(2);
