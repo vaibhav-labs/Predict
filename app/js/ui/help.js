@@ -17,9 +17,10 @@ export function helpScreen(ctx) {
       h('p', null, 'Open Today. It shows what is next: the gym, a lesson if one is ready, and your journal prediction. Each has its own minutes, so a full day fits in about 15.')),
 
     section('The gym',
+      p('The questions', 'each one sets a scene (a day of weather, a flight, a stock market year, a trend, a documented rate) and makes a claim about how it turns out. Nothing here is trivia: you are judged on how sure you were, so start from how often things like this happen, then adjust.'),
       p('The call', 'pick a side, Yes or No, and how sure you are on the dial, from 50% (a toss-up) to 99% (near certain). Lock it in.'),
       p('Baseline', 'your first 60 calls, in 3 sessions of 20. No feedback until a session ends: an honest first measurement.'),
-      p('Practice', 'reveals each call right away: whether you were right, the points, and the answer with its source. The mix of easy, medium and hard questions shifts to keep it challenging.')),
+      p('Practice', 'reveals each call right away: whether you were right, the points, what happened, how often claims like it held among the other cases in the record, and the source. The mix of easy, medium and hard questions shifts to keep it challenging.')),
 
     section('The journal',
       h('p', null, 'Once a day, write one real prediction about your work, your life or the world. Fill in its six-part chain, set a probability from 1% to 99%, and lock it in.'),

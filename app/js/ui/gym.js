@@ -9,6 +9,23 @@ import { makeDial } from './dial.js';
 
 export const domainLabel = (d) => (d ? d.charAt(0).toUpperCase() + d.slice(1) : '');
 
+// A judgment question is a scene (the lead: where, when, what has happened so far) and a claim about how it turns out (the ask).
+// They read as one sentence, so the text of the claim is the lead, one space, then the ask; the scene is set quieter so the
+// claim to judge stands out.
+function claimNode(q, attrs) {
+  const parts = q.lead && q.ask ? [h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask)] : [q.claim];
+  return h('p', { class: q.claim.length > 150 ? 'claim long' : 'claim', ...attrs }, ...parts);
+}
+
+// The outside view, shown after the call: how often a claim like this one held among the other cases in the records.
+// Documented facts from a source (verified 'sourced') carry no count of cases, so they show nothing here.
+function baseLine(q) {
+  if (q.verified !== 'recorded' || typeof q.base !== 'number') return null;
+  const yes = q.base >= 0.5;
+  return h('p', { class: 'muted', id: 'base-line' },
+    `Claims like this held in ${pct(q.base)} of the ${Number(q.n).toLocaleString('en-US')} other cases. The base rate alone says ${yes ? 'Yes' : 'No'} at ${pct(yes ? q.base : 1 - q.base)}.`);
+}
+
 // What the next session would be: the rest of the 60-call baseline first, then Unit 1 practice.
 export function nextSessionPlan(ctx) {
   const events = ctx.store.events;
@@ -121,7 +138,7 @@ export async function gymScreen(ctx, root, token) {
     mount(focusFrame(header(sess, index),
       h('section', null,
         h('div', { class: 'tags' }, h('span', { class: 'tag' }, domainLabel(q.domain)), h('span', { class: 'tag' }, sess.mode === 'baseline' ? 'Baseline' : 'Unit 1 practice')),
-        h('p', { class: 'claim', id: 'claim' }, q.claim)),
+        claimNode(q, { id: 'claim' })),
       dial.el,
       h('div', { class: 'foot' }, h('span', { class: 'cap' }, 'A lock is final.'), lockBtn)));
     stop();
@@ -162,7 +179,7 @@ export async function gymScreen(ctx, root, token) {
     const hitPts = S.hit(c), missPts = S.miss(c);
     const sourceRow = /^https?:/.test(q.source)
       ? h('a', { class: 'link', href: q.source, target: '_blank', rel: 'noopener noreferrer' }, `Source: ${q.src_name || 'link'} ↗`)
-      : h('span', { class: 'cap' }, q.verified === 'definition' ? 'By definition: the answer follows from an exact definition, not from memory' : 'Computed: the answer comes from arithmetic, not memory');
+      : null;
     const flagBtn = h('button', { class: 'ghost', type: 'button', id: 'flag' }, 'Flag this question as disputed');
     flagBtn.addEventListener('click', async () => {
       flagBtn.disabled = true;
@@ -175,7 +192,7 @@ export async function gymScreen(ctx, root, token) {
     mount(focusFrame(header(sess, index, index),
       h('section', { class: 'card' },
         h('div', { class: 'tags' }, h('span', { class: 'tag' }, domainLabel(q.domain)), h('span', { class: 'tag' }, 'Unit 1 practice')),
-        h('p', { class: 'claim' }, q.claim),
+        claimNode(q),
         h('div', { class: 'strip', role: 'img', 'aria-label': `The truth was ${q.answer ? 'Yes' : 'No'}. You said ${ev.side === 'yes' ? 'Yes' : 'No'} at ${pct(c)}.` },
           h('div', { class: 'track' },
             h('i', { class: 'mine', style: `left:${Math.min(50, pos)}%;width:${Math.abs(pos - 50)}%` }),
@@ -189,8 +206,9 @@ export async function gymScreen(ctx, root, token) {
           ? `At ${pct(c)} a hit pays ${hitPts} and a miss would have cost ${-missPts}.`
           : `At ${pct(c)} a miss costs ${-missPts} and a hit would have paid ${hitPts}.`)),
       h('section', { class: 'card answer' },
-        h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'The answer'), h('span', { class: 'cap' }, q.verified === 'computed' ? 'Computed' : q.verified === 'definition' ? 'By definition' : `Checked ${q.checked}`)),
+        h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'The answer'), h('span', { class: 'cap' }, q.verified === 'sourced' ? `Checked ${q.checked}` : 'From the record')),
         h('p', null, h('b', null, q.answer ? 'Yes, that is true.' : 'No, that is false.'), ' ', q.fact),
+        baseLine(q),
         q.why ? h('p', { class: 'muted' }, q.why) : null,
         sourceRow),
       h('div', { class: 'foot' }, nextBtn, flagBtn)));

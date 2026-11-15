@@ -263,17 +263,35 @@ from the player's own misses.
 
 ### 4.8 Question supply
 
-- A question is gate-eligible only if verified against a source or computed.
-- **Question factory:** verified data tables (a value, a unit, a source per row) generate comparison
-  questions ("which is larger?") and range questions at any difficulty: the closer the two values,
-  the harder the call.
+- A question is gate-eligible only if it is `recorded` or `sourced` (every question is one or the other).
+- **What a gym question is.** A judgment call, not a test of knowledge or arithmetic: a scene (`lead`: where,
+  when, what has happened so far) and a claim about how it turns out (`ask`). The player says yes or no and how
+  sure; the reveal shows what happened and how often claims like it held. Player feedback, 2026-11-15: "not a
+  test of mathematical knowledge or any core hardcore knowledge, rather judgement and prediction".
+- **Two kinds.** `recorded`: a real case from a committed record table (Seattle daily weather 2012 to 2015, 20,000
+  US flights in January to March 2001, S&P 500 monthly history since 1950, five-year trends in six Our World in
+  Data series). Its `base` is the leave-one-out chance that this claim is true among the other cases of the same
+  kind, `n` is how many other cases there are, and its difficulty is how lopsided `base` is (easy 85% or more one
+  way, medium 68%, else hard). `sourced`: a documented rate from a named source (`data/question_tables/base_rates.csv`),
+  asked as "more than t%" or "fewer than t%" for thresholds clear of the documented value; no `base`, and its
+  difficulty is how far the threshold sits from the documented value (log-odds for shares, log for quantities:
+  easy from 1.2, medium from 0.5, never nearer than 0.25).
+- **Fairness.** Within each cell (true or false, easy, medium, hard) cases are drawn blind to how they turned
+  out, so a player who knows every base rate is calibrated on the bank (checked by a z-test, limit 3). The
+  base rate is a reference class drawn from the same record, not a forecast; `n` is shown.
+- **Question factory.** `tools/make_questions.py` reads the tables, builds every candidate claim (about 95,000),
+  and selects the bank by fair progressive filling across kinds, with no case used twice in a bank and none
+  shared between the starter bank and the exam pool. `tools/check_questions.py` re-derives every answer, base,
+  count and percentage with separate code and compares the files with what the tables produce.
 - Anything Predict writes live in a chat is practice only.
-- **Delivery:** the 240-question starter bank ships with Block 1. Each weekly top-up is committed to the
-  public repo's content folder, so gym questions are general and sourced, never about the player's own life.
-- **Volume (scope check):** about 126 gym items a week, roughly 4,000 across Units 0 to 11 (224 days
-  at up to 18 a day). Twenty verified tables of 50 rows each yield over 24,000 distinct pair
-  comparisons, so the factory covers the volume. Hand-written trap questions are budgeted at about
-  15 a week. Lessons: 13 unit lesson sets and 15 pattern lessons, written one block at a time.
+- **Delivery:** the 240-question starter bank and the 304-question Unit 1 exam pool ship in the app. Each weekly
+  top-up is committed to the public repo's content folder, so gym questions are general and sourced, never
+  about the player's own life.
+- **Volume (scope check):** about 126 gym items a week, roughly 4,000 across Units 0 to 11 (224 days at up to
+  18 a day). The record tables yield about 95,000 distinct candidate claims, so volume is not the limit; breadth
+  is. Sport, work and life are thin (3 or 4 starter questions each) until more record families or documented
+  facts are added (IPL results are the obvious next family). Lessons: 13 unit lesson sets and 15 pattern
+  lessons, written one block at a time.
 
 ### 4.9 Case file
 
@@ -348,7 +366,7 @@ opens, so an Import, an Erase or a new day changes it at once, and an independen
 
 | Collection | One document is | Key fields |
 |---|---|---|
-| `questions` | A gym question | kind, text, answer, source or computed, verified on, domain, difficulty, trap tag, note, unit, scale, reference width |
+| `questions` | A gym question | id, lead (the scene), ask (the claim), claim (lead and ask), answer, base (chance the claim holds among other cases; none for a documented fact), n (other cases), fact, why, domain, difficulty, verified (`recorded` or `sourced`), source, source name, checked (the day the records or page were read) |
 | `calls` | One locked gym call | question, confidence, outcome, points, time, latency, unit, exam |
 | `predictions` | One journal card | text, domain, due date, state, probability, baseline, chain (outside view, evidence with tests, case against, tripwire), outcome, evidence note, raw, edge, flags, autopsy answers, rule |
 | `updates` | One revision of a prediction | prediction, new probability, reason, time |
@@ -429,3 +447,4 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 2026-11-15 | 4.3, build block 2 | Block 2 built: the prediction card and its six-link chain, the rule-based checker (`data/checker_rules.csv`), Ask Predict as a copied clipboard message, lock, the due list, resolve, edge against the baseline, three horizon buckets (`data/journal_baselines.csv`, `data/scoring.json` journal section), and the outcome card's table of other numbers. The two worked edge examples (4.3, 4.9) pin the scoring exactly | Build note, not a design change: scoring, the chain and the baseline rule are unchanged from the plan. Assumptions taken where the docs left a choice (due-date day counts, the three horizon buckets, a flat 50% starter table, a five-resolved own-rate threshold) are listed under "Block 2 assumptions" in STATE.md, not here, since none of them change a number already fixed by this file |
 | 2026-11-15 | 4.1, 4.8, 5, `data/scoring.json` | Block 1 built. Gym draws, baseline and practice rules written down as built (section 4.1); the record's six event types written down (section 5); `gym.tap_guard_ms` (400) added so a double tap cannot answer the next question or skip a reveal; the baseline curve shows from 20 calls, with bands under 10 calls drawn hollow. Version 0.2 | Block 1 build. Effects: scoring and pacing numbers are unchanged (`sh sim/run_all.sh` reproduced every output exactly); the 70/30 unit-pool and 90-day rules wait for Block 4 because there is one bank; the mixes, the window and `thin_below` stay first guesses until real hit rates arrive |
 | 2026-11-15 | 4.10, 4.9, build block 3 | Block 3 built: the Mirror. Streak, habit points, career points and level, the seven-day score, error bars and sample sizes on the curve, the bias map by topic, domain and horizon, the journal-only record, the belt rows with real progress, and the case file's your-pattern lens. Every number is held against an independent Python recomputation (`tools/ref_mirror.py`) from the same raw events. One fix on the way: the table of other numbers now always holds the number actually said, and runs on the side the card leaned to | Build note, not a design change: nothing in a rule or a number changed. The played-day definition, the seven-day score excluding habit points, and the verdict being read from the interval are the readings taken where the docs left a choice (STATE.md, "Block 3 assumptions") |
+| 2026-11-15 | 4.8, 5, build blocks 1 and 4 | Player feedback ("not a test of mathematical knowledge or any core hardcore knowledge, rather judgement and prediction"): the gym question bank is rebuilt. Every question is a judgment call, a scene plus a claim about how it turns out, drawn from committed real records (Seattle weather, US flights, S&P 500 history, Our World in Data trends) or from 37 documented base rates with their evidence; arithmetic, chance puzzles and almanac facts are gone. New fields `lead`, `ask`, `base`, `n`; `verified` is `recorded` or `sourced`; the reveal adds the base rate and its number of cases. A 304-question Unit 1 exam pool is built beside the 240-question starter bank. `tools/check_questions.py` is rewritten to re-derive every answer with independent code, test fairness (z-test) and compare the files with the tables | Content change, not a rule change: scoring, gates and pacing numbers are unchanged. Difficulty is now how lopsided a claim's base rate is (recorded) or how far its threshold is from the documented value (sourced), so the 40/35/25 and 7/38/55 mixes mean something different from the old size-of-gap labels and stay first guesses until real hit rates arrive (STATE.md, "the question bank, rebuilt for judgment") |

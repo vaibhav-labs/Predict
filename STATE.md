@@ -2,8 +2,61 @@
 
 Last updated: 2026-11-15 · Stage: Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
-branch `block-3`, waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone
-checks (below); the later blocks are built one after another on their own branches (see "Build log")
+branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
+waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
+later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (the question bank, rebuilt for judgment, 2026-11-15)
+
+You said the questions tested arithmetic and hard knowledge, and you wanted judgment and prediction. The old
+bank (240 almanac, arithmetic and chance items) is gone. Every question is now a call about how something
+turns out, and the reveal always shows how often it goes that way.
+
+**What a question looks like.** A scene, then a claim about it. "Seattle, 4 December. It rained yesterday. No
+measurable rain falls today." Or: "A flight from Kansas City to Tulsa is due to leave at 2:25 pm on a Monday in
+February. It lands no more than an hour late." You say yes or no and how sure you are. The reveal gives the
+answer, what really happened, how often claims like this held among the other cases in the record (and how
+many other cases there are), what the base rate alone would have said, one lesson line, and a link to the
+source.
+
+**Where the cases come from.** Real records, committed in `data/question_tables/` with the page they came from
+and the day they were read (`sources.csv`): Seattle's daily weather for 2012 to 2015 (NOAA, via vega-datasets),
+20,000 US flights from January to March 2001 (BTS), the S&P 500's monthly history since 1950 (Robert Shiller's
+data), and six Our World in Data series (life expectancy, child mortality, CO2 per person, income per person,
+renewable share of electricity, births per woman), used as five-year trends: "will it keep going?". On top of
+that, 37 documented base rates from named sources (business survival from BLS, fund managers against the index
+from SPIVA, Olympic budgets, NCAA upsets, drug approval odds, hurricane seasons, recessions, and more), each with
+the words or the table row that show the number. A claim about one of those is only asked when its threshold is
+clear of the documented value, and how far it is sets the difficulty.
+
+**The bank.** 240 starter questions (120 true, 120 false; 96 easy, 84 medium, 60 hard; 220 from the records and
+20 from documented facts; weather 73, travel 64, world 67, money 26, life 4, sport 3, work 3) and a separate
+pool of 304 for the Unit 1 exam (152 true, 152 false; 24 easy, 114 medium, 166 hard) that practice never shows.
+The two share no question and no case (no day, flight, country or year), so a practice reveal cannot give an
+exam answer away.
+
+**How we know it is right.** `tools/check_questions.py` shares no code with the builder. It reads the records
+and the question text and works every answer, every printed percentage, the number of other cases and the
+difficulty out again (weather and flights with SQL on the committed tables, trends and markets from the tables,
+each documented fact from its widened range). It also tests the bank for fairness: cases were drawn without
+looking at how they turned out, and a z-test says a player who knew every base rate would be calibrated on it
+(overall z = +0.09 on the starter, +0.91 on the exam; limit 3). It rebuilds the files from the tables and
+compares them with what is on disk. I broke the checker on purpose 22 ways (a flipped answer, an edited weather
+day, a changed percentage, a moved threshold, a missing source row, the builder's name slipped into a question,
+a duplicated claim, and so on) and it caught every one. The build is now identical on every run (it was not
+before: the order depended on Python's hash seed; the checker found it).
+
+**Where it is honest rather than perfect.** The "base rate" is the share of the other cases in the same record,
+not a forecast of the future: four years of Seattle, one winter quarter of flights in 2001, and 73 years of the
+market. Stretches of the market overlap, so they hold fewer independent cases than their count (the reveal says
+so). A year that follows a fall or a boom has only 17 to 19 other cases and the reveal prints that number. A
+documented fact gives at most one question to a bank. Sport, work and life have only three or four questions each
+in the starter, so the Mirror's topic bars for them are thin for now. Flag any question you disagree with and it
+never comes back.
+
+**What would make it better, if you want it.** More families of real cases: IPL results (batting first or
+chasing, toss, totals) would give sport a proper family and feel closer to home; more documented facts for work
+and life. Jobs data (FRED) could not be reached, so there is no unemployment family yet.
 
 ## Report for the player (Block 3, 2026-11-15)
 
@@ -98,8 +151,11 @@ The long goal is a public forecasting track record.
 - **App snapshot (clickable screens):** https://claude.ai/artifact/GAVtBNxEpk6UH7aEBzbWnW
 - **Design tables, simulators, balance report:** this repo (`data/`, `sim/`, `design/`), mirrored in the
   player's `Predict` folder on their Mac and in the "VJ Games" project under `predict/`.
-- **Question bank:** `app/content/questions/starter.json`. It is generated: edit the tables in
-  `data/question_tables/` or the generators in `tools/qbank/`, run `python3 tools/make_questions.py`, commit both.
+- **Question bank:** `app/content/questions/starter.json` (practice and baseline) and `exam-u1.json` (the Unit 1
+  exam pool, never shown in practice). Both are generated: edit the tables in `data/question_tables/`
+  (`base_rates.csv` holds the documented facts, `sources.csv` the source of every record table) or the generators
+  in `tools/qbank/` (`records.py`, `curated.py`), run `python3 tools/make_questions.py`, commit both.
+  `tools/snapshot_tables.py` is how the record tables were first fetched; the app never fetches anything.
 - **Private data repo (from Block 5):** `Predict-data`, created by the player. It holds the record and the
   coach letters. Nothing personal ever goes in the public repo.
 
@@ -138,14 +194,17 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
 - **Coach tab.** Export the record (a `.jsonl` file through the share sheet, or a download), the calls as a
   `.csv`, Import (the same file twice counts once), Erase (typed confirmation), and a "This device" card
   that checks installed, offline, saved and connection. The Ask Predict hand-off arrives in Block 5.
-- **Question bank.** 240 questions: 120 true and 120 false; 96 easy, 84 medium, 60 hard; 83 computed, 14
-  by definition, 143 sourced (each with a page link and the day it was read, 2026-11-15). Domains:
-  geography 58, numbers 57, science 48, world 23, chance 19, economy 18, technology 17.
+- **Question bank.** 240 judgment questions: 120 true and 120 false; 96 easy, 84 medium, 60 hard; 220 `recorded`
+  (a real case from a committed table, with the base rate among the other cases and how many there are) and 20
+  `sourced` (a documented rate, `Checked 2026-11-15`). Domains: weather 73, travel 64, world 67, money 26, life 4,
+  sport 3, work 3. Each question is a scene (`lead`) and a claim (`ask`); the reveal adds the base-rate line and a
+  source link. Plus the Unit 1 exam pool: 304 questions, never shown in practice (not yet loaded by the app: Block 4).
 - **Install and offline.** The service worker installs all 40 files or none, opens with the server down
   and in airplane mode, and shows "A new version is ready" on Today after a deploy.
-- **Tests, all passing, all in Chromium:** `node --test tools/test_engine.mjs` (36), `python3 tools/test_pwa.py`
-  (33), `python3 tools/test_flow.py` (162, about 3 minutes), plus `python3 tools/check_data.py`, which also
-  rebuilds the question bank from its tables and works all 240 claims out again with independent code.
+- **Tests, all passing, all in Chromium:** `node --test tools/test_engine.mjs` (49), `python3 tools/test_pwa.py`
+  (33), `python3 tools/test_flow.py` (166, about 3 minutes), `python3 tools/test_blocks.py` (97), plus
+  `python3 tools/check_data.py`, which also rebuilds both question banks from their tables and works every claim
+  out again with independent code.
   A fresh copy of the repo (what GitHub will check out) passes the same. The play-through test covers the
   baseline, practice, reload and resume, offline play, the summary and Mirror numbers against independent
   recomputation, lessons against the payout table, Export, Erase and Import, bad files, the 60-second
@@ -176,9 +235,12 @@ Blocks 1 and 2 are on `main`; Block 3 is built on `block-3`. Five tabs: Today, J
 - One question pool. The 70/30 unit split and the 90-day rule wait for Block 4.
 - The difficulty labels, the shift of the mix when the hit rate leaves 65 to 85%, and the 10-call
   threshold for a thin band are first guesses, to be re-tuned from real hit rates.
-- A sourced question was verified by reading one page (two agreeing pages for Olympics and World Cup rows).
-  A flag on a question in the app is the player's way to catch a mistake; a flagged question is never
-  drawn again.
+- A documented fact was verified by reading its source page, and the table keeps the words or the row that show
+  the number. A recorded question is re-derived from the committed table by independent code. A flag on a
+  question in the app is the player's way to catch a mistake; a flagged question is never drawn again.
+- The records are small: four years of Seattle weather, one quarter of flights, one stock index. Their base rates
+  describe those records, not the future, and the reveal says how many cases stand behind each one.
+- Sport, work and life have only 3 or 4 starter questions each, so their Mirror bars stay "too few" for a while.
 - Block 2 ran only in Chromium too; writing a chain with a thumb, and whether a card really moves from
   Open to Due on the phone's own clock, are untested until the phone check above.
 - The starter baseline table (`data/journal_baselines.csv`) is flat at 50% for every domain and horizon,
@@ -281,13 +343,31 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
   technology and AI, a coach that may read the full record, and a start at the first session after the
   phone check. Only the name and the look touch Block 1. The context note (5 to 10 lines on current
   projects) is still the player's to write, and Block 5 needs it.
-- The starter bank is general knowledge, so it is the same for every player and public. The world-topic
-  questions arrive with the weekly top-ups in Block 5.
+- The starter bank was general knowledge (replaced the same day, see the next block of decisions). The
+  world-topic questions arrive with the weekly top-ups in Block 5.
 - The tap guard (`gym.tap_guard_ms`, 400) is new: a double tap cannot answer the next question or skip a
   reveal. The baseline curve shows from 20 calls (Mirror) and the summary text says so.
 - The calibration gap is written in whole points by one function for both screens (`gapPts` in
   `app/js/engine/scoring.js`): a gap that rounds to zero reads 0, never +0 or −0. The first version printed
   "−0 pts" on Mirror; found in the screenshots, fixed, and pinned by a test.
+
+2026-11-15 (player feedback: "not a test of mathematical knowledge or hardcore knowledge, rather judgement and prediction")
+
+- Interpretation, stated to the player and not contradicted: every gym item is a judgment call about how a real
+  situation turns out (a base rate, a favourite against an upset, a plan against reality, weather, flights,
+  markets, world trends), each with a source and a base-rate reveal. Arithmetic, chance puzzles and almanac facts
+  are removed. The player added that Our World in Data may be used where it fits; it is used for one family, the
+  five-year trend ("will it keep going?").
+- Two kinds of question, `verified: recorded | sourced`. `recorded` is a real case from a committed table whose
+  base rate is the leave-one-out share among the other cases of its kind; its difficulty is how lopsided that
+  share is (easy 85% or more one way, medium 68%, else hard). `sourced` is a documented rate with no case count;
+  its difficulty is how far the claim's threshold sits from the documented value (log-odds for shares, log for
+  quantities, easy from 1.2, medium from 0.5, never nearer than 0.25).
+- Cases are drawn blind to outcome inside each cell, so the bank keeps the records' own odds; the checker's z-test
+  holds the bank to that. A documented fact gives one question per bank. A case never appears twice in a bank
+  (one day, flight, country or year), and the exam pool avoids every case the starter bank used.
+- Every question's source link and name come from `data/question_tables/sources.csv`, so a question cannot cite
+  something else. The source of a documented fact is on its own row, with the page text that shows the number.
 
 ## Waiting on the player
 
@@ -324,7 +404,7 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - Every tunable number lives in a data file. Re-run `sh sim/run_all.sh` after any change (it needs the three
   helper scripts in `sim/tools/`, which are not in the public repo; copy them from the Mac folder).
 - A gate is a fixed exam, never a rolling window.
-- Only verified or computed questions count toward a gate.
+- Only recorded or sourced questions count toward a gate (every question is one or the other).
 - A prediction cannot change after it is locked.
 - A lesson fires on a pattern with a minimum sample, never on one miss.
 - The coach is called Predict everywhere the player can see it: the button says "Ask Predict". The builder's

@@ -66,6 +66,7 @@ CFG = json.loads(load("data", "scoring.json"))
 BANK = json.loads(load("app", "content", "questions", "starter.json"))["questions"]
 BY_CLAIM = {q["claim"]: q for q in BANK}
 BY_ID = {q["id"]: q for q in BANK}
+assert len(BY_CLAIM) == len(BY_ID) == len(BANK), "the bank has two questions with the same id or the same claim"
 UNITS = {r["id"]: r for r in csv.DictReader(open(os.path.join(REPO, "data", "units.csv"), encoding="utf-8"))}
 STEPS = CFG["binary"]["dial_steps"]
 RULE = CFG["binary"]["core_rule"]
@@ -298,6 +299,9 @@ def play_call(S, mode, index, size, double_tap=False):
     want_tags = [cap(q["domain"]), "Baseline" if mode == "baseline" else "Unit 1 practice"]
     if tags != want_tags:
         S.slips.append(f"tags {tags} != {want_tags}")
+    parts = page.eval_on_selector_all("#claim > span", "els => els.map(e => [e.className, e.textContent])")
+    if parts != [["lead", q["lead"]], ["ask", q["ask"]]]:
+        S.slips.append(f"the claim is not shown as the scene then the claim to judge: {parts!r}")
     step_i, side, untouched = decide(S.g, q["answer"])
     c = STEPS[step_i]
     if not untouched:
@@ -347,17 +351,23 @@ def check_reveal(S, rec, q, index, size):
     if q["fact"] not in card or ("Yes, that is true." if q["answer"] else "No, that is false.") not in card:
         slips.append(f"answer card for {rec['claim'][:40]!r}")
     kind = text(page, ".answer .shead .cap")
-    want_kind = "Computed" if q["verified"] == "computed" else "By definition" if q["verified"] == "definition" else f"Checked {q['checked']}"
+    want_kind = f"Checked {q['checked']}" if q["verified"] == "sourced" else "From the record"
     if kind != want_kind:
         slips.append(f"kind {kind!r} != {want_kind!r}")
-    if q["source"].startswith("http"):
-        link = page.query_selector(".answer a.link")
-        ok = bool(link) and link.get_attribute("href") == q["source"] and link.get_attribute("target") == "_blank" and "noopener" in (link.get_attribute("rel") or "") \
-            and f"Source: {q['src_name'] or 'link'}" in link.text_content()
-        if not ok:
-            slips.append(f"source link for {rec['claim'][:40]!r}")
-    elif "Computed:" not in card and "By definition:" not in card:
-        slips.append(f"no 'computed' or 'by definition' line for {rec['claim'][:40]!r}")
+    link = page.query_selector(".answer a.link")
+    ok = bool(link) and link.get_attribute("href") == q["source"] and link.get_attribute("target") == "_blank" and "noopener" in (link.get_attribute("rel") or "") \
+        and f"Source: {q['src_name']}" in link.text_content()
+    if not ok:
+        slips.append(f"source link for {rec['claim'][:40]!r}")
+    base_line = page.query_selector("#base-line")
+    if q["verified"] == "recorded":
+        yes = q["base"] >= 0.5
+        want_base = (f"Claims like this held in {pct(q['base'])} of the {q['n']:,} other cases. "
+                     f"The base rate alone says {'Yes' if yes else 'No'} at {pct(q['base'] if yes else 1 - q['base'])}.")
+        if not base_line or base_line.text_content() != want_base:
+            slips.append(f"base-rate line {base_line.text_content() if base_line else None!r} != {want_base!r}")
+    elif base_line:
+        slips.append(f"a documented fact shows a base-rate line it has no cases for: {base_line.text_content()!r}")
     filled = page.eval_on_selector_all(".prog i.on", "els => els.length")
     if filled != index:
         slips.append(f"progress strip {filled} != {index}")
