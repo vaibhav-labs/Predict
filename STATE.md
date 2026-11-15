@@ -1,10 +1,42 @@
 # Predict: build state
 
-Last updated: 2026-11-17 · Stage (Block 9 built on `block-9`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+Last updated: 2026-11-18 · Stage (Block 10 built on `block-10`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
 branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 10, Compete, 2026-11-18)
+
+Units 10 to 12 are built and tested. Unit 10 opens when you pass Unit 9; Units 11 and 12 open when you pass the Unit 10 exam.
+
+**Unit 10, fine grain.** A dial in steps of 1% from 50 to 99 (with -1 and +1 buttons), scored by the sharp rule (a right call at 99% earns +99, a wrong one costs 564), on questions that live in the tails (Seattle weather, flights,
+the S&P 500; 640 items, every one re-derived by `tools/check_tails.py`). After each practice call the reveal shows what the base rate alone would have scored. Fourteen calls a session; after 84 the exam is 400 fresh calls in
+sittings of 20, sealed until the last, and your average confidence must be within **1.5 points** of your hit rate (see the tolerance note below). A fail says which way and a 20-call repair drill comes first. Your level and streak still
+count fine calls under the core rule, so the sharp rule never inflates them. **Pattern L14:** if more than nine in ten of your last 100 fine calls sit on a multiple of ten, you get a lesson, a drill where multiples of ten are locked, and a re-test.
+**Several outcomes:** 60 practice questions with three or four outcomes, a percent on each adding up to 100, scored by the log rule against the record's own split (`#/multi`, on Path).
+
+**Unit 11, with the machine.** Predict's weekly review writes its own chance on world questions before they open (`forecasts` in the coach file; a forecast written after its opening day is dropped). You lock a first number with
+Predict's sealed (it is not in the page until yours is saved), see it, lock the number you stand by, and say what happened on the day. First, final and Predict's are scored by the sharp rule; the measure is 60 settled questions in which your
+final numbers score at least as well as your first ones and as Predict's alone. It needs about eight weeks of real questions: **the unattended weekly run that writes the forecasts is still untested**, and until your private repo is
+connected and it has run, Unit 11 has no questions.
+
+**Unit 12, Arena.** You copy a question from Good Judgment Open or Metaculus (only those, https only) with your forecast, the crowd's, and its closing day; after it closes you record what happened. The measure is 50 settled questions on which your
+points beat the crowd's. The numbers are your own copy, and every screen says so.
+
+**Tolerance note.** I first wrote the Unit 10 gate as "within 3 points". The simulation (`sim/fine_sim.py`, balance report 5f) showed it could never fail an overconfident player: the tail bank's hit rate is about 97% and confidence stops at
+99%, so the biggest gap is about +2.3 points. At 1.5 points a player who says the record's numbers passes about 99.8%, a mildly overconfident one 15%, a typical one 4%, and one five points shy never. A player a point shy still passes about two in
+three; I left it for real data.
+
+**Tests:** engine 207 (sharp-rule payout table, multi points for every k and percent, Unit 10 gate and repair and rust, L14 and its re-test, world states and the 60-question measure, the Arena entry checks and measure, the coach
+`forecasts` fixture), bank checks `tools/check_tails.py` and `tools/check_multi.py`, coach fixtures (the app and `tools/coach_validate.py` agree on `forecasts`), browser phases b10 (51 checks: the dial, a fine call, the sealed exam and its verdicts, L14, several
+outcomes), b11 (33: Predict's number absent from the page until your first number is saved, final starts at your first number, a closed question is never scored, the three numbers and their points on the list and the Mirror) and b12 (24: refuse
+other sites, closed questions and out-of-range numbers; markup in a title stays text; the Mirror shows the edge). A real bug found on the way: the first version of the `world` events named the question `id`, which is the event's own key, so the
+first and final numbers were treated as duplicates; the field is now `q`.
+
+**Open:** the Unit 11 and Unit 12 measures cannot be simulated; they need real weeks of settled questions. Small biases in either direction are not detected over 400 calls (balance report 5f).
+
+**Assumptions I made (see Block 10 assumptions below).**
 
 ## Report for the player (Block 9, Know yourself, 2026-11-17)
 
@@ -549,6 +581,19 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **Counter-argument items are written so the right option is computed from numbers on the item** (a base rate or count against the claim); distractors are the loud, the vague and the irrelevant. The bank is deliberately not "pick the longest".
 - **Decision card:** p 1 to 99, stakes whole numbers 1 to 1,000,000, review 7 to 365 days out. A review of "void" scores nothing; the line's value is computed the same way as the player's value. Ten reviewed cards make the Unit 9 journal row.
 - **The weekly review writes `grades`** into `coach/latest.json`; a card without a grade shows as waiting. The unattended weekly run that would write them is still untested, as with `news` in Block 8.
+
+## Block 10 assumptions
+
+- **Gate chain:** U10 opens after U9; U11 and U12 open after the U10 exam is passed (`gates.opens_after`). Practice for several outcomes opens with U10.
+- **Unit 10 numbers:** dial 50 to 99 in 1% steps; sharp rule `100 * (1 + log2 p)`; 84 practice calls (six sessions of 14) open the exam; exam 400 calls in sittings of 20, sealed; passed when |mean confidence - hit rate| is at most 0.015 (not 0.03: see the tolerance note);
+  repair drill 20 fine calls; rust: L14 returning reopens the unit. An open fine session redirects between `#/gym` and `#/fine`.
+- **Fine calls carry two scores:** `points` (sharp) and `core` (what the core rule would pay); the ledger, levels and streak read `core ?? points`.
+- **L14:** window 100 fine calls, fires above 90% on multiples of ten, drill 20 fine calls with multiples of ten locked, re-test under 70% on the next 100.
+- **Several outcomes:** 3 or 4 outcomes; whole percents, at least 1 each, sum 100; points `100 * log2(k p) / log2(k)`. Practice only: no gate, no exam, no flag. A disputed question never returns; a question asked longest ago is repeated after all 60 have been seen.
+- **Unit 11:** `forecasts` ids are lowercase letters, digits and dashes (3 to 40); `p` 0.01 to 0.99 rounded to a whole percent; `due` is 1 to 120 days after `opens`; a result without its source is dropped but the forecast stays. The player's first and final numbers are the chance of yes on the 1% dial
+  (a number under 50% is a call on No at 1 - p); Predict's number is shown rounded to a whole percent. A question left unfinalised until its day is closed and not scored. The measure is read live over 60 settled non-void questions (final >= first and final >= Predict's, in mean sharp points).
+- **Unit 12:** hosts gjopen.com, www.gjopen.com, metaculus.com and www.metaculus.com only; title 8 to 200 characters; forecasts 1 to 99; the question must close today or later when added; the player resolves it (yes, no, void) once. The measure is read live over 50 settled non-void questions: mean edge above zero.
+- **No question text from the player's own record goes to the public repo:** Unit 11 questions come from the private coach file; Arena entries stay in the player's record.
 
 ## Decisions
 
