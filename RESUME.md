@@ -37,7 +37,7 @@ Branches (`/home/claude/predict-build` in the cloud workspace; also in the bundl
 
 | Branch | What |
 |---|---|
-| `main` (= `origin/main`, `165f3c3`) | Blocks 1 and 2 plus the help screen, live |
+| `main` (= `origin/main`, `664e79b`) | Blocks 1 and 2 plus the expanded help screen (the loop diagram and curve illustration), live. Main moved from `165f3c3` after the first bundle; `block-3` to `block-10` each carry a merge of main and of the branch before it, so the PRs merge cleanly. Help-screen sections from every block live in `app/js/ui/help.js` under main's "How Predict works" title |
 | `block-3` | Block 3, the Mirror |
 | `block-4` | the rebuilt question bank and Block 4, the Lesson Engine |
 | `block-5` | Block 5, the Coach: sync to the private repo, the weekly letter and its tools. Done, all suites green |
