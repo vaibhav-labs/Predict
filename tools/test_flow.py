@@ -522,12 +522,14 @@ def phase_shell(S):
 
     page.click("#help-link")
     page.wait_for_selector(".prose")
-    check("Today's help link opens How to play, with no mention of Claude or a network request",
-          text(page, ".tt") == "How to play" and len(page.query_selector_all(".prose")) >= 5, text(page, ".tt"))
+    check("Today's help link opens How Predict works, with the loop and the calibration diagrams and no network request",
+          text(page, ".tt") == "How Predict works" and len(page.query_selector_all(".prose")) >= 5
+          and page.query_selector(".loop") is not None and page.query_selector(".curve svg") is not None,
+          text(page, ".tt"))
     audit(S, "help")
     page.click(".x")
     page.wait_for_selector("#start")
-    check("closing How to play returns to Today", page.evaluate("location.hash") in ("#/today", ""), page.evaluate("location.hash"))
+    check("closing How Predict works returns to Today", page.evaluate("location.hash") in ("#/today", ""), page.evaluate("location.hash"))
 
     for name, label in TABS:
         tab(page, name)

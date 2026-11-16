@@ -40,7 +40,7 @@ export function todayScreen(ctx) {
       h('span', { class: 'mark' }, 'Predict'),
       h('div', { class: 'topright' },
         h('span', { class: 'date' }, shortDate()),
-        h('a', { class: 'helplink', href: '#/help', id: 'help-link', 'aria-label': 'How to play and what things mean' }, icon('help', 20, 1.8)))),
+        h('a', { class: 'helplink', href: '#/help', id: 'help-link', 'aria-label': 'How Predict works' }, icon('help', 20, 1.8)))),
     ctx.updateReady ? h('div', { class: 'banner', role: 'status' }, h('span', null, 'A new version is ready.'), h('button', { type: 'button', onclick: () => location.reload() }, 'Reload')) : null,
     ctx.store.persistent ? null : h('div', { class: 'banner', role: 'alert', style: 'background:var(--seal)' }, h('span', null, 'This browser is not saving your calls. Open Predict in Safari or install it to the home screen.')),
     h('section', { class: 'hero' },

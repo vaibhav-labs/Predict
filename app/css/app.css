@@ -166,6 +166,13 @@ button,a{touch-action:manipulation}
 .curve text{font:500 11px var(--sans);fill:var(--ink2)}
 .curve text.n{font-weight:600}
 .curve text.thin{fill:#9a9384}
+.loop{display:block;width:100%;height:auto;margin-top:4px}
+.loopbox{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.loopterm{font:600 13px var(--sans);fill:var(--ink)}
+.loopnote{font:400 11px var(--sans);fill:var(--ink2)}
+.looparrow{stroke:var(--ink2);stroke-width:1.6;fill:var(--ink2)}
+.loopreturn{stroke:var(--seal);stroke-width:1.6;fill:none;stroke-dasharray:3 3}
+.loopreturnhead{fill:var(--seal)}
 .tbl{width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}
 .tbl th,.tbl td{padding:9px 0;text-align:right;border-top:1px solid var(--line);font:500 14px/1.2 var(--sans)}
 .tbl th:first-child,.tbl td:first-child{text-align:left}
