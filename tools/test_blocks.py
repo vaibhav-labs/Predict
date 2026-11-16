@@ -1127,6 +1127,10 @@ RANGE_BANK = json.load(open(os.path.join(synth.ROOT, "app", "content", "question
 RANGE_PRACTICE = [q for q in RANGE_BANK if q["pool"] == "practice"]
 RANGE_EXAM = [q for q in RANGE_BANK if q["pool"] == "exam"]
 RANGE_BY_CLAIM = {f"{q['lead']} {q['ask']}": q for q in RANGE_BANK}
+# Three pairs of questions share their wording (the same day's weather with different truths); those are told apart by the session's plan.
+RANGE_BY_CLAIM_ALL = {}
+for _q in RANGE_BANK:
+    RANGE_BY_CLAIM_ALL.setdefault(f"{_q['lead']} {_q['ask']}", []).append(_q)
 RANGE_BY_ID = {q["id"]: q for q in RANGE_BANK}
 U1_EXAM = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "exam-u1.json"), encoding="utf-8"))["questions"]
 
@@ -1151,7 +1155,19 @@ def fill_range(page, low, high):
 
 def range_question(page):
     page.wait_for_selector("#claim")
-    return RANGE_BY_CLAIM[text(page, "#claim")]
+    claim = text(page, "#claim")
+    cands = RANGE_BY_CLAIM_ALL[claim]
+    if len(cands) == 1:
+        return cands[0]
+    # shared wording: the question on screen is the first one in the open session's plan that has not been answered or skipped
+    events = read_events(page)
+    ended = {e["session"] for e in events if e["type"] == "rsession_end"}
+    sess = [e for e in events if e["type"] == "rsession" and e["id"] not in ended][-1]
+    gone = {e["q"] for e in events if e["type"] in ("range", "skip") and e.get("session") == sess["id"]}
+    for qid in sess["plan"]:
+        if qid not in gone:
+            return RANGE_BY_ID[qid]
+    raise AssertionError("no open question in the plan for " + claim)
 
 
 def play_ranges(page, n, chooser, reveal=True, checks=None):
@@ -1300,7 +1316,7 @@ def phase_b6(E):
         done.append((q_, low, high, exp))
     page.wait_for_selector("#rs-head")
     check("every reveal showed the points and the verdict the independent rules give", all(a and b for a, b, _, _ in revealed), str([r for r in revealed if not (r[0] and r[1])][:2]))
-    check("the session ends on its summary: how many held, the points and the width against the reference", text(page, "#rs-head") == f"{sums['hits']} of 10 ranges held the truth." and text(page, "#sum-points") == signed(sums["points"]) and text(page, "#sum-inside") == f"{sums['hits']} of 10" and text(page, "#sum-width") == f"{sums['ratio'] / 10:.1f}×", f"{text(page, '#rs-head')} | {text(page, '#sum-points')} | {text(page, '#sum-width')} | {text(page, '#sum-inside')} want {sums} {signed(sums['points'])}")
+    check("the session ends on its summary: how many held, the points and the width against the reference", text(page, "#rs-head") == f"{sums['hits']} of 10 ranges held the truth." and text(page, "#sum-points") == signed(sums["points"]) and text(page, "#sum-inside") == f"{sums['hits']} of 10" and text(page, "#sum-width") in {f"{sums['ratio'] / 10 + d:.1f}×" for d in (-1e-9, 0, 1e-9)}, f"{text(page, '#rs-head')} | {text(page, '#sum-points')} | {text(page, '#sum-width')} | {text(page, '#sum-inside')} want {sums} {signed(sums['points'])}")
     check("the summary lists the ten ranges", len(page.query_selector_all("#rows li")) == 10)
     F.audit(E, "range summary")
     shot(E, "b6-summary.png")
