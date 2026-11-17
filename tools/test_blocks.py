@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 9 of 10 built)", "Block 9 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 10 of 10 built)", "Block 10 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 
@@ -1127,6 +1127,10 @@ RANGE_BANK = json.load(open(os.path.join(synth.ROOT, "app", "content", "question
 RANGE_PRACTICE = [q for q in RANGE_BANK if q["pool"] == "practice"]
 RANGE_EXAM = [q for q in RANGE_BANK if q["pool"] == "exam"]
 RANGE_BY_CLAIM = {f"{q['lead']} {q['ask']}": q for q in RANGE_BANK}
+# Three pairs of questions share their wording (the same day's weather with different truths); those are told apart by the session's plan.
+RANGE_BY_CLAIM_ALL = {}
+for _q in RANGE_BANK:
+    RANGE_BY_CLAIM_ALL.setdefault(f"{_q['lead']} {_q['ask']}", []).append(_q)
 RANGE_BY_ID = {q["id"]: q for q in RANGE_BANK}
 U1_EXAM = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "exam-u1.json"), encoding="utf-8"))["questions"]
 
@@ -1151,7 +1155,19 @@ def fill_range(page, low, high):
 
 def range_question(page):
     page.wait_for_selector("#claim")
-    return RANGE_BY_CLAIM[text(page, "#claim")]
+    claim = text(page, "#claim")
+    cands = RANGE_BY_CLAIM_ALL[claim]
+    if len(cands) == 1:
+        return cands[0]
+    # shared wording: the question on screen is the first one in the open session's plan that has not been answered or skipped
+    events = read_events(page)
+    ended = {e["session"] for e in events if e["type"] == "rsession_end"}
+    sess = [e for e in events if e["type"] == "rsession" and e["id"] not in ended][-1]
+    gone = {e["q"] for e in events if e["type"] in ("range", "skip") and e.get("session") == sess["id"]}
+    for qid in sess["plan"]:
+        if qid not in gone:
+            return RANGE_BY_ID[qid]
+    raise AssertionError("no open question in the plan for " + claim)
 
 
 def play_ranges(page, n, chooser, reveal=True, checks=None):
@@ -1300,7 +1316,7 @@ def phase_b6(E):
         done.append((q_, low, high, exp))
     page.wait_for_selector("#rs-head")
     check("every reveal showed the points and the verdict the independent rules give", all(a and b for a, b, _, _ in revealed), str([r for r in revealed if not (r[0] and r[1])][:2]))
-    check("the session ends on its summary: how many held, the points and the width against the reference", text(page, "#rs-head") == f"{sums['hits']} of 10 ranges held the truth." and text(page, "#sum-points") == signed(sums["points"]) and text(page, "#sum-inside") == f"{sums['hits']} of 10" and text(page, "#sum-width") == f"{sums['ratio'] / 10:.1f}×", f"{text(page, '#rs-head')} | {text(page, '#sum-points')} | {text(page, '#sum-width')} | {text(page, '#sum-inside')} want {sums} {signed(sums['points'])}")
+    check("the session ends on its summary: how many held, the points and the width against the reference", text(page, "#rs-head") == f"{sums['hits']} of 10 ranges held the truth." and text(page, "#sum-points") == signed(sums["points"]) and text(page, "#sum-inside") == f"{sums['hits']} of 10" and text(page, "#sum-width") in {f"{sums['ratio'] / 10 + d:.1f}×" for d in (-1e-9, 0, 1e-9)}, f"{text(page, '#rs-head')} | {text(page, '#sum-points')} | {text(page, '#sum-width')} | {text(page, '#sum-inside')} want {sums} {signed(sums['points'])}")
     check("the summary lists the ten ranges", len(page.query_selector_all("#rows li")) == 10)
     F.audit(E, "range summary")
     shot(E, "b6-summary.png")
@@ -2401,6 +2417,441 @@ def phase_b9(E):
     E.ctx.close()
 
 
+TAILS = {q["claim"]: q for q in json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "tails.json"), encoding="utf-8"))["questions"]}
+
+
+def set_dial(page, k):
+    page.evaluate("(v) => { const i = document.getElementById('dial'); i.value = String(v); i.dispatchEvent(new Event('input')); }", k)
+
+
+def fine_call_ui(page, c_pct, truthful=True, side=None):
+    """Answer the fine question on screen: the side the base rate favours (or `side`), at c_pct percent, by the dial itself."""
+    page.wait_for_selector("#claim")
+    q = TAILS[text(page, "#claim")]
+    s = side or ("yes" if q["base"] >= 0.5 else "no")
+    set_dial(page, (c_pct - 50) * (1 if s == "yes" else -1))
+    page.wait_for_timeout(450)
+    page.click("#lock")
+    return q, s
+
+
+def phase_b10(E):
+    """Unit 10: the 1% dial under the sharp rule, tail questions, the sealed 400-call exam, the round-number drill (L14)."""
+    # -- closed until Unit 9 is passed ----------------------------------------------------------------------------------------
+    page = open_app(E, "2026-11-25", synth.u8_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b10_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#needs, .stat")
+    check("before Unit 9 is passed there is no Unit 10 card on Today", page.query_selector("#u10-card") is None)
+    go(page, "#/fine")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the fine-grain address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    E.ctx.close()
+
+    # -- open: Today, Path, the dial, one call --------------------------------------------------------------------------------
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u10-card")
+    check("Unit 10 is open: Today has its card with 0 of 84", "0 of 84" in text(page, "#u10-count"), text(page, "#u10-card")[:120])
+    F.audit(E, "today with Unit 10")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check("the Path shows Unit 10 with three lesson cards, practice and an exam not open yet", len(page.query_selector_all("#fine-lessons-card .lesson-link")) == 3 and text(page, "#pgate-U10-status") == "Not open yet" and page.is_visible("#fine-practice"), text(page, "#pgate-U10-card")[:100])
+    F.audit(E, "path with Unit 10")
+    go(page, "#/lesson/sharp")
+    page.wait_for_selector("#lesson-title")
+    body = text(page, "main")
+    check("the sharp-rule card gives the payout table's own numbers (99% right +99, 99% wrong -564)", "99" in body and "564" in body and "Unit 10" in text(page, ".eyebrow"), body[:160])
+    F.audit(E, "sharp lesson")
+    go(page, "#/fine")
+    page.wait_for_selector("#dial")
+    mn, mx = page.get_attribute("#dial", "min"), page.get_attribute("#dial", "max")
+    check("the dial has 1% steps: 49 on each side of a toss-up", (mn, mx) == ("-49", "49") and page.query_selector("#dial-up") is not None and page.query_selector("#dial-down") is not None, str((mn, mx)))
+    check("a fine session opens: 1 of 14, tagged Unit 10 practice", text(page, ".cnt") == "1 of 14" and "Unit 10 practice" in text(page, "#mode-tag"), text(page, ".cnt"))
+    F.audit(E, "fine question")
+    shot(E, "b10-question.png")
+    for _ in range(13):
+        page.click("#dial-up")
+    check("thirteen taps on +1 from a toss-up make 63% Yes, and the payouts shown are the sharp rule's", "63%" in text(page, "main") and signed(synth.sharp_pts(0.63, True)) in text(page, ".pay") and signed(synth.sharp_pts(0.63, False)) in text(page, ".pay"), text(page, ".pay"))
+    page.wait_for_timeout(450)
+    page.click("#lock")
+    page.wait_for_selector("#verdict", timeout=5000)
+    ev = of_type(page, "call")[-1]
+    check("the call is saved on the 1% dial: fine, unit U10, 63%, sharp points, core points and the log rule", ev.get("fine") is True and ev["unit"] == "U10" and near(ev["c"], 0.63) and ev["rule"] == "log_points" and ev["points"] == synth.sharp_pts(0.63, ev["hit"]) and ev["core"] == synth.pts(0.63) if ev["hit"] else ev["core"] == synth.pts(1 - 0.63), str(ev))
+    check("the reveal shows the sharp points and what the base rate alone would have scored", text(page, "#points") == signed(ev["points"]) and "base rate" in text(page, "#base-compare"), text(page, "#base-compare"))
+    F.audit(E, "fine reveal")
+    shot(E, "b10-reveal.png")
+    for i in range(13):
+        page.wait_for_timeout(450)
+        page.click("#next")
+        page.wait_for_selector("#claim, #sum-points", timeout=5000)
+        if page.query_selector("#sum-points"):
+            break
+        fine_call_ui(page, 96 if i % 2 else 97)
+        page.wait_for_selector("#verdict", timeout=5000)
+    page.wait_for_timeout(450)
+    if page.query_selector("#next"):
+        page.click("#next")
+    page.wait_for_selector("#sum-points", timeout=8000)
+    sess_calls = [c for c in of_type(page, "call") if c.get("fine")]
+    total = sum(c["points"] for c in sess_calls)
+    check("the session summary is in sharp points and counts the multiples of ten", len(sess_calls) == 14 and text(page, "#sum-points") == signed(total) and re.fullmatch(r"\d+ of 14", text(page, "#sum-round")), f"{text(page, '#sum-points')} vs {signed(total)}")
+    F.audit(E, "fine summary")
+    go(page, "#/today")
+    page.wait_for_selector("#u10-card")
+    check("Today counts the 14 fine calls toward the 84", "14 of 84" in text(page, "#u10-count"), text(page, "#u10-count"))
+    stat = text(page, "#stat-points")
+    core_sum = sum(c["core"] for c in of_type(page, "call") if c.get("mode") in ("practice", "baseline", "exam", "drill") and c.get("core") is not None)
+    check("the points on Today never swing on the sharp rule: fine calls count at the core rule", abs(int(stat.replace("\u2212", "-").replace("+", "")) - sum((c["core"] if c.get("fine") else c["points"]) for c in of_type(page, "call"))) <= 1, f"{stat}")
+    E.ctx.close()
+
+    # -- the exam: 84 practice calls made; sittings of 20, sealed; the last sitting gives the verdict -------------------------
+    r = synth.u10_ready_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_ready.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check("with 84 practice calls the exam card says Ready", text(page, "#pgate-U10-status") == "Ready" and page.query_selector("#fine-exam-start") is not None, text(page, "#pgate-U10-card")[:120])
+    go(page, "#/fine/exam")
+    page.wait_for_selector("#dial")
+    check("an exam sitting is sealed: sitting 1 of 20, no result shown", "Exam" in text(page, "#mode-tag") and "sitting 1 of 20" in text(page, "#mode-tag") and text(page, ".cnt") == "1 of 20")
+    q, _ = fine_call_ui(page, 96)
+    page.wait_for_function("document.querySelector('.cnt') && document.querySelector('.cnt').textContent === '2 of 20'", timeout=5000)
+    check("an exam call shows no reveal: the next question follows at once", page.query_selector("#verdict") is None and text(page, ".cnt") == "2 of 20")
+    for i in range(19):
+        page.wait_for_function("document.querySelector('.cnt') && document.querySelector('.cnt').textContent === '%d of 20' || location.hash.startsWith('#/fexam/')" % (i + 2), timeout=5000)
+        if page.evaluate("location.hash").startswith("#/fexam/"):
+            break
+        fine_call_ui(page, 96)
+        page.wait_for_timeout(120)
+    page.wait_for_selector("#fexam-progress", timeout=8000)
+    check("after 20 calls the exam screen shows only the sealed progress: 20 of 400", "20 of 400" in text(page, "#fexam-progress") and page.query_selector("#fexam-verdict") is None, text(page, "#fexam-progress"))
+    exam_calls = [c for c in of_type(page, "call") if c.get("mode") == "exam" and c.get("unit") == "U10"]
+    check("the 20 exam calls are saved on the fine dial and carry the exam id", len(exam_calls) == 20 and all(c.get("fine") and c.get("exam") for c in exam_calls), str([(c.get("mode"), c.get("fine"), c.get("exam")) for c in exam_calls][:3]) + str(len(exam_calls)))
+    E.ctx.close()
+    verdict_player(E, True)
+    verdict_player(E, False)
+
+    # -- L14: the round-number habit and its drill ------------------------------------------------------------------------------
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    qs = synth._tails("practice")[:100]
+    day0 = "2026-09-20"
+    for k in range(5):
+        sub = qs[k * 20:(k + 1) * 20]
+        synth.fine_session(r, synth.add_days(day0, k), 0, sub, [[0.9, 0.8, 0.7, 0.6, 0.5][j % 5] for j in range(20)], honest=True)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_l14.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    page.wait_for_selector("#patterns")
+    check("100 fine calls on multiples of ten open the round-number pattern", "Round-number habit" in text(page, "#patterns"), text(page, "#patterns")[:120])
+    flag = [e for e in read_events(page) if e["type"] == "flag" and e.get("trigger") == "L14" and e.get("state") == "open"]
+    check("one L14 flag was written, with the share in its evidence", len(flag) == 1 and flag[0]["evidence"]["share"] == 1.0, str(flag[:1]))
+    go(page, f"#/flag/{flag[0]['id']}")
+    page.wait_for_selector("main")
+    body = text(page, "main")
+    check("the flag screen says what it saw and what the re-tests ask", "multiple of ten" in body and "100 calls on the 1% dial" in body, body[:200])
+    F.audit(E, "L14 flag")
+    go(page, f"#/fine/drill-{flag[0]['id']}")
+    page.wait_for_selector("#dial")
+    check("the drill is 20 calls and tagged Drill", text(page, ".cnt") == "1 of 20" and "Drill" in text(page, "#mode-tag"))
+    for _ in range(10):
+        page.click("#dial-up")
+    check("a multiple of ten (60%) is locked in the drill: the hint shows and Lock waits", page.is_visible("#dial-hint") and page.is_disabled("#lock"), text(page, "#dial-hint"))
+    page.click("#dial-up")
+    check("61% is allowed", not page.is_disabled("#lock") and not page.is_visible("#dial-hint"))
+    F.audit(E, "L14 drill")
+    E.ctx.close()
+
+    # -- several outcomes: three or four chances adding up to 100, scored by the log rule -------------------------------------
+    import math as _m
+    multi = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "multi.json"), encoding="utf-8"))["questions"]
+    by_id = {q["id"]: q for q in multi}
+    r = synth.u9_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, "b10_multi.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#multi-card")
+    check("the Path has the several-outcomes card with 0 answered", "0 answered" in text(page, "#multi-count"), text(page, "#multi-card")[:100])
+    go(page, "#/multi")
+    page.wait_for_selector("#multi-0")
+    qid = None
+    lead = text(page, "#multi-lead")
+    q = next(x for x in multi if x["lead"] == lead)
+    k = len(q["outcomes"])
+    check("a question shows its lead, its ask and one box for each outcome", k in (3, 4) and len(page.query_selector_all("input.field.num")) == k and text(page, "#multi-ask") == q["ask"], lead)
+    check("Lock waits while the boxes are empty", page.is_disabled("#multi-lock"))
+    F.audit(E, "multi question")
+    shot(E, "b10-multi.png")
+    # 40/30/20: a three-outcome sum of 90 is refused with the total shown; a four-outcome pad is filled to reach 100
+    base = [60, 30, 10] if k == 3 else [50, 25, 15, 10]
+    for i, v in enumerate(base[:-1]):
+        page.fill(f"#multi-{i}", str(v))
+    page.fill(f"#multi-{k - 1}", str(base[-1] - 5))
+    check("a total of 95 shows the total and an error and keeps Lock off", text(page, "#multi-total") == "95%" and "add up" in text(page, "#multi-msg") and page.is_disabled("#multi-lock"), text(page, "#multi-msg"))
+    page.fill(f"#multi-{k - 1}", "0")
+    page.fill(f"#multi-0", str(base[0] + base[-1]))
+    check("an outcome at 0% is refused", "at least 1" in text(page, "#multi-msg") and page.is_disabled("#multi-lock"), text(page, "#multi-msg"))
+    for i, v in enumerate(base):
+        page.fill(f"#multi-{i}", str(v))
+    check("a total of exactly 100 turns the total to 100% and opens Lock", text(page, "#multi-total") == "100%" and not page.is_disabled("#multi-lock"))
+    page.wait_for_timeout(450)
+    page.click("#multi-lock")
+    page.wait_for_selector("#multi-result", timeout=5000)
+    ev = of_type(page, "multi")[-1]
+    want = round(100 * _m.log2(k * base[q["truth"]] / 100) / _m.log2(k))
+    wref = round(100 * _m.log2(k * max(q["ref"][q["truth"]], 0.01)) / _m.log2(k))
+    check("the answer is saved as a multi event with the percents, the truth and both scores", ev["q"] == q["id"] and ev["p"] == base and ev["truth"] == q["truth"] and ev["points"] == want and abs(ev["refPoints"] - wref) <= 1 and ev["unit"] == "U10", str(ev))
+    check("the reveal shows your points, the record's points and the truth row", text(page, "#multi-points") == signed(want) and "what happened" in text(page, f"#multi-row-{q['truth']}") and "record" in text(page, "#multi-row-0"), text(page, "#multi-result")[:160])
+    check("the other rows do not say what happened", all("what happened" not in text(page, f"#multi-row-{i}") for i in range(k) if i != q["truth"]))
+    F.audit(E, "multi reveal")
+    page.wait_for_timeout(450)
+    page.click("#multi-next")
+    page.wait_for_selector("#multi-0", timeout=5000)
+    check("the next question is a different one", text(page, "#multi-lead") != lead)
+    go(page, "#/path")
+    page.wait_for_selector("#multi-card")
+    check("the card now counts one answer and gives the average", "1 answered" in text(page, "#multi-count") and "average" in text(page, "#multi-mean"), text(page, "#multi-card")[:120])
+    E.ctx.close()
+
+
+def verdict_player(E, want_pass):
+    """The last sitting of the 400-call exam: 380 sealed calls are on file, the player makes 20 more, and the verdict follows."""
+    r = synth.u10_ready_player(U1_EXAM, start=START)
+    pool = synth._tails("exam")
+    att = r._add("exam", "2026-11-12", 0, state="start", unit="U10", n=400)["id"]
+    for k in range(19):
+        sub = pool[k * 20:(k + 1) * 20]
+        sid = r._add("session", synth.add_days("2026-11-12", k // 3), 10 + k * 40, mode="exam", unit="U10", fine=True, size=20, exam=att, n=k + 1, of=20, plan=[q["id"] for q in sub])["id"]
+        for j, q in enumerate(sub):
+            base_side = "yes" if q["base"] >= 0.5 else "no"
+            side = base_side if want_pass or (k * 20 + j) % 8 else ("no" if base_side == "yes" else "yes")
+            synth.fine_call(r, sid, synth.add_days("2026-11-12", k // 3), 11 + k * 40 + j, q, 0.96, side, mode="exam", exam=att)
+        r._add("session_end", synth.add_days("2026-11-12", k // 3), 12 + k * 40 + 20, session=sid)
+    page = open_app(E, "2026-11-25", r.write(os.path.join(E.tmp, f"b10_verdict_{want_pass}.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    check(f"{'pass' if want_pass else 'fail'} run: the exam shows 380 of 400 done, in progress", text(page, "#pgate-U10-status") == "In progress" and "380 of 400" in text(page, "#pgate-U10-card"), text(page, "#pgate-U10-card")[:120])
+    go(page, "#/fine/exam")
+    page.wait_for_selector("#dial")
+    for i in range(20):
+        page.wait_for_function("document.querySelector('#claim') !== null", timeout=5000)
+        fine_call_ui(page, 96)
+        page.wait_for_timeout(150)
+    page.wait_for_selector("#fexam-verdict", timeout=15000)
+    v = text(page, "#fexam-verdict")
+    res = [e for e in read_events(page) if e["type"] == "exam" and e.get("state") == "result" and e.get("unit") == "U10"]
+    check(f"the verdict is {'Passed' if want_pass else 'Not passed'} and is written once", len(res) == 1 and res[0]["pass"] is want_pass and v.startswith("Passed" if want_pass else "Not passed") and res[0]["n"] == 400, f"{v} / {res[0] if res else None}")
+    conf, hit = res[0]["meanConf"], res[0]["hitRate"]
+    check("the verdict shows the average confidence and the hit rate that decided it", text(page, "#fexam-conf") == pct(conf) and text(page, "#fexam-hit") == pct(hit), f"{text(page, '#fexam-conf')} {text(page, '#fexam-hit')}")
+    F.audit(E, f"fine exam verdict {want_pass}")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U10-card")
+    status = text(page, "#pgate-U10-status")
+    check("the Path shows Passed after a pass and Repair first after a fail", status == ("Passed" if want_pass else "Repair first"), status)
+    if not want_pass:
+        check("a fail says which way: too sure", "too sure" in text(page, "#pgate-U10-card"), text(page, "#pgate-U10-card")[:140])
+        go(page, "#/fine/repair")
+        page.wait_for_selector("#dial")
+        check("the repair drill is 20 calls and tagged Repair drill", text(page, ".cnt") == "1 of 20" and "Repair drill" in text(page, "#mode-tag"))
+    E.ctx.close()
+def phase_b12(E):
+    """Unit 12, Arena: public questions on Good Judgment Open and Metaculus, your forecast and the crowd's, settled and scored against each other."""
+    import math as _m
+    page = open_app(E, "2026-12-01", synth.u10_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b12_closed.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U12-card")
+    check("before the Unit 10 exam is passed the Path says the Arena is not open", text(page, "#pgate-U12-status") == "Not open yet", text(page, "#pgate-U12-card")[:100])
+    go(page, "#/arena")
+    page.wait_for_function("location.hash === '#/path'", timeout=5000)
+    check("opening the Arena while closed sends you back to the Path", page.evaluate("location.hash") == "#/path")
+    E.ctx.close()
+
+    r = synth.u10_passed_player(U1_EXAM, start=START)
+    r._add("arena", "2026-11-20", 10, state="add", title="Will the benchmark index close above its November level?", url="https://www.metaculus.com/questions/9001/index-close/", platform="Metaculus", mine=0.2, crowd=0.4, closes="2026-11-30")
+    page = open_app(E, "2026-12-01", r.write(os.path.join(E.tmp, "b12_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u12-card")
+    check("the Arena is open: Today says one public question has closed", "1 closed" in text(page, "#u12-count"), text(page, "#u12-card")[:120])
+    F.audit(E, "today with Unit 12")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U12-card")
+    check("the Path shows the Arena collecting, 0 of 50", text(page, "#pgate-U12-status") == "Collecting" and "1 of 50" not in text(page, "#pgate-U12-card") and "0 of 50" in text(page, "#pgate-U12-card"), text(page, "#pgate-U12-card")[:120])
+    go(page, "#/arena")
+    page.wait_for_selector("#arena-form")
+    check("the page opens with the measure at 0 of 50, the closed question to settle and the form", "0 of 50" in text(page, "#arena-count") and page.query_selector("#arena-due") is not None and page.is_disabled("#arena-add"), text(page, "main")[:160])
+    F.audit(E, "arena")
+    shot(E, "b12-arena.png")
+    # a bad link, a closed question, a number out of range: each refused in words
+    page.fill("#arena-title", "Will the thing be true by the year end?")
+    page.fill("#arena-url", "https://example.org/q/1")
+    page.fill("#arena-mine", "40")
+    page.fill("#arena-crowd", "55")
+    page.fill("#arena-closes", "2026-12-31")
+    check("a link that is not Good Judgment Open or Metaculus is refused in words", "Good Judgment Open or Metaculus" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-url", "https://www.gjopen.com/questions/2500-the-thing")
+    page.fill("#arena-closes", "2026-11-30")
+    check("a question that has already closed is refused", "already closed" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-closes", "2026-12-31")
+    page.fill("#arena-mine", "100")
+    check("a forecast of 100 is refused", "1 to 99" in text(page, "#arena-msg") and page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-mine", "40")
+    check("a good entry names its platform and opens the button", text(page, "#arena-msg") == "On Good Judgment Open." and not page.is_disabled("#arena-add"), text(page, "#arena-msg"))
+    page.fill("#arena-title", "<img src=x onerror=alert(1)> Will the thing be true by the year end?")
+    page.wait_for_timeout(450)
+    page.click("#arena-add")
+    page.wait_for_selector("#arena-open", timeout=5000)
+    adds = [e for e in of_type(page, "arena") if e["state"] == "add"]
+    check("the entry is saved with the platform, both numbers and the closing day", len(adds) == 2 and adds[-1]["platform"] == "Good Judgment Open" and near(adds[-1]["mine"], 0.4) and near(adds[-1]["crowd"], 0.55) and adds[-1]["closes"] == "2026-12-31", str(adds[-1:]))
+    check("a title with markup is shown as text and never built into the page", page.query_selector("#arena-open img") is None and "<img" in text(page, "#arena-open"), text(page, "#arena-open")[:100])
+    check("question links open in a new tab with no opener", page.get_attribute("#arena-open a", "rel") == "noopener noreferrer" and page.get_attribute("#arena-open a", "target") == "_blank")
+    # settle the due one: you said 20, the crowd 40, it did not happen
+    due = page.query_selector("#arena-due")
+    page.click("#arena-due [data-value=no]")
+    page.wait_for_timeout(450)
+    page.click("#arena-due button[data-save]")
+    page.wait_for_selector("#arena-resolved", timeout=5000)
+    res = [e for e in of_type(page, "arena") if e["state"] == "resolve"]
+    check("the result is saved against the item", len(res) == 1 and res[0]["outcome"] == "no" and res[0]["item"] == adds[0]["id"], str(res))
+    pt = lambda q: round(100 * (1 + _m.log2(q)))
+    mine, crowd = pt(0.8), pt(0.6)
+    row = text(page, "#arena-resolved")
+    check("the settled row shows both numbers and the three scores", all(x in row for x in ("20%", "40%", signed(mine), signed(crowd), signed(mine - crowd))), row)
+    check("the measure reads 1 of 50 with the averages and 1 ahead", "1 of 50" in text(page, "#arena-count") and signed(mine - crowd) in text(page, "#arena-means") and "ahead on 1 of 1" in text(page, "#arena-means"), text(page, "#arena-gate"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#arena-record")
+    tbl = text(page, "#ar-table")
+    check("the Mirror has the Arena rows over the one settled question, flagged as self-reported and a hint", text(page, "#ar-n") == "n=1" and signed(mine) in tbl and signed(crowd) in tbl and signed(mine - crowd) in tbl and "yourself" in text(page, "#arena-record") and "hint" in text(page, "#arena-record"), tbl)
+    F.audit(E, "mirror with Unit 12")
+    go(page, "#/help")
+    page.wait_for_selector("main")
+    body = text(page, "main")
+    check("How to play explains Units 10 to 12: the 1% dial, several outcomes, the round-number habit, the machine and the Arena", all(x in body for x in ("Competing (Units 10 to 12)", "Fine grain (Unit 10)", "Several outcomes", "Round-number habit", "With the machine (Unit 11)", "Arena (Unit 12)")), body[:80])
+    F.audit(E, "help with Units 10 to 12")
+    check("the app never said Claude on an Arena screen", "claude" not in page.content().lower())
+    E.ctx.close()
+
+
+def put_meta(page, key, value):
+    """Write a value into the phone's `meta` store (how the weekly review's file sits in the cache) straight through IndexedDB."""
+    page.evaluate("""([k, v]) => new Promise((res, rej) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const tx = r.result.transaction('meta', 'readwrite'); tx.objectStore('meta').put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); }; r.onerror = () => rej(r.error); })""", [key, value])
+
+
+def phase_b11(E):
+    """Unit 11, with the machine: Predict's forecast stays sealed until your first number is locked; first, final and Predict are scored three ways."""
+    import math as _m
+    # -- closed until the Unit 10 exam is passed -------------------------------------------------------------------------------
+    page = open_app(E, "2026-12-01", synth.u10_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b11_closed.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U11-card")
+    check("before the Unit 10 exam is passed the Path says Unit 11 is not open", text(page, "#pgate-U11-status") == "Not open yet", text(page, "#pgate-U11-card")[:100])
+    go(page, "#/world")
+    page.wait_for_function("location.hash === '#/path'", timeout=5000)
+    check("opening the list while closed sends you back to the Path", page.evaluate("location.hash") == "#/path")
+    E.ctx.close()
+
+    # -- open: a record with one question already finalised and due, and the review's file in the cache ---------------------------
+    def fc(id_, text_, opens, due, p, **more):
+        return {"text": text_, "p": p, "written": "2026-11-15", "opens": opens, "due": due, "ref": f"Reference class for {id_}: about {int(p * 100)} in 100", "result": None, "source": None, "checked": None, **more}
+    raw = {"version": 1, "week": "2026-W48", "written": "2026-11-30", "forecasts": {
+        "w-a": {"text": "By 20 December, will the pilot city report more than 3 cm of snow in a single day?", "p": 0.37, "written": "2026-11-15", "opens": "2026-11-30", "due": "2026-12-20", "ref": "Winters since 1990 in this city: 37 days in 100 of this kind turned out that way"},
+        "w-b": {"text": "A question that has not opened yet", "p": 0.81, "written": "2026-11-15", "opens": "2026-12-05", "due": "2026-12-30", "ref": "Hidden reference class"},
+        "w-c": {"text": "A question that closed before you forecast it", "p": 0.66, "written": "2026-11-15", "opens": "2026-11-20", "due": "2026-11-28", "ref": "Closed reference class"},
+        "w-e": {"text": "By 29 November, will the central bank have changed its rate?", "p": 0.3, "written": "2026-11-15", "opens": "2026-11-20", "due": "2026-11-29", "ref": "Meetings since 2000: 30 in 100 moved", "result": "no", "source": "https://example.org/rates", "checked": "2026-11-30"}}}
+    r = synth.u10_passed_player(U1_EXAM, start=START)
+    r._add("world", "2026-11-22", 10, state="first", q="w-e", text=raw["forecasts"]["w-e"]["text"], due="2026-11-29", opens="2026-11-20", p=0.55, ms=9000)
+    r._add("world", "2026-11-22", 12, state="final", q="w-e", p=0.45, machine=0.3, machineWritten="2026-11-15", machineRef=raw["forecasts"]["w-e"]["ref"], ms=9000)
+    page = open_app(E, "2026-12-01", r.write(os.path.join(E.tmp, "b11_open.jsonl")))
+    put_meta(page, "coach", {"raw": raw, "fetched": "2026-11-30T20:00:00Z"})
+    page.reload()
+    page.wait_for_selector(".nav")
+    go(page, "#/today")
+    page.wait_for_selector("#u11-card")
+    check("Unit 11 is open: Today has its card with two questions waiting", "2 waiting" in text(page, "#u11-count"), text(page, "#u11-card")[:120])
+    F.audit(E, "today with Unit 11")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U11-card")
+    check("the Path shows Unit 11 collecting: 1 of 60 is not yet settled, 0 of 60", text(page, "#pgate-U11-status") == "Collecting" and "0 of 60" in text(page, "#pgate-U11-card"), text(page, "#pgate-U11-card")[:120])
+    check("Predict's numbers are nowhere on the Today or the Path screens", all(x not in page.content() for x in ("37%", "81%", "66%")))
+    go(page, "#/world")
+    page.wait_for_selector("#world-gate")
+    check("the list shows the measure at 0 of 60 and groups: one to say what happened, one open", "0 of 60" in text(page, "#world-count") and page.query_selector("#world-due") is not None and page.query_selector("#world-open") is not None, text(page, "main")[:200])
+    body = page.content()
+    check("a question that has not opened is not listed and its number is not in the page", "has not opened yet" not in body and "81%" not in body and "0.81" not in body)
+    check("a question that closed before it was forecast is not offered", "closed before you forecast" not in text(page, "main"))
+    F.audit(E, "world list")
+    shot(E, "b11-list.png")
+    go(page, "#/world/w-b")
+    page.wait_for_function("location.hash === '#/world'", timeout=5000)
+    check("a question that has not opened cannot be reached by its address", page.evaluate("location.hash") == "#/world")
+
+    # -- the sealed first number ----------------------------------------------------------------------------------------------
+    go(page, "#/world/w-a")
+    page.wait_for_selector("#world-sealed")
+    html = page.content()
+    check("before the first number is locked Predict's number is not in the page at all", "37%" not in html and "0.37" not in html and page.query_selector("#world-machine") is None and "37 days in 100" not in html, "")
+    check("the sealed card says so", "Sealed" in text(page, "#world-sealed"))
+    F.audit(E, "world sealed")
+    shot(E, "b11-sealed.png")
+    for _ in range(10):
+        page.click("#dial-up")
+    check("ten taps on +1 make 60% Yes on the 1% dial", "60%" in text(page, "main"), text(page, "main")[:120])
+    page.wait_for_timeout(450)
+    page.click("#world-lock")
+    page.wait_for_selector("#world-machine", timeout=5000)
+    first = [e for e in of_type(page, "world") if e["state"] == "first" and e["q"] == "w-a"]
+    check("the first number is saved before anything of Predict's is shown", len(first) == 1 and near(first[0]["p"], 0.60) and first[0]["due"] == "2026-12-20" and "machine" not in first[0], str(first))
+    check("now Predict's number and its reason are shown beside the player's own", text(page, "#world-machine") == "37%" and text(page, "#world-first") == "60%" and "37 days in 100" in text(page, "#world-ref"), text(page, "#world-numbers"))
+    check("the second dial starts at the first number", "60%" in text(page, ".big"), text(page, ".big"))
+    F.audit(E, "world reveal")
+    shot(E, "b11-reveal.png")
+    # leaving and coming back lands on the same step: the first number is kept
+    go(page, "#/world")
+    page.wait_for_selector("#world-reveal")
+    check("a question with a first number waits under Finalise", "See Predict" in text(page, "#world-reveal"), text(page, "#world-reveal")[:100])
+    go(page, "#/world/w-a")
+    page.wait_for_selector("#world-final")
+    for _ in range(20):
+        page.click("#dial-down")
+    check("twenty taps on -1 from 60% Yes make 40% Yes (a call of 60% on No)", "40%" in text(page, ".big") or "No · 60%" in text(page, ".big"), text(page, ".big"))
+    page.wait_for_timeout(450)
+    page.click("#world-final")
+    page.wait_for_function("location.hash === '#/world'", timeout=5000)
+    fin = [e for e in of_type(page, "world") if e["state"] == "final" and e["q"] == "w-a"]
+    check("the final number is saved with the number the player saw", len(fin) == 1 and near(fin[0]["p"], 0.40) and near(fin[0]["machine"], 0.37) and fin[0]["machineWritten"] == "2026-11-15", str(fin))
+    page.wait_for_selector("#world-waiting")
+    check("the question now waits for its day", "Locked" in text(page, "#world-waiting") and "20 Dec 2026" in text(page, "#world-waiting"), text(page, "#world-waiting")[:120])
+    check("a second first number cannot be written: the question no longer offers one", page.query_selector("#world-lock") is None)
+
+    # -- a closed question ---------------------------------------------------------------------------------------------------
+    go(page, "#/world/w-c")
+    page.wait_for_selector("#world-wait")
+    check("a question that closed before you forecast it says so and shows no number of Predict's", "not scored" in text(page, "#world-wait") and "66%" not in page.content())
+
+    # -- settling: Predict's reading with its source, the player confirms --------------------------------------------------------
+    go(page, "#/world/w-e")
+    page.wait_for_selector("#world-checked")
+    check("a due question shows what Predict read, with its page, and asks the player", "it did not happen" in text(page, "#world-checked") and page.get_attribute("#world-checked a", "href") == "https://example.org/rates" and page.is_disabled("#world-resolve"), text(page, "#world-checked"))
+    F.audit(E, "world settle")
+    page.click("#world-outcome [data-value=no]")
+    page.wait_for_timeout(450)
+    page.click("#world-resolve")
+    page.wait_for_selector("#world-done", timeout=5000)
+    res = [e for e in of_type(page, "world") if e["state"] == "resolve"]
+    check("the result is saved as confirmed from Predict's page", len(res) == 1 and res[0]["outcome"] == "no" and res[0]["via"] == "predict" and res[0]["source"] == "https://example.org/rates", str(res))
+    pt = lambda q: round(100 * (1 + _m.log2(q)))
+    want = (pt(0.45), pt(0.55), pt(0.70))  # first 55% yes (45% on no), final 45% yes (55% on no), Predict 30% yes (70% on no)
+    done = text(page, "#world-done")
+    check("the settled row shows the three numbers and their sharp points", all(x in done for x in ("55%", "45%", "30%", signed(want[0]), signed(want[1]), signed(want[2]))), done)
+    go(page, "#/world")
+    page.wait_for_selector("#world-gate")
+    check("the measure now reads 1 of 60 with the three averages", "1 of 60" in text(page, "#world-count") and signed(want[0]) in text(page, "#world-means") and signed(want[2]) in text(page, "#world-means"), text(page, "#world-gate"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#world-record")
+    tbl = text(page, "#wr-table")
+    check("the Mirror has the three averages over the one settled question, flagged as a hint", text(page, "#wr-n") == "n=1" and signed(want[0]) in tbl and signed(want[1]) in tbl and signed(want[2]) in tbl and "hint" in text(page, "#world-record"), tbl)
+    F.audit(E, "mirror with Unit 11")
+    check("the app never said Claude on a Unit 11 screen", "claude" not in page.content().lower())
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -2416,6 +2867,9 @@ PHASES = [
     ("b7", "Block 7: Fermi, base rates, chains", phase_b7),
     ("b8", "Block 8: updating", phase_b8),
     ("b9", "Block 9: knowing yourself", phase_b9),
+    ("b10", "Block 10: fine grain", phase_b10),
+    ("b11", "Block 10: with the machine", phase_b11),
+    ("b12", "Block 10: arena", phase_b12),
 ]
 
 

@@ -1,109 +1,170 @@
 {
- "version": 1,
- "week": "2026-W46",
- "written": "2026-11-15",
- "letter": {
-  "title": "A steadier week",
-  "paragraphs": [
-   "You made 90 calls and were close to calibrated at 70 to 80%.",
-   "Your 90% calls hit 78% of the time: that is the one to watch."
+  "version": 1,
+  "week": "2026-W46",
+  "written": "2026-11-15",
+  "letter": {
+    "title": "A steadier week",
+    "paragraphs": [
+      "You made 90 calls and were close to calibrated at 70 to 80%.",
+      "Your 90% calls hit 78% of the time: that is the one to watch."
+    ],
+    "sources": [
+      {
+        "label": "BLS business survival",
+        "url": "https://www.bls.gov/bdm/us_age_naics_00_table7.txt"
+      },
+      {
+        "label": "x",
+        "url": "http://insecure.example.com"
+      }
+    ]
+  },
+  "drills": [
+    {
+      "title": "Wheel check at 90%",
+      "text": "Before each 90% call, ask whether you would bet on a wheel that wins nine times in ten."
+    },
+    {
+      "title": "Ask Claude",
+      "text": "nope"
+    }
   ],
-  "sources": [
-   {
-    "label": "BLS business survival",
-    "url": "https://www.bls.gov/bdm/us_age_naics_00_table7.txt"
-   },
-   {
-    "label": "x",
-    "url": "http://insecure.example.com"
-   }
-  ]
- },
- "drills": [
-  {
-   "title": "Wheel check at 90%",
-   "text": "Before each 90% call, ask whether you would bet on a wheel that wins nine times in ten."
-  },
-  {
-   "title": "Ask Claude",
-   "text": "nope"
-  }
- ],
- "prompts": [
-  {
-   "day": "2026-11-16",
-   "items": [
+  "prompts": [
     {
-     "text": "By 30 November 2026, the first snowfall of the season will be recorded at Seattle-Tacoma airport.",
-     "domain": "world",
-     "due": "month"
+      "day": "2026-11-16",
+      "items": [
+        {
+          "text": "By 30 November 2026, the first snowfall of the season will be recorded at Seattle-Tacoma airport.",
+          "domain": "world",
+          "due": "month"
+        },
+        {
+          "text": "By Friday, I will finish the draft of the report.",
+          "domain": "work",
+          "due": "week"
+        },
+        {
+          "text": "By tomorrow evening, I will walk 8,000 steps.",
+          "domain": "life",
+          "due": "tomorrow"
+        },
+        {
+          "text": ""
+        }
+      ]
     },
     {
-     "text": "By Friday, I will finish the draft of the report.",
-     "domain": "work",
-     "due": "week"
-    },
-    {
-     "text": "By tomorrow evening, I will walk 8,000 steps.",
-     "domain": "life",
-     "due": "tomorrow"
-    },
-    {
-     "text": ""
+      "day": "soon",
+      "items": [
+        {
+          "text": "fine"
+        }
+      ]
     }
-   ]
-  },
-  {
-   "day": "soon",
-   "items": [
-    {
-     "text": "fine"
+  ],
+  "baselines": {
+    "abc-123": {
+      "p": 0.35,
+      "written": "2026-11-15",
+      "ref": "first snowfall in November, Seattle, since 1990"
+    },
+    "zero": {
+      "p": 0,
+      "written": "2026-11-15",
+      "ref": "r"
+    },
+    "str": {
+      "p": "0.4",
+      "written": "2026-11-15",
+      "ref": "r"
     }
-   ]
+  },
+  "outcomes": {
+    "def-456": {
+      "result": "yes",
+      "source": "https://www.weather.gov/sew/",
+      "checked": "2026-11-15",
+      "note": "Recorded on 14 November."
+    },
+    "nosrc": {
+      "result": "yes",
+      "checked": "2026-11-15"
+    },
+    "badres": {
+      "result": "maybe",
+      "source": "https://a.org",
+      "checked": "2026-11-15"
+    }
+  },
+  "reads": {
+    "abc-123": {
+      "text": "The outside view said 35% and you said 60%; the chain leaned on one signal.",
+      "written": "2026-11-15"
+    },
+    "bad id!": {
+      "text": "x",
+      "written": "2026-11-15"
+    }
+  },
+  "forecasts": {
+    "w-2026w46-1": {
+      "text": "By 31 December 2026, will the national average gas price be above its November 2026 level?",
+      "p": 0.42,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2026-12-31",
+      "ref": "Month-ahead moves in the weekly series since 2015: up 44% of the time"
+    },
+    "w-2026w46-2": {
+      "text": "Will the first named storm of the next season form before 1 June?",
+      "p": 0.2,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2027-02-01",
+      "ref": "Seasons since 1990: 5 of 36 had a named storm before June",
+      "result": "no",
+      "source": "https://example.org/storms",
+      "checked": "2026-11-15"
+    },
+    "w-late": {
+      "text": "Written after it opened",
+      "p": 0.5,
+      "written": "2026-11-20",
+      "opens": "2026-11-16",
+      "due": "2026-12-31",
+      "ref": "x"
+    },
+    "w-sure": {
+      "text": "A certain thing",
+      "p": 1.0,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2026-12-31",
+      "ref": "x"
+    },
+    "w-nodate": {
+      "text": "Due before it opens",
+      "p": 0.5,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2026-11-16",
+      "ref": "x"
+    },
+    "W BAD": {
+      "text": "Bad id",
+      "p": 0.5,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2026-12-31",
+      "ref": "x"
+    },
+    "w-named": {
+      "text": "Mentions Claude",
+      "p": 0.5,
+      "written": "2026-11-15",
+      "opens": "2026-11-16",
+      "due": "2026-12-31",
+      "ref": "x"
+    }
   }
- ],
- "baselines": {
-  "abc-123": {
-   "p": 0.35,
-   "written": "2026-11-15",
-   "ref": "first snowfall in November, Seattle, since 1990"
-  },
-  "zero": {
-   "p": 0,
-   "written": "2026-11-15",
-   "ref": "r"
-  },
-  "str": {
-   "p": "0.4",
-   "written": "2026-11-15",
-   "ref": "r"
-  }
- },
- "outcomes": {
-  "def-456": {
-   "result": "yes",
-   "source": "https://www.weather.gov/sew/",
-   "checked": "2026-11-15",
-   "note": "Recorded on 14 November."
-  },
-  "nosrc": {
-   "result": "yes",
-   "checked": "2026-11-15"
-  },
-  "badres": {
-   "result": "maybe",
-   "source": "https://a.org",
-   "checked": "2026-11-15"
-  }
- },
- "reads": {
-  "abc-123": {
-   "text": "The outside view said 35% and you said 60%; the chain leaned on one signal.",
-   "written": "2026-11-15"
-  },
-  "bad id!": {
-   "text": "x",
-   "written": "2026-11-15"
-  }
- }
 }

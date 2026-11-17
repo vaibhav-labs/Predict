@@ -19,14 +19,14 @@ export const modeLabel = (mode) => MODE_LABEL[mode] || mode;
 // A judgment question is a scene (the lead: where, when, what has happened so far) and a claim about how it turns out (the ask).
 // They read as one sentence, so the text of the claim is the lead, one space, then the ask; the scene is set quieter so the
 // claim to judge stands out.
-function claimNode(q, attrs) {
+export function claimNode(q, attrs) {
   const parts = q.lead && q.ask ? [h('span', { class: 'lead' }, q.lead), ' ', h('span', { class: 'ask' }, q.ask)] : [q.claim];
   return h('p', { class: q.claim.length > 150 ? 'claim long' : 'claim', ...attrs }, ...parts);
 }
 
 // The outside view, shown after the call: how often a claim like this one held among the other cases in the records.
 // Documented facts from a source (verified 'sourced') carry no count of cases, so they show nothing here.
-function baseLine(q) {
+export function baseLine(q) {
   if (q.verified !== 'recorded' || typeof q.base !== 'number') return null;
   const yes = q.base >= 0.5;
   return h('p', { class: 'muted', id: 'base-line' },
@@ -334,6 +334,8 @@ export async function gymScreen(ctx, root, token, arg) {
   document.addEventListener('visibilitychange', onVisible);
   ctx.onLeave(() => document.removeEventListener('visibilitychange', onVisible));
 
+  const openNow = R.activeSession(store.events);
+  if (openNow && openNow.fine) { ctx.replace(openNow.exam ? '#/fine/exam' : openNow.flag ? `#/fine/drill-${openNow.flag}` : openNow.repair ? '#/fine/repair' : '#/fine'); return; }
   const sess = await ensureSession();
   if (!sess) { ctx.replace(arg === 'exam' || arg === 'repair' ? '#/path' : '#/today'); return; }
   sessionId = sess.id;

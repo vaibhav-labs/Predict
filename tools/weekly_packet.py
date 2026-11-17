@@ -89,12 +89,24 @@ def flags(events):
     return list(chains.values())
 
 
+def world_forecasts(events, today):
+    """Unit 11: world questions the player has forecast twice and that have reached their day without a recorded result (the review can look them up),
+    and how many are still open, so the review knows how many new forecasts to write before they open."""
+    first = {e["q"]: e for e in events if e["type"] == "world" and e.get("state") == "first"}
+    final = {e["q"] for e in events if e["type"] == "world" and e.get("state") == "final"}
+    done = {e["q"] for e in events if e["type"] == "world" and e.get("state") == "resolve"}
+    to_check = [{"id": q, "text": e["text"], "due": e["due"]} for q, e in sorted(first.items()) if q in final and q not in done and e["due"] <= today]
+    waiting = [q for q in first if q in final and q not in done and first[q]["due"] > today]
+    return to_check, len(waiting)
+
+
 def build(repo, today):
     events = load_events(repo)
     since = add_days(today, -6)
     week = [c for c in natural_calls(events) if since <= c["d"] <= today]
     preds = predictions(events, today)
     need_baseline = [p["id"] for p in preds if p["state"] in ("open", "due") and p["baseline_source"] != "predict" and p["due"] >= today]
+    to_check, waiting = world_forecasts(events, today)
     return {
         "today": today, "window": [since, today], "events": len(events),
         "gym_week": summarize(week), "gym_week_by_band": bands(week), "gym_all": summarize(natural_calls(events)),
@@ -102,6 +114,9 @@ def build(repo, today):
         "predictions": preds,
         "world_predictions_to_check": [p for p in preds if p["domain"] == "world" and p["state"] in ("due", "open")],
         "predictions_without_predict_baseline": need_baseline,
+        "world_forecasts_to_check": to_check,
+        "world_forecasts_waiting": waiting,
+        "forecasts_needed": {"count": 8, "opens_from": add_days(today, 1), "note": "Write your own number for each BEFORE it opens (written on or before opens); the app hides it until the player has locked theirs."},
         "pattern_flags": flags(events),
         "prompts_needed": [add_days(today, i) for i in range(1, 8)],
         "rules": "Write coach/latest.json (design/coach.md). Every checked outcome needs an https source you read; every baseline a reference class; check it with tools/coach_validate.py.",

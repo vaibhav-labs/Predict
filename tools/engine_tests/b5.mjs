@@ -28,7 +28,8 @@ test('a good coach file is kept whole', () => {
 });
 test('anything that fails its check is dropped and counted, and the rest is kept', () => {
   const c = C.parseCoach(fixture('bad'));
-  assert.equal(c.dropped, 8);
+  assert.equal(c.dropped, 13); // 8 earlier ones plus five bad forecasts
+  assert.deepEqual(Object.keys(c.forecasts), ['w-2026w46-1', 'w-2026w46-2']);
   assert.deepEqual(Object.keys(c.baselines), ['abc-123']);
   assert.deepEqual(Object.keys(c.outcomes), ['def-456']);
   assert.equal(c.letter.sources.length, 1); // the http link is gone

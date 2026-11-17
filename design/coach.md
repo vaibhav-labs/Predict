@@ -48,7 +48,9 @@ Nothing personal goes to the public repository. `tools/check_data.py` refuses a 
   "outcomes": { "<prediction id>": { "result": "yes", "source": "https://...", "checked": "2026-11-15", "note": "..." } },
   "reads": { "<prediction id>": { "text": "...", "written": "2026-11-15" } },
   "news": { "<prediction id>": { "text": "...", "written": "2026-11-15", "source": "https://..." } },
-  "grades": { "<prediction id>": { "grade": "sound", "written": "2026-11-15", "note": "..." } }
+  "grades": { "<prediction id>": { "grade": "sound", "written": "2026-11-15", "note": "..." } },
+  "forecasts": { "w-2026w46-1": { "text": "By ..., will ...?", "p": 0.42, "written": "2026-11-15", "opens": "2026-11-16", "due": "2026-12-31", "ref": "the reference class and span",
+                                  "result": "no", "source": "https://...", "checked": "2026-11-15" } }
 }
 ```
 
@@ -75,6 +77,12 @@ a baseline between 1% and 99%.
   reason the claim could be false that the card's own evidence does not already answer; `weak` when it is vague, generic or already answered; `missing` when it was left blank or
   restates the claim. `weak` and `missing` need a one-line `note` saying what a sound one would look like; `sound` may leave the note out. The app shows the grade on the card and counts them on the Mirror. A grade for
   an unknown or malformed id is dropped.
+- **Forecasts (Block 10, Unit 11).** Predict's own number on a world question, written before it opens for the player. `p` is the chance of yes (0.01 to 0.99, kept to whole percents),
+  `ref` the reference class and span, `written` on or before `opens`, `due` between 1 and 120 days after `opens`; the id is lowercase letters, digits and dashes (3 to 40). Write about
+  eight a week, each a claim a stranger could score from a public page by its due day, none already answered when written. Never copy a player's card. `result` (yes | no | void) with its
+  `source` page and `checked` day is added in a later week for a forecast whose day has passed (all three or none; the app drops a result without its source). A forecast written after its
+  `opens` day is dropped by the app and by `tools/coach_validate.py`: the point of the unit is that Predict's number was not made after the fact. The app shows a number only after
+  the player has locked their own first number on that question, and keeps what the player saw in their own record.
 - **Top-ups.** Write proposed questions to `coach/topups-proposed.json` (shape in `tools/merge_topups.py`). They are documented
   facts about the world with their source page read on the date given, never anything from the player's record. The builder
   merges them into the public repo with `tools/merge_topups.py`; `tools/check_data.py` rejects any that break a rule.
@@ -89,7 +97,9 @@ Runs once a week (Sunday evening local time suggests itself: the packet looks at
 >    read-only), and read the packet.
 > 3. Check each `world_predictions_to_check` card against a primary or reputable source you actually read. Record only what a page
 >    settles, with its URL. Write an outside-view baseline for each id in `predictions_without_predict_baseline`.
-> 4. Write the letter, the drill set, seven days of ideas (3 a day, dates from `prompts_needed`), and a read for each card resolved
+> 4. Write about eight new world forecasts (`forecasts`, `forecasts_needed` in the packet) with your own number and reference class, each written on or before the day it opens. For
+>    each id in `world_forecasts_to_check` whose day has passed, add `result`, `source` and `checked` only if a page you read settles it.
+>    Write the letter, the drill set, seven days of ideas (3 a day, dates from `prompts_needed`), and a read for each card resolved
 >    since the last review. Never use the builder's name: you are Predict.
 > 5. Write `coach/latest.json`, copy it to `coach/archive/<week>.json`, and run `python3 tools/coach_validate.py coach/latest.json`.
 >    Fix everything it says would be dropped. Optionally write `coach/topups-proposed.json`.

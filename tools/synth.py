@@ -525,6 +525,61 @@ def u8_passed_player(exam_bank, seed=53, start="2026-09-01"):
     return _pass_unit(u7_passed_player(exam_bank, seed, start), "U8", add_days(start, 68), 30)
 
 
+
+# ---- Unit 10 (Block 10): fine calls on the 1% dial ----
+import math  # noqa: E402
+
+
+def sharp_pts(c, hit):
+    p = c if hit else 1 - c
+    return round(100 * (1 + math.log2(p)))
+
+
+def fine_call(r, sid, day, minute, q, c, side, mode="practice", exam=None, ms=4000):
+    """One call on the 1% dial under the sharp rule: `points` sharp, `core` the Brier points the ledger reads."""
+    hit = (side == "yes") == q["answer"]
+    return r._add("call", day, minute, session=sid, mode=mode, unit="U10", fine=True, exam=exam, q=q["id"], claim=q["claim"], domain=q["domain"], diff=q["diff"], side=side, c=c,
+                  truth=q["answer"], hit=hit, points=sharp_pts(c, hit), core=pts(c) if hit else pts(1 - c), rule="log_points", ms=ms)
+
+
+def fine_session(r, day, minute, qs, cs, mode="practice", exam=None, n=None, of=None, honest=False, **extra):
+    """qs: tail questions; cs: the stated confidence of each; the side is the one the question's base rate favours."""
+    sid = r._add("session", day, minute, mode=mode, unit="U10", fine=True, size=len(qs), exam=exam, n=n, of=of, plan=[q["id"] for q in qs], **extra)["id"]
+    for i, (q, c) in enumerate(zip(qs, cs)):
+        side = "yes" if q["base"] >= 0.5 else "no"
+        if honest:  # about (1 - c) of the calls take the side the question did not favour, so the record is calibrated
+            if ((r.counter * 37) % 100) / 100 < 1 - c:
+                side = "no" if side == "yes" else "yes"
+        fine_call(r, sid, day, minute + 1 + i, q, c, side, mode=mode, exam=exam)
+    r._add("session_end", day, minute + len(qs) + 1, session=sid)
+    return sid
+
+
+def _tails(pool):
+    return [q for q in json.load(open(os.path.join(ROOT, "app", "content", "questions", "tails.json"), encoding="utf-8"))["questions"] if q["pool"] == pool]
+
+
+def u9_passed_player(exam_bank, seed=59, start="2026-09-01"):
+    """Unit 9 passed on top: Unit 10 opens."""
+    return _pass_unit(u8_passed_player(exam_bank, seed, start), "U9", add_days(start, 72), 30)
+
+
+def u10_ready_player(exam_bank, seed=61, start="2026-09-01", conf=0.95):
+    """Unit 10 open and 84 practice calls made (six sessions of 14), spread on 5% steps near the base rate: the exam is ready."""
+    r = u9_passed_player(exam_bank, seed, start)
+    qs = _tails("practice")[:84]
+    day0 = add_days(start, 76)
+    for k in range(6):
+        sub = qs[k * 14:(k + 1) * 14]
+        fine_session(r, add_days(day0, k), 0, sub, [conf if (j % 2) else 0.97 for j in range(len(sub))])
+    return r
+
+
+def u10_passed_player(exam_bank, seed=61, start="2026-09-01"):
+    """Unit 10 passed on top of the ready player (a recorded pass): Units 11 and 12 are open."""
+    return _pass_unit(u10_ready_player(exam_bank, seed, start), "U10", add_days(start, 84), 400)
+
+
 def range_policy(f):
     """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
     import ref_range
