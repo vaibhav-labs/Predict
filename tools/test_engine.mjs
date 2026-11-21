@@ -377,3 +377,4 @@ import './engine_tests/b3.mjs';
 import './engine_tests/b4.mjs';
 import './engine_tests/b5.mjs';
 import './engine_tests/b6.mjs';
+import './engine_tests/b7.mjs';

@@ -8,6 +8,7 @@
 // goes to the weekly review. Each step is one `flag` event, so the state is a fold of the log.
 import { addDays, localDay, callsOf, rangesOf } from './record.js';
 import { ledger } from './progress.js';
+import * as RS from './reasoning.js';
 
 const EPS = 1e-9;
 const inBand = (c, [lo, hi]) => c.c >= lo - EPS && c.c <= hi + EPS;
@@ -131,6 +132,70 @@ const rangeWide = {
   ...rangeRetest,
 };
 
+// Journal reasoning patterns (Block 7). L07 chain blindness and L08 the planning fallacy: the last `window` resolved cards of that kind were
+// stated `gap` or more above how often they happened. They clear when the next `clear_window` such cards, resolved after the re-test day, sit
+// within `clear_gap` of how often they happened.
+const gapTrigger = (obsOf) => ({
+  fire({ predictions, t }, since) {
+    const obs = obsOf(predictions, since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const gap = RS.gapOf(w);
+    if (gap < t.gap - EPS) return null;
+    return { evidence: { n: w.length, meanStated: w.reduce((s, p) => s + p.c, 0) / w.length, rate: w.filter((p) => p.outcome === 'yes').length / w.length, gap, from: w[0].resolvedAt, to: w[w.length - 1].resolvedAt }, strength: gap / Math.sqrt(0.25 / w.length) };
+  },
+  retest({ predictions, t }, since, readyDay) {
+    const obs = obsOf(predictions, since, readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const gap = RS.gapOf(w);
+    return { pass: Math.abs(gap) <= t.clear_gap + EPS, evidence: { n: w.length, gap, meanStated: w.reduce((s, p) => s + p.c, 0) / w.length, rate: w.filter((p) => p.outcome === 'yes').length / w.length } };
+  },
+});
+// L09 base-rate neglect: the last `window` resolved forecasts that sat `distance` or more from the recorded base rate with no evidence logged
+// scored below the base rate (a negative average edge). Clears when each of the next `clear_window` such forecasts carries logged evidence.
+const baseNeglect = {
+  fire({ predictions, t }, since) {
+    const obs = RS.neglectFireObs(predictions, t, since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const edge = RS.meanEdge(w);
+    if (edge === null || edge >= 0) return null;
+    return { evidence: { n: w.length, meanEdge: edge, from: w[0].resolvedAt, to: w[w.length - 1].resolvedAt }, strength: -edge / 30 };
+  },
+  retest({ predictions, t }, since, readyDay) {
+    const obs = RS.neglectRetestObs(predictions, t, since, readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const withEvidence = w.filter((p) => !RS.noEvidence(p)).length;
+    return { pass: withEvidence === w.length, evidence: { n: w.length, withEvidence } };
+  },
+};
+// L13 domain blind spot: in one domain the last `window` resolved, scored, non-trivial cards earned a negative average edge, which a forecast
+// that just said the baseline would have beaten. Clears when the next `clear_window` in that domain average zero or better.
+const domainBlind = {
+  fire({ predictions, t, cfg }, since) {
+    let worst = null;
+    for (const d of RS.DOMAINS) {
+      const obs = RS.domainObs(predictions, cfg.journal, d, since);
+      if (obs.length < t.window) continue;
+      const w = obs.slice(-t.window);
+      const edge = RS.meanEdge(w);
+      if (edge < 0 && (!worst || edge < worst.edge)) worst = { domain: d, edge, w };
+    }
+    if (!worst) return null;
+    return { evidence: { domain: worst.domain, n: worst.w.length, meanEdge: worst.edge, from: worst.w[0].resolvedAt, to: worst.w[worst.w.length - 1].resolvedAt }, strength: -worst.edge / 30 };
+  },
+  retest({ predictions, t, cfg }, since, readyDay, chain) {
+    const d = chain && chain.evidence && chain.evidence.domain;
+    const obs = RS.domainObs(predictions, cfg.journal, d, since, readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const edge = RS.meanEdge(w);
+    return { pass: edge >= 0, evidence: { domain: d, n: w.length, meanEdge: edge } };
+  },
+};
+
 // Missed days (L15) is a habit flag: no lesson, no re-test. It fires on missed days in the last window_days, and clears
 // after clear_days played days in a row that each hold the minimum session.
 function missedDays(ctx, sinceDay) {
@@ -178,6 +243,10 @@ export const TRIGGERS = {
   L04: soft,
   L05: rangeNarrow,
   L06: rangeWide,
+  L07: gapTrigger(RS.chainObs),
+  L08: gapTrigger(RS.ownObs),
+  L09: baseNeglect,
+  L13: domainBlind,
   L15: { habit: true },
 };
 export const PATTERN_IDS = Object.keys(TRIGGERS).filter((id) => !TRIGGERS[id].habit);
@@ -232,7 +301,10 @@ export function retestProgress(chain, events, { cfg, predictions, today }) {
   const calls = naturalCalls(events, cfg).filter((c) => (wait.since ? c.t > wait.since : true) && c.d >= wait.readyDay);
   const preds = (predictions || []).filter((p) => (wait.since ? p.t > wait.since : true) && p.d >= wait.readyDay);
   const ranges = naturalRanges(events).filter((r) => (wait.since ? r.t > wait.since : true) && r.d >= wait.readyDay);
-  const have = chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length
+  const sinceT = wait.since || '';
+  const predObs = { L07: () => RS.chainObs(predictions || [], sinceT, wait.readyDay), L08: () => RS.ownObs(predictions || [], sinceT, wait.readyDay), L09: () => RS.neglectRetestObs(predictions || [], t, sinceT, wait.readyDay),
+    L13: () => RS.domainObs(predictions || [], cfg.journal, chain.evidence && chain.evidence.domain, sinceT, wait.readyDay) }[chain.trigger];
+  const have = predObs ? predObs().length : chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length
     : chain.trigger === 'L05' || chain.trigger === 'L06' ? ranges.length : calls.filter((c) => inBand(c, t.band)).length;
   return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have, t.clear_window), ready: today >= wait.readyDay };
 }
@@ -264,7 +336,7 @@ export function evaluate(events, { today = localDay(), cfg, predictions }) {
     }
     const wait = waitingFor(c, cfg);
     if (!wait) continue;
-    const res = trig.retest({ ...base, t }, wait.since, wait.readyDay);
+    const res = trig.retest({ ...base, t }, wait.since, wait.readyDay, c);
     if (!res) continue;
     append.push({ type: 'flag', state: 'retest', flag: c.id, step: wait.step, pass: res.pass, evidence: res.evidence });
     // A pass at step 1 stays in repair, a pass at step 2 clears; a fail reopens the flag, or sends it to the review at the last fire.

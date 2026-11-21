@@ -277,3 +277,15 @@ textarea.field{min-height:64px;padding:12px 14px;line-height:1.4;font:400 15px/1
 .rt{position:absolute;top:-8px;bottom:-6px;width:4px;margin-left:-2px;border-radius:2px;background:var(--yellow);box-shadow:0 0 0 1px var(--ink)}
 .rl-key{display:flex;flex-direction:column;gap:6px;margin-top:14px;font:400 13px/1.35 var(--sans);color:var(--ink2)}
 .rl-key b{color:var(--ink);font-weight:600;display:inline-block;min-width:70px}
+
+/* Units 4 and 5: the worksheet, reference ladders, chains */
+.choices{display:flex;flex-direction:column;gap:8px}
+.choice{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:10px 14px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:14px;color:var(--ink);font:500 15px/1.25 var(--sans);cursor:pointer}
+.choice .t{flex:1;min-width:0}
+.choice.on{border-color:var(--ink);background:var(--paper)}
+.choice:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.part .shead b{font:600 15px/1.2 var(--sans)}
+.sheetsum{display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.sheetsum b{font:600 20px/1.2 var(--sans)}
+ol.steps#chain-steps li{min-height:46px;justify-content:space-between}
+ol.steps#chain-steps li span{flex:1}

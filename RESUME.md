@@ -1,6 +1,6 @@
 # Predict: resume here
 
-Written 2026-11-15; refreshed after Block 6 (2026-11-16). Read this first, then `STATE.md`
+Written 2026-11-15; refreshed after Block 7 (2026-11-16). Read this first, then `STATE.md`
 (the full state, reports for the player, assumptions, decisions) and `design/mechanics.md` (the rules). Update the
 "Where it stands" section below every time you commit; it is what a fresh session reads.
 
@@ -42,20 +42,21 @@ Branches (`/home/claude/predict-build` in the cloud workspace; also in the bundl
 | `block-4` | the rebuilt question bank and Block 4, the Lesson Engine |
 | `block-5` | Block 5, the Coach: sync to the private repo, the weekly letter and its tools. Done, all suites green |
 | `block-6` | Block 6, Ranges (Unit 3): range questions, interval points, the sealed 60-range exam, L05/L06 and their drills. **Done, all suites green** |
+| `block-7` | Block 7, Reasoning tools (Units 4 and 5): Fermi worksheet, base rates, ladders, chains, two sealed exams, L07/L08/L09/L13, journal chain steps / own-task tag / outside-view grade. **Done, suites green** |
 
-Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (119), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
-`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (all phases incl. b6; b6 alone is 91 checks). Run the three browser suites in separate copies of the repo (tar without .git, site,
+Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (147), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
+`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (all phases incl. b6 and b7; b7 alone is 66 checks). Run the three browser suites in separate copies of the repo (tar without .git, site,
 node_modules) with different `PREDICT_PORT` values; they rebuild `site/`.
 
-Docs written for Blocks 4 to 6 (STATE.md reports and assumptions, mechanics 4.2/4.4/4.5/4.7/4.9 and the change log, balance report 4c and 5b, `design/coach.md`).
+Docs written for Blocks 4 to 7 (STATE.md reports and assumptions, mechanics 4.2/4.4/4.5/4.7/4.9 and the change log, balance report 4c and 5b, `design/coach.md`).
 Note: `sim/make_balance_report.py` regenerates the report but drops the hand-written 4c section; after running it, restore 4c from git and splice the generated 5b in.
 Open risks: L02's re-test fails a calibrated player about a third of the time (4c); the unattended weekly run is untested (needs the player's repo).
 
-Next: Block 7 (Reasoning tools) on `block-7` chained on `block-6`, then 8 to 10.
+Next: Block 8 (Updating) on `block-8` chained on `block-7`, then 9 and 10.
 
 ### Blocks 6 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
 
-BL6 Ranges (done), BL7 Reasoning tools, BL8 Updating,
+BL6 Ranges (done), BL7 Reasoning tools (done), BL8 Updating,
 BL9 Know yourself, BL10 Compete. Specs are rows BL5 to BL10 of `data/build_blocks.csv` and the sections of
 `design/mechanics.md`.
 

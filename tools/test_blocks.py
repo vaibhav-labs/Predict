@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 6 of 10 built)", "Block 6 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 7 of 10 built)", "Block 7 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 
@@ -1539,6 +1539,435 @@ def phase_b6(E):
     E.ctx.close()
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Block 7: Fermi worksheets, base rates, reference classes, chains, and the Unit 4 and 5 exams
+# ---------------------------------------------------------------------------------------------------------------
+import ref_problem as RP  # noqa: E402  (an independent version of the Block 7 rules)
+FERMI_BANK = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "fermi.json"), encoding="utf-8"))["questions"]
+RATE_ALL = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "rates.json"), encoding="utf-8"))["questions"]
+FERMI_BY_CLAIM = {f"{q['lead']} {q['ask']}": q for q in FERMI_BANK}
+RATE_BY_CLAIM = {f"{q['lead']} {q['ask']}": q for q in RATE_ALL if q["type"] in ("rate", "class")}
+CHAINS = [q for q in RATE_ALL if q["type"] == "chain"]
+
+
+def pct1(x): return f"{float(f'{x:.1f}'):g}%"
+
+
+def fermi_expect(q, parts):
+    lo, hi = RP.combine(parts, q["mult"])
+    j = RP.judge(q, lo, hi)
+    return lo, hi, j
+
+
+def play_fermi(page, n, stretch_of, direct=True, checks=None, reveal=True):
+    """n Fermi problems. stretch_of(i, q) -> a factor (every part's range is its truth stretched by it) or 'above' (every part wholly above its truth)."""
+    out = []
+    for i in range(n):
+        page.wait_for_selector("#claim")
+        claim = text(page, "#claim")
+        q = FERMI_BY_CLAIM[claim]
+        if direct:
+            page.wait_for_selector("#direct-low")
+            check_btn = page.is_disabled("#direct-go")
+            page.fill("#direct-low", rnum(q["ref_low"])); page.fill("#direct-high", rnum(q["ref_high"]))
+            F.settle(page)
+            page.click("#direct-go")
+            if i == 0:
+                out_first = check_btn
+        page.wait_for_selector("#part-0-low")
+        f = stretch_of(i, q)
+        parts = [(p["truth"] * 1.5, p["truth"] * 3) if f == "above" else (p["truth"] / f, p["truth"] * f) for p in q["parts"]]
+        for k, (a, b) in enumerate(parts):
+            page.fill(f"#part-{k}-low", rnum(a)); page.fill(f"#part-{k}-high", rnum(b))
+        lo, hi, j = fermi_expect(q, parts)
+        F.settle(page)
+        page.click("#lock")
+        if reveal:
+            page.wait_for_selector("#verdict")
+            if checks:
+                checks(i, q, parts, lo, hi, j)
+            F.settle(page)
+            page.click("#next")
+        advance_to(page, claim, prefixes=("#/psummary/", "#/pexam/"))
+        out.append((q, parts, lo, hi, j))
+    return out
+
+
+def phase_b7(E):
+    """Units 4 and 5: the worksheet, the sealed exams, base rates, reference ladders and chains, against ref_problem.py."""
+    # -- closed until Unit 3 is passed ----------------------------------------------------------------------------------
+    r0 = synth.u1_passed_player(U1_EXAM, start=START)
+    page = open_app(E, "2026-09-20", r0.write(os.path.join(E.tmp, "b7_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#ranges-card")
+    check("before Unit 3 is passed there is no Unit 4 card on Today", page.query_selector("#u4-card") is None and page.query_selector("#u5-card") is None)
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-card")
+    u4 = [li for li in page.query_selector_all(".units li") if "Unit 4" in (li.text_content() or "")]
+    check("Unit 4 is Locked on the Path and has no cards", u4 and "Locked" in u4[0].text_content() and page.query_selector("#fermi-practice-card") is None and page.query_selector("#pgate-U4-card") is None)
+    go(page, "#/prob/fermi")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the Fermi address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    E.ctx.close()
+
+    # -- open: Today, the Path, the lesson cards --------------------------------------------------------------------------
+    base = synth.u3_passed_player(U1_EXAM, start=START)
+    day = "2026-10-12"
+    page = open_app(E, day, base.write(os.path.join(E.tmp, "b7_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#u4-card")
+    check("Unit 4 is open: Today offers eight Fermi problems, none done", "8 Fermi problems" in text(page, "#u4-line") and "0 of 16" in text(page, "#u4-line") and page.query_selector("#u5-card") is None, text(page, "#u4-line"))
+    F.audit(E, "today with Unit 4")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U4-card")
+    check("the Path shows Unit 4 as Open with three lesson cards, practice, and an exam card that is not open yet",
+          len(page.query_selector_all("#fermi-lessons-card .lesson-link")) == 3 and page.is_visible("#fermi-practice") and page.is_visible("#chain-practice") and text(page, "#pgate-U4-status") == "Not open yet" and "16 practice" in text(page, "#pgate-U4-card"), text(page, "#pgate-U4-card")[:120])
+    check("Unit 5 stays closed until Unit 4 is passed", page.query_selector("#rate-practice-card") is None and page.query_selector("#pgate-U5-card") is None)
+    F.audit(E, "path with Unit 4")
+    shot(E, "b7-path.png")
+    go(page, "#/lesson/break")
+    page.wait_for_selector("#lesson-title")
+    check("the first Unit 4 card is 'Break it down' under Unit 4", "Unit 4" in text(page, ".eyebrow") and len(text(page, "#lesson-title")) > 3, text(page, "#lesson-title"))
+    F.audit(E, "fermi lesson")
+    for _ in range(3):
+        page.click("#lesson-done")
+        page.wait_for_timeout(250)
+    page.wait_for_function("location.hash === '#/path'", timeout=10000)
+    check("three Unit 4 cards read are three lesson events", {"break", "multiply", "parts"} <= {e["lesson"] for e in of_type(page, "lesson")})
+
+    # -- a practice session of eight -----------------------------------------------------------------------------------------
+    go(page, "#/prob/fermi")
+    page.wait_for_selector("#direct-low")
+    q0 = FERMI_BY_CLAIM[text(page, "#claim")]
+    check("a Fermi session opens: problem 1 of 8, from the practice pool, asking for a first guess before the worksheet", text(page, ".cnt") == "1 of 8" and q0["pool"] == "practice" and "Unit 4 practice" in text(page, "#mode-tag") and page.is_disabled("#direct-go") and page.query_selector("#part-0-low") is None, q0["id"])
+    F.audit(E, "fermi first guess")
+    page.fill("#direct-low", "abc"); page.fill("#direct-high", "5")
+    check("letters in the first guess are refused", "numbers only" in text(page, "#range-msg").lower() and page.is_disabled("#direct-go"), text(page, "#range-msg"))
+    page.fill("#direct-low", "0"); page.fill("#direct-high", "5")
+    check("a zero low end is refused for a size you cannot be 90% sure of on a log scale", page.is_disabled("#direct-go"), text(page, "#range-msg"))
+    page.fill("#direct-low", rnum(q0["ref_low"])); page.fill("#direct-high", rnum(q0["ref_high"]))
+    F.settle(page)
+    page.click("#direct-go")
+    page.wait_for_selector("#part-0-low")
+    nparts = len(q0["parts"])
+    check("the worksheet has one card per part of the problem, and the lock is off until every part is filled", len(page.query_selector_all(".part")) == nparts and page.is_disabled("#lock") and nparts >= 2, f"{nparts} parts")
+    F.audit(E, "fermi worksheet")
+    shot(E, "b7-worksheet.png")
+    page.fill("#part-0-low", "5"); page.fill("#part-0-high", "2")
+    check("a part whose low is above its high is refused by name", "low end" in text(page, "#range-msg").lower() and page.is_disabled("#lock"), text(page, "#range-msg"))
+    # fill part 0 properly and the rest, and compare the live combined range with the independent combination
+    parts0 = [(p["truth"] / 2, p["truth"] * 2) for p in q0["parts"]]
+    for k, (a, b) in enumerate(parts0):
+        page.fill(f"#part-{k}-low", rnum(a)); page.fill(f"#part-{k}-high", rnum(b))
+    lo0, hi0 = RP.combine(parts0, q0["mult"])
+    shown = text(page, "#sheet-range")
+    digits = q0["digits"]
+    fmtn = lambda x: f"{x:,.{digits}f}"  # noqa: E731
+    check("the worksheet shows the combined range as the independent version works it out (centres add, spreads in quadrature)", shown.startswith(f"{fmtn(lo0)} to {fmtn(hi0)}"), f"{shown} vs {fmtn(lo0)} to {fmtn(hi0)}")
+    check("it also says what lows-times-lows and highs-times-highs would give, and that it is wider", "would give" in text(page, "#sheet-sum") and not page.is_disabled("#lock"))
+    page.reload()
+    page.wait_for_selector("#direct-low")
+    check("closing the page mid-problem keeps the session open: the same problem comes back, nothing saved for it", text(page, ".cnt") == "1 of 8" and FERMI_BY_CLAIM[text(page, "#claim")]["id"] == q0["id"] and not of_type(page, "prob"))
+
+    seen = []
+
+    def fermi_checks(i, q, parts, lo, hi, j):
+        ev_pts = text(page, "#points")
+        ok = ev_pts == signed(j["points"]) and (("Inside" in text(page, "#verdict")) == j["hit"])
+        seen.append(ok)
+        if i == 0:
+            check("the reveal shows the points and inside or outside as the independent rules give, the parts table, and the worksheet against the first guess",
+                  ok and len(page.query_selector_all("#part-rows li")) == len(q["parts"]) and page.query_selector("#direct-note") is not None and page.is_visible("#range-line"), f"{ev_pts} vs {signed(j['points'])}")
+            F.audit(E, "fermi reveal")
+            shot(E, "b7-reveal.png")
+
+    plan = [1.5, 2.0, "above", 3.0, 1.2, 2.5, "above", 1.5]
+    done = play_fermi(page, 8, lambda i, q: plan[i], checks=fermi_checks)
+    check("all eight reveals showed the independent points and verdict", len(seen) == 8 and all(seen), str(seen))
+    page.wait_for_function("location.hash.startsWith('#/psummary/')", timeout=10000)
+    probs = of_type(page, "prob", mode="practice", family="fermi")
+    check("eight Fermi problems were saved with the numbers the independent rules give (combined range, hit, points, miss factor)", len(probs) == 8 and all(
+        near(p["low"], d[2], 1e-9 * max(1, d[2])) and near(p["high"], d[3], 1e-9 * max(1, d[3])) and p["hit"] == d[4]["hit"] and p["points"] == d[4]["points"] and near(p["miss"], d[4]["miss"], 1e-6 * d[4]["miss"]) and len(p["parts"]) == len(d[0]["parts"]) and p["unit"] == "U4"
+        for p, d in zip(probs, done)), str([(p["points"], d[4]["points"]) for p, d in zip(probs, done)])[:200])
+    check("every problem carries the first guess and its score, for the Mirror's comparison", all(p.get("direct") and "points" in p["direct"] for p in probs))
+    hits = sum(1 for d in done if d[4]["hit"])
+    pts_sum = sum(d[4]["points"] for d in done)
+    check("the summary says how many held the truth and the points total", f"{hits} of 8 held the truth" in text(page, "#ps-head") and text(page, "#sum-points") == signed(pts_sum), f"{text(page, '#ps-head')} {text(page, '#sum-points')}")
+    F.audit(E, "fermi summary")
+    shot(E, "b7-summary.png")
+    check("a session of Fermi problems ends with one psession_end and no gate event", len(of_type(page, "psession_end")) == 1 and not [e for e in of_type(page, "exam") if e.get("unit") == "U4"])
+    go(page, "#/mirror")
+    page.wait_for_selector("#reasoning-record")
+    rs_text = text(page, "#rs-table")
+    med = sorted(d[4]["miss"] for d in done)
+    median = (med[3] + med[4]) / 2
+    check("the Mirror shows the Fermi ranges that held and the median miss", f"{hits} of 8" in rs_text and f"{median:.1f}×" in rs_text, rs_text[:200])
+    F.audit(E, "mirror reasoning")
+    E.ctx.close()
+
+    # -- the Unit 4 exam: ready, sealed sittings, verdict --------------------------------------------------------------------
+    r4 = synth.u4_ready_player(U1_EXAM, start=START)
+    day = "2026-10-12"
+    page = open_app(E, day, r4.write(os.path.join(E.tmp, "b7_u4.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#need-pexam-U4")
+    check("Today lists the Unit 4 exam as ready", "20 fresh problems" in text(page, "#need-pexam-U4"), text(page, "#need-pexam-U4"))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U4-start")
+    check("the Path says the exam is Ready: 20 fresh Fermi problems in 2 sittings of 10", text(page, "#pgate-U4-status") == "Ready" and "2 sittings of 10" in text(page, "#pgate-U4-card") and "16 of 20" in text(page, "#pgate-U4-card"), text(page, "#pgate-U4-card")[:160])
+    F.audit(E, "path with Unit 4 exam")
+    page.click("#pgate-U4-start")
+    page.wait_for_selector("#part-0-low")
+    q = FERMI_BY_CLAIM[text(page, "#claim")]
+    check("the exam opens on the worksheet with no first-guess step: sitting 1 of 2, problem 1 of 10, from the exam pool", text(page, ".cnt") == "1 of 10" and "sitting 1 of 2" in text(page, "#mode-tag") and q["pool"] == "exam" and page.query_selector("#direct-low") is None, q["id"])
+    start_ev = [e for e in of_type(page, "exam", state="start") if e.get("unit") == "U4"]
+    check("starting wrote a Unit 4 attempt of 20", len(start_ev) == 1 and start_ev[0]["n"] == 20)
+    stretch = lambda i, q: "above" if i in (2, 5) else 1.5  # noqa: E731
+    sit1 = play_fermi(page, 10, stretch, direct=False, reveal=False)
+    page.wait_for_function("location.hash.startsWith('#/pexam/')", timeout=15000)
+    page.wait_for_selector("#pexam-sealed")
+    body = text(page, "main").lower()
+    check("between sittings nothing is shown about the answers: no verdict, no hits, no points", page.query_selector("#pexam-verdict") is None and "inside" not in body and "held the truth" not in body and "10 of 20" in text(page, "#pexam-count") or "10 of 20" in body, text(page, "#pexam-sealed")[:160])
+    F.audit(E, "fermi exam sealed")
+    check("the sealed screen lists sitting 2 and the exam's saved answers are 10 sealed problems", len(of_type(page, "prob", mode="exam")) == 10)
+    go(page, "#/mirror")
+    page.wait_for_selector("#stats")
+    check("sealed exam problems stay out of the Mirror until the verdict", page.query_selector("#reasoning-record") is not None and "Fermi ranges that held" in text(page, "#rs-table") and "n=16" in text(page, "#rs-n"), text(page, "#rs-n"))
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U4-start")
+    check("the Path shows the exam in progress with the next sitting", text(page, "#pgate-U4-status") == "In progress" and "10 of 20" in text(page, "#pgate-U4-card"), text(page, "#pgate-U4-card")[:140])
+    page.click("#pgate-U4-start")
+    page.wait_for_selector("#part-0-low")
+    check("sitting 2 opens at 1 of 10", text(page, ".cnt") == "1 of 10" and "sitting 2 of 2" in text(page, "#mode-tag"))
+    used1 = {d[0]["id"] for d in sit1}
+    q2 = FERMI_BY_CLAIM[text(page, "#claim")]
+    check("sitting 2 never repeats a problem from sitting 1", q2["id"] not in used1)
+    sit2 = play_fermi(page, 10, lambda i, q: 1.5, direct=False, reveal=False)
+    page.wait_for_function("location.hash.startsWith('#/pexam/')", timeout=15000)
+    page.wait_for_selector("#pexam-verdict")
+    allp = sit1 + sit2
+    hits = sum(1 for d in allp if d[4]["hit"])
+    medm = sorted(d[4]["miss"] for d in allp)
+    medm = (medm[9] + medm[10]) / 2
+    want_pass = hits >= 16 and medm <= 3
+    check("the verdict is the independent one: hits, median miss and pass", text(page, "#pexam-hits") == str(hits) and (text(page, "#pexam-verdict") == "Passed") == want_pass and f"{medm:.1f}×" == text(page, "#pexam-miss"), f"{text(page, '#pexam-hits')}/{hits} {text(page, '#pexam-verdict')} {text(page, '#pexam-miss')}/{medm:.2f}")
+    res = [e for e in of_type(page, "exam", state="result") if e.get("unit") == "U4"]
+    check("one Unit 4 result event with n=20, the hits, the pass and the median miss", len(res) == 1 and res[0]["n"] == 20 and res[0]["hits"] == hits and res[0]["pass"] == want_pass and near(res[0]["medianMiss"], medm, 1e-6), str(res[:1])[:200])
+    F.audit(E, "fermi exam verdict")
+    shot(E, "b7-exam-pass.png")
+    go(page, "#/today")
+    page.wait_for_selector("#u5-card")
+    check("passing Unit 4 opens Unit 5: Today offers twelve base-rate problems", "12 base-rate problems" in text(page, "#u5-line") and "0 of 36" in text(page, "#u5-line"), text(page, "#u5-line"))
+    E.ctx.close()
+
+    # -- Unit 5 practice: base rates, a reference ladder, a chain -----------------------------------------------------------
+    r5 = synth.u5_ready_player(U1_EXAM, start=START)
+    import csv
+    fl = list(csv.DictReader(open(os.path.join(synth.ROOT, "data", "question_tables", "flights.csv"), encoding="utf-8")))
+    def late_share(rows): return len(rows), round(100.0 * sum(1 for x in rows if int(x["arrival_delay_min"]) >= 15) / len(rows) + 1e-9, 1)
+    tpa = [x for x in fl if x["origin"] == "TPA"]; jan = [x for x in tpa if x["departs"][5:7] == "01"]; morning = [x for x in jan if int(x["departs"][11:13]) < 10]
+    under = [x for x in morning if int(x["distance_mi"]) < 300]
+    ladder_counts = [late_share(fl), late_share(tpa), late_share(jan), late_share(morning), late_share(under)]
+    check("the ladder lesson's worked example (Tampa, January, morning, under 300 miles) matches the flight record", ladder_counts == [(20000, 21.4), (393, 19.6), (123, 19.5), (34, 2.9), (9, 11.1)], str(ladder_counts))
+    page = open_app(E, "2026-10-20", r5.write(os.path.join(E.tmp, "b7_u5.jsonl")))
+    go(page, "#/lesson/ladder")
+    page.wait_for_selector("#lesson-title")
+    body = text(page, "main")
+    check("the ladder card shows the example's rungs", all(t in body for t in ("20,000", "393", "123", "34")) and all(t in body for t in ("21.4%", "19.6%", "19.5%", "2.9%")), body[:200])
+    F.audit(E, "ladder lesson")
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U5-card")
+    check("the Path shows Unit 5 open with the exam Ready (36 practice done)", text(page, "#pgate-U5-status") == "Ready" and len(page.query_selector_all("#rate-lessons-card .lesson-link")) == 4 and "40 fresh" in text(page, "#pgate-U5-card"), text(page, "#pgate-U5-card")[:140])
+    go(page, "#/prob/rate")
+    page.wait_for_selector("#claim")
+    seen_kinds, outs = set(), []
+    for i in range(12):
+        page.wait_for_selector("#claim")
+        claim = text(page, "#claim")
+        q = RATE_BY_CLAIM[claim]
+        if q["type"] == "class":
+            seen_kinds.add("class")
+            page.wait_for_selector("#class-choices")
+            pick = q["right"] if i % 2 == 0 else len(q["classes"]) - 1
+            if i == 0 or "class" not in seen_kinds:
+                F.audit(E, "class ladder")
+            page.click(f"#class-{pick}")
+            F.settle(page)
+            page.click("#lock")
+            page.wait_for_selector("#verdict")
+            exp_pts = 60 if pick == q["right"] else -30
+            outs.append(("class", q, pick, exp_pts, text(page, "#points") == signed(exp_pts) and (("Right group" in text(page, "#verdict")) == (pick == q["right"]))))
+        else:
+            seen_kinds.add("rate")
+            off = [0, 10, -3.5, 25][i % 4]
+            g = min(100.0, max(0.0, q["truth"] + off))
+            page.fill("#pct-input", rnum(g))
+            if not outs and F.audit:
+                F.audit(E, "rate question")
+            F.settle(page)
+            page.click("#lock")
+            page.wait_for_selector("#verdict")
+            miss = abs(g - q["truth"])
+            exp_pts = max(-100, round(100 * (1 - miss / 7)))
+            outs.append(("rate", q, g, exp_pts, text(page, "#points") == signed(exp_pts) and (("Within 7" in text(page, "#verdict")) == (miss <= 7 + 1e-9))))
+        F.settle(page)
+        page.click("#next")
+        advance_to(page, claim, prefixes=("#/psummary/",))
+    page.wait_for_function("location.hash.startsWith('#/psummary/')", timeout=10000)
+    check("a Unit 5 session mixes base-rate problems and reference ladders, nine and three", seen_kinds == {"rate", "class"} and sum(1 for o in outs if o[0] == "class") == 3, str([o[0] for o in outs]))
+    check("every reveal showed the independent points and verdict (percent: 100 × (1 − miss/7); ladder: +60 or −30)", all(o[4] for o in outs), str([(o[0], o[3], o[4]) for o in outs]))
+    ps = of_type(page, "prob", mode="practice", unit="U5")
+    new = ps[-12:]
+    check("twelve problems were saved with the independent guess, miss, hit and points; ladders carry choice and right",
+          len(new) == 12 and all((p["family"] == "class" and p["choice"] == o[2] and p["points"] == o[3]) or (p["family"] == "rate" and near(p["guess"], o[2], 1e-9) and p["points"] == o[3]) for p, o in zip(new, outs)))
+    F.audit(E, "rate summary")
+    go(page, "#/prob/chain")
+    page.wait_for_selector("#chain-steps")
+    F.audit(E, "chain question")
+    chain_ok = []
+    for i in range(10):
+        page.wait_for_selector("#chain-steps")
+        rates = tuple(float(t.rstrip("%")) for t in page.eval_on_selector_all("#chain-steps li b", "els => els.map(e => e.textContent)"))
+        match = [c for c in CHAINS if tuple(s["rate"] for s in c["steps"]) == rates]
+        truth = match[0]["truth"]
+        guess = truth if i % 2 == 0 else min(100.0, max(rates))  # the product, or the naive 'strongest step'
+        page.fill("#pct-input", rnum(guess))
+        F.settle(page)
+        page.click("#lock")
+        page.wait_for_selector("#verdict")
+        note = text(page, "#pct-note")
+        exp_pts = max(-100, round(100 * (1 - abs(guess - truth) / 7)))
+        chain_ok.append(bool(match) and text(page, "#points") == signed(exp_pts) and "The chain multiplies" in note and pct1(truth) in note)
+        if i == 0:
+            F.audit(E, "chain reveal")
+        F.settle(page)
+        page.click("#next")
+        if i < 9:
+            page.wait_for_function("() => !document.getElementById('verdict')", timeout=10000)
+    page.wait_for_function("location.hash.startsWith('#/psummary/')", timeout=10000)
+    check("ten chain problems: each reveal shows the product of its steps and the independent points", len(chain_ok) == 10 and all(chain_ok), str(chain_ok))
+    cprobs = of_type(page, "prob", family="chain")
+    check("chain problems are saved as practice but do not count toward the Unit 5 gate", len(cprobs) == 10 and all(p["mode"] == "practice" for p in cprobs))
+
+    # -- the Unit 5 exam, failed on purpose: too high, then the repair drill ---------------------------------------------------
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U5-start")
+    page.click("#pgate-U5-start")
+    page.wait_for_selector("#pct-input")
+    check("the Unit 5 exam opens at sitting 1 of 2, problem 1 of 20, base rates only", text(page, ".cnt") == "1 of 20" and "sitting 1 of 2" in text(page, "#mode-tag") and RATE_BY_CLAIM[text(page, "#claim")]["pool"] == "exam" and RATE_BY_CLAIM[text(page, "#claim")]["type"] == "rate")
+    exam_ans = []
+    for sitting in range(2):
+        for i in range(20):
+            page.wait_for_selector("#pct-input")
+            claim = text(page, "#claim")
+            q = RATE_BY_CLAIM[claim]
+            g = min(100.0, q["truth"] + 20)
+            page.fill("#pct-input", rnum(g))
+            F.settle(page)
+            page.click("#lock")
+            advance_to(page, claim, prefixes=("#/pexam/",))
+            exam_ans.append((q, g))
+        if sitting == 0:
+            page.wait_for_selector("#pexam-sealed")
+            check("after sitting 1 the exam is sealed", page.query_selector("#pexam-verdict") is None and "20 of 40" in text(page, "#pexam-count"))
+            page.click("#pexam-next")
+    page.wait_for_selector("#pexam-verdict")
+    within = sum(1 for q, g in exam_ans if abs(g - q["truth"]) <= 7 + 1e-9)
+    bias = sum(g - q["truth"] for q, g in exam_ans) / 40
+    check("the Unit 5 verdict is the independent one: within-7 count, not passed, and it says the answers ran high", text(page, "#pexam-hits") == str(within) and text(page, "#pexam-verdict").startswith("Not passed") and "ran high" in text(page, "#pexam-reasons"), f"{text(page, '#pexam-hits')}/{within} {text(page, '#pexam-reasons')[:140]}")
+    res = [e for e in of_type(page, "exam", state="result") if e.get("unit") == "U5"]
+    check("one Unit 5 result: n=40, within, bias and the reason", len(res) == 1 and res[0]["n"] == 40 and res[0]["hits"] == within and not res[0]["pass"] and near(res[0]["bias"], bias, 1e-6) and res[0]["dir"] == "too high", str(res[:1])[:200])
+    F.audit(E, "rate exam failed")
+    check("the verdict page points to a repair drill of ten", page.get_attribute("#pexam-after", "href") == "#/prob/repair-U5")
+    page.click("#pexam-after")
+    page.wait_for_selector("#pct-input")
+    check("the repair drill opens: 1 of 10, labelled as a repair drill", text(page, ".cnt") == "1 of 10" and "Repair drill" in text(page, "#mode-tag"))
+    for i in range(10):
+        page.wait_for_selector("#pct-input")
+        claim = text(page, "#claim")
+        q = RATE_BY_CLAIM[claim]
+        page.fill("#pct-input", rnum(q["truth"]))
+        F.settle(page)
+        page.click("#lock")
+        page.wait_for_selector("#verdict")
+        F.settle(page)
+        page.click("#next")
+        advance_to(page, claim, prefixes=("#/psummary/",))
+    page.wait_for_function("location.hash.startsWith('#/psummary/')", timeout=10000)
+    check("the repair drill ends on a summary that says what happens next, and writes the repair event", page.query_selector("#drill-next") is not None and [e for e in of_type(page, "exam", state="repair")], text(page, "main")[:120])
+    drills = [p for p in of_type(page, "prob") if p["mode"] == "drill"]
+    check("drill problems are saved as drill and kept out of the Mirror's count", len(drills) == 10)
+    go(page, "#/path")
+    page.wait_for_selector("#pgate-U5-status")
+    check("after the repair a new Unit 5 exam is Ready", text(page, "#pgate-U5-status") == "Ready", text(page, "#pgate-U5-status"))
+    go(page, "#/mirror")
+    page.wait_for_selector("#reasoning-record")
+    rs = text(page, "#rs-table")
+    natural = [e for e in of_type(page, "prob") if e["mode"] in ("practice", "exam") and e["family"] in ("rate", "chain")]
+    wi = sum(1 for e in natural if e["hit"])
+    check("the Mirror counts base rates within 7 over practice and the judged exam only (drills excluded)", f"{wi} of {len(natural)}" in rs, rs[:240])
+    F.audit(E, "mirror reasoning rates")
+    E.ctx.close()
+
+
+    # -- the journal's reasoning tools: shown as their units open --------------------------------------------------------------
+    def write_card(page, text_, steps=None, own=None, c=None):
+        go(page, "#/journal/write")
+        page.wait_for_selector("#claim-text")
+        page.fill("#claim-text", text_)
+        page.click(".picker >> text=Work"); page.click(".picker >> text=This week")
+        has_own = page.query_selector("#own-task") is not None
+        if own is not None and has_own:
+            page.click("#own-task .picker >> text=Yes" if own else "#own-task .picker >> text=No")
+        F.settle(page)
+        page.click("text=Next: the chain")
+        page.wait_for_selector("#add-evidence")
+        has_chain = page.query_selector("#chain-box") is not None
+        for f in page.query_selector_all("input.field[type=text]"):
+            if not f.evaluate("e => !!e.closest('#chain-box')"):
+                f.fill("x")
+        if steps and has_chain:
+            ins = page.query_selector_all("#chain-box input")
+            for i, (t, pr) in enumerate(steps):
+                ins[2 * i].fill(t); ins[2 * i + 1].fill(str(pr))
+        prod_text = text(page, "#chain-product") if has_chain else ""
+        F.settle(page)
+        page.click("text=Next: your number")
+        page.wait_for_selector("#prob")
+        if c is not None:
+            page.evaluate("(v) => { const e = document.getElementById('prob'); e.value = v; e.dispatchEvent(new Event('input', {bubbles: true})); }", c)
+        notes = (text(page, "#chain-note") if page.query_selector("#chain-note") else "", text(page, "#outside-grade") if page.query_selector("#outside-grade") else "")
+        F.settle(page)
+        page.click("#lock")
+        page.wait_for_function("location.hash.startsWith('#/journal/') && location.hash !== '#/journal/write'", timeout=8000)
+        return has_own, has_chain, prod_text, notes
+
+    page = open_app(E, "2026-09-20", synth.u1_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b7j0.jsonl")))
+    has_own, has_chain, _, notes = write_card(page, "By Friday, the report will be sent.")
+    check("before Unit 4 is open the journal has no own-task tag, no chain steps and no outside-view grade", not has_own and not has_chain and notes == ("", ""))
+    E.ctx.close()
+
+    page = open_app(E, "2026-10-12", synth.u3_passed_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b7j1.jsonl")))
+    has_own, has_chain, prod_text, notes = write_card(page, "By Friday, the vendor will ship and I will install it and it will pass the check.", steps=[("It ships", 80), ("I install it", 70), ("It passes", 90)], c=70)
+    check("with Unit 4 open the chain step offers steps, multiplies them as typed (80 x 70 x 90 = 50.4%) and warns when the number is above the product",
+          has_chain and not has_own and "50%" in prod_text and "50%" in notes[0] and "about to say 70%" in notes[0] and notes[1] == "", f"{prod_text} | {notes}")
+    pr = [e for e in of_type(page, "prediction")][-1]
+    check("the card is saved with its steps (three, as probabilities) and no own-task tag", [x["p"] for x in pr.get("steps", [])] == [0.8, 0.7, 0.9] and "own" not in pr, str(pr.get("steps")))
+    F.audit(E, "journal chain steps")
+    E.ctx.close()
+
+    page = open_app(E, "2026-10-20", synth.u5_ready_player(U1_EXAM, start=START).write(os.path.join(E.tmp, "b7j2.jsonl")))
+    has_own, has_chain, prod_text, notes = write_card(page, "By Friday, I will finish the draft and send it to the team.", steps=[("I finish", 90), ("It gets approved", 60)], own=True, c=40)
+    check("with Unit 5 open there is an own-task tag, and the lock step grades the outside view against the baseline", has_own and "baseline" in notes[1] and ("accepted" in notes[1] or "away" in notes[1]) and "at or under" in notes[0], str(notes))
+    pr = [e for e in of_type(page, "prediction")][-1]
+    check("the card is saved with own true and its two steps", pr.get("own") is True and len(pr.get("steps", [])) == 2)
+    page.wait_for_selector("#lens-reasoning, #chain-open, .card")
+    body = text(page, "main")
+    check("the card shows its chain steps and the product", "Chain steps" in body and "Together: 54%" in body or "Together: 54.0%" in body or "Together: 54" in body, body[:260])
+    F.audit(E, "journal with own task")
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -1551,6 +1980,7 @@ PHASES = [
     ("b4a", "Block 4: the autopsy and the case file", phase_b4_autopsy),
     ("b5", "Block 5: the Coach", phase_b5),
     ("b6", "Block 6: ranges", phase_b6),
+    ("b7", "Block 7: Fermi, base rates, chains", phase_b7),
 ]
 
 

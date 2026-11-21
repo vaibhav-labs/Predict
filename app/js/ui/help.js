@@ -121,6 +121,19 @@ export function helpScreen(ctx) {
       p('The exam', '60 fresh ranges in three sittings of 20, sealed until the last one. Between 50 and 58 must hold the truth: a true 90% range holds about 54. Fewer says too narrow, more says padded. A fail sends you to a repair drill first.'),
       p('Range patterns', 'too narrow (fewer than 30 of your last 40 held the truth) and too wide (39 or 40 held it, at over twice the reference width) each get a lesson, a drill and two re-tests. The narrow drill builds a range one end at a time; the wide drill gives a width budget.')),
 
+    section('Fermi problems (Unit 4)',
+      p('What it is', 'a big quantity you cannot look up, like the minutes of lateness a month of flights adds up to. You break it into parts you can think about, and give each part a low and a high you are 90% sure of. It opens when you have passed the Unit 3 exam.'),
+      p('The worksheet', 'the app multiplies your parts for you. The middles combine as a product; the spreads combine in quadrature, because errors in separate parts do not all land the same way, so the whole is narrower than lows times lows and highs times highs. In practice you first make a gut guess for the whole, then see whether the worksheet beat it.'),
+      p('The score', 'the worksheet’s range is scored like a range in Unit 3, against the reference interval, and each part is shown held or missed so you can see where the error came from.'),
+      p('The exam', '20 fresh problems in two sittings of 10, sealed until the last one. At least 16 worksheet ranges must hold the truth and the median miss must be within a factor of 3. A fail says whether you were too narrow or too far off, then a repair drill.'),
+      p('Chains', 'a chain gives you steps, each a rate among the cases that passed the one before. The answer is the product. Chain practice is on the Path; it does not count toward the exam.')),
+
+    section('Base rates (Unit 5)',
+      p('What it is', 'start outside: how often does this happen to cases like this one? You type a percent; within 7 points counts. It opens when you have passed Unit 4. Reference-class problems ask you to pick the narrowest group that still holds 30 or more cases.'),
+      p('The exam', '40 fresh base-rate problems in two sittings of 20. At least 32 must land within 7 points. A fail says whether you ran high or low, then a repair drill.'),
+      p('In the journal', 'with Unit 5 open, a prediction’s outside-view rate is graded against the base rate recorded when you locked it. A card can be tagged as your own task; chain cards take the steps with a probability each, and the app shows their product.'),
+      p('Patterns', 'chains that you multiply too generously, your own plans running too sure, forecasts far from the base rate with no evidence, and a domain where your edge is below zero each get a lesson, a drill and re-tests.')),
+
     section('The autopsy and the case file',
       p('Autopsy', 'a real prediction that missed at 85% or more, and one in five confident hits, gets a short autopsy before your next journal step: mark each link of your chain held up, weak or missed it, then say what you knew, what you missed, whether it was luck or judgment, and one rule for next time.'),
       p('The rule', 'sits above your next five journal cards and is checked at 3 and 10 days: did you use it?'),
@@ -131,7 +144,8 @@ export function helpScreen(ctx) {
       p('Bias map', 'your gap split by topic for the gym, and by domain and horizon for the journal. A group with fewer than 10 calls says “too few” and claims nothing; a verdict (too sure, too shy) appears only when the whole bar sits on one side of zero.'),
       p('Level, streak, 7 days', 'Level comes from career points, which never go down. A streak counts days you played (a call, a locked prediction or a resolved one) and a missed day keeps half of it. 7 days is your average skill points on the days you played, so showing up cannot raise it.'),
       p('Ranges on the Mirror', 'how many of your ranges held the truth, with the same kind of error bar, how wide they were against the reference, and the split by kind of question. Drill ranges do not count.'),
-      p('Path', 'the units ahead, the Unit 1 and Unit 3 exams, your patterns and where each one stands, and the lesson cards you have read.')),
+      p('Reasoning on the Mirror', 'Fermi ranges that held, the median miss, how the worksheet compares with your first guess, base rates within 7 points and which way you lean, and how many journal cards carry an accepted base rate. Drills do not count.'),
+      p('Path', 'the units ahead, the exams for Units 1, 3, 4 and 5, your patterns and where each one stands, and the lesson cards you have read.')),
 
     section('Points, gap and edge',
       p('Points', 'a proper scoring rule, so saying what you actually believe is always the best strategy: a confident miss costs more than a confident hit pays.'),
@@ -154,5 +168,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts are listed on Mirror with your real progress; the Unit 1 and Unit 3 exams count toward the first one, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress; the exams for Units 1, 3, 4 and 5 count toward the first ones, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

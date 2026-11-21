@@ -4,6 +4,7 @@ import * as R from './engine/record.js';
 import * as LE from './engine/lessons.js';
 import * as G from './engine/gate.js';
 import * as RG from './engine/range.js';
+import * as PB from './engine/problem.js';
 import { unitRow } from './ui/common.js';
 
 // Called when a screen that shows lessons opens, and when a session ends. Asking twice in a row writes nothing the second time.
@@ -71,5 +72,25 @@ export async function judgeRangeExam(ctx, attemptId) {
   await ctx.store.append(R.makeEvent('exam', {
     state: 'result', exam: attempt.id, unit: 'U3', pass: v.pass, n: v.n, hits: v.hits, coverage: v.coverage, meanRatio: v.meanRatio, points: v.points, reasons: v.reasons, dir: v.dir,
   }));
+  return true;
+}
+
+// Where the player stands on the Unit 4 or Unit 5 gate. Unit 4 opens when Unit 3's gate is passed, Unit 5 when Unit 4's is. The practice that counts
+// is the unit's own: Fermi problems for Unit 4, base-rate and reference-class problems for Unit 5 (chain problems are lesson-slot practice).
+export function problemGateState(ctx, unit) {
+  const events = ctx.store.events;
+  const open = unit === 'U4' ? rangeGateState(ctx).passed : problemGateState(ctx, 'U4').passed;
+  const families = unit === 'U4' ? ['fermi'] : ['rate', 'class'];
+  const practice = R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && families.includes(p.family)).length;
+  return PB.problemGateStatus(events, ctx.cfg, unit, { open, practice, practiceRequired: Number(unitRow(ctx, unit).practice_calls) });
+}
+
+// A Unit 4 or Unit 5 exam is judged once, when its last problem is in. Safe to call again: an exam that has its verdict is left alone.
+export async function judgeProblemExam(ctx, attemptId) {
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === attemptId && (a.unit === 'U4' || a.unit === 'U5'));
+  if (!attempt || attempt.result || attempt.calls.length < attempt.total) return false;
+  const v = PB.gateOf(attempt.unit)(attempt.calls, ctx.cfg.gates);
+  const extra = attempt.unit === 'U4' ? { medianMiss: v.medianMiss, meanRatio: v.meanRatio } : { meanMiss: v.meanMiss, bias: v.bias, within: v.within };
+  await ctx.store.append(R.makeEvent('exam', { state: 'result', exam: attempt.id, unit: attempt.unit, pass: v.pass, n: v.n, hits: v.hits, coverage: attempt.unit === 'U4' ? v.coverage : v.hits / v.n, points: v.points, reasons: v.reasons, dir: v.dir, ...extra }));
   return true;
 }

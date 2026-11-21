@@ -2,6 +2,7 @@
 // drawn (data/scoring.json through the scoring engine), so the text can never disagree with the game.
 // A block is a paragraph (strings and {b: bold} parts), a table, or the equivalent-bet wheel.
 import { signed, pct } from './engine/scoring.js';
+import { combineRanges, naiveRange, chainProduct } from './engine/problem.js';
 
 const f1 = (x) => {
   const r = Math.round(x * 10) / 10;
@@ -114,8 +115,95 @@ export const RANGE_LESSONS = [
   },
 ];
 
+// Unit 4 (Fermi): break an unknown into parts you can estimate, and multiply the chain. Every number is worked out here, by the same functions the
+// worksheet uses, so the card cannot disagree with the game.
+const times = (x) => (x >= 100 ? Math.round(x).toLocaleString('en-US') : x >= 10 ? x.toFixed(0) : x.toFixed(1));
+export const FERMI_LESSONS = [
+  {
+    id: 'break',
+    title: 'Break it down',
+    blurb: 'Parts you can think about',
+    blocks: () => {
+      const parts = [{ low: 2, high: 8 }, { low: 3, high: 12 }, { low: 10, high: 40 }];
+      const comb = combineRanges(parts), naive = naiveRange(parts);
+      return [
+        { p: ['Some questions are too big to guess: how many minutes of lateness did a hundred flights add up to? You have no feel for the total. But the total is a product of parts you do have a feel for: ', { b: 'how many flights, times the share that are late, times how late the late ones are.' }] },
+        { p: ['The worksheet asks for a low and a high you are 90% sure of for each part, and combines them. The ranges multiply, but the errors do not all land the same way: one part running high is no reason for another to run high. So the combined range is wider than any part, and much narrower than the product of the ends.'] },
+        { table: { head: ['Part', 'Your range'], rows: parts.map((x, i) => [`Part ${i + 1}`, `${x.low} to ${x.high}`]).concat([['Worksheet range', `${times(comb.low)} to ${times(comb.high)}`], ['Every low times every high', `${naive.low} to ${naive.high.toLocaleString('en-US')}`]]) } },
+        { p: ['The second range is so wide it says nothing. The first is one you can bet on, if each part was honest.'] },
+      ];
+    },
+  },
+  {
+    id: 'multiply',
+    title: 'Multiply the chain',
+    blurb: 'Three 80% steps make 51%',
+    blocks: () => [
+      { p: ['A plan with three steps that each look 80% likely is not 80% likely. All three have to happen, so the chances multiply: ', { b: `0.8 × 0.8 × 0.8 = ${(chainProduct([0.8, 0.8, 0.8]) * 100).toFixed(0)}%` }, '. A story of five steps at 90% is ', { b: `${(chainProduct([0.9, 0.9, 0.9, 0.9, 0.9]) * 100).toFixed(0)}%` }, '.'] },
+      { table: { head: ['Steps, each at', '2 steps', '3 steps', '5 steps'], rows: [0.95, 0.9, 0.8, 0.7].map((p) => [pct(p), ...[2, 3, 5].map((n) => pct(chainProduct(Array(n).fill(p))))]) } },
+      { p: ['The trap is that every step looks safe on its own and the whole story feels as likely as its best step. It is never more likely than its weakest, and usually much less than either.'] },
+      { p: ['In the journal, when a prediction needs several things to all happen, list them and give each its own chance, given the steps before it. The chain multiplier shows the product. Then ask whether your number is above it, and why.'] },
+    ],
+  },
+  {
+    id: 'parts',
+    title: 'Where the parts come from',
+    blurb: 'Each part gets its own honest range',
+    blocks: () => [
+      { p: ['A good part is one you can reason about without looking anything up: a count you can bracket, a share between 0 and 100, a factor like "doubled" or "halved". Give each part a range you would bet 19 to 1 on, using the same trick as a range question: build each end alone, and start from the cases like it.'] },
+      { p: [{ b: 'Do not tune the parts to a total you already have in your head.' }, ' The point of the worksheet is that its answer can differ from your gut. When it does, one of them is wrong, and the reveal shows which part it was.'] },
+      { p: ['The gym keeps score two ways. The worksheet\'s range has to hold the truth about nine times in ten, and when it misses, it should miss by a factor you could have lived with: the exam asks for a median miss within a factor of three.'] },
+    ],
+  },
+];
+
+// Unit 5 (outside view): start from how often this kind of thing happens.
+export const RATE_LESSONS = [
+  {
+    id: 'outside',
+    title: 'Start outside',
+    blurb: 'How often does this happen to cases like it?',
+    blocks: (S, cfg) => [
+      { p: ['There are two ways in to any forecast. The inside view starts with this case: its details, its story, what you know about the people. The ', { b: 'outside view' }, ' starts with the cases like it: how often does this happen to them?'] },
+      { p: ['The inside view is always more vivid and nearly always too sure. Start outside, with the share, then ask what is genuinely different here, and move only as far as that is worth.'] },
+      { p: [`In Unit 5 you give a percent for a kind of case, and it counts when it lands within ${cfg.problems.rate.tolerance} points of what the record says. The exam is ${cfg.gates.rate_exam_calls} fresh problems; ${cfg.gates.rate_pass_within} of them must be within that distance.`] },
+    ],
+  },
+  {
+    id: 'ladder',
+    title: 'How narrow a class',
+    blurb: 'Narrow, but not under 30',
+    blocks: (S, cfg) => [
+      { p: ['A case belongs to many groups at once: all flights, flights from this airport, flights from this airport in January, flights from this airport in January in the morning. Which is the right one to start from?'] },
+      { p: ['A narrower group is more like your case. But each cut takes cases away, and a share from a handful of cases is mostly noise. The rule of thumb: ', { b: `go down the ladder while the group still holds ${cfg.problems.rate.class_min_cases} or more cases, and stop there.` }] },
+      { table: { head: ['Group', 'Cases', 'Share late'], rows: [['Every flight in the record', '20,000', '21.4%'], ['Left Tampa', '393', '19.6%'], ['Left Tampa in January', '123', '19.5%'], ['… in the morning', '34', '2.9%'], ['… and flew under 300 miles', '9', '11.1%']], } },
+      { p: ['The last two shares jump around because they are built on so few cases. The group of 34 is the narrowest one worth trusting.'] },
+    ],
+  },
+  {
+    id: 'record',
+    title: 'Your own record is a class',
+    blurb: 'The planning fallacy and your own base rate',
+    blocks: () => [
+      { p: ['For your own tasks and deadlines, the best reference class is usually you: how often have the things you planned finished on time? People who plan from the details of the task are too sure, again and again, because the details never include the delays that come from outside.'] },
+      { p: ['Mark a journal prediction as about your own task, and the Mirror will keep a record of how those did. When the record says you are too sure, start from the record: if your last ten estimates were met six times, 60% is where you begin.'] },
+      { p: ['Projects are famous for this. Olympic Games cost more than budgeted every time, and nine in ten megaprojects run over. Your own project is rarely the exception, whatever its details.'] },
+    ],
+  },
+  {
+    id: 'blind',
+    title: 'Defer where you lose',
+    blurb: 'When your edge is below zero',
+    blocks: () => [
+      { p: ['The journal compares each prediction with a baseline: the plain base rate. If, over your last 30 resolved cards in one domain, you have earned less than zero, a forecast that just said the baseline would have done better.'] },
+      { p: [{ b: 'Defer there, for now.' }, ' Start from the base rate and move away from it only with a logged piece of evidence, one at a time, until the record says your adjustments are worth something.'] },
+      { p: ['It is not a verdict on you, only on this domain for the moment. The drill is a set of base-rate problems in that domain: practice at the part you skip.'] },
+    ],
+  },
+];
+
 // The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), one more card for soft questions, and a Unit 3 card for each range pattern.
-export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price' };
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L13: 'blind' };
 export const STRANGER = {
   id: 'stranger',
   title: 'Could a stranger score this?',
@@ -127,6 +215,7 @@ export const STRANGER = {
     { p: ['The checker catches the common ones: no date, a vague word such as better or soon, a feeling in place of an event. When it flags a claim, rewrite it until the clairvoyant could answer.'] },
   ],
 };
-export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
+export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
 // Every card the Path can open, with the list it belongs to.
-export const cardList = (id) => (LESSONS.some((l) => l.id === id) ? LESSONS : RANGE_LESSONS.some((l) => l.id === id) ? RANGE_LESSONS : null);
+export const cardList = (id) => [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS].find((list) => list.some((l) => l.id === id)) || null;
+export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : 'Unit 5 · Outside view');

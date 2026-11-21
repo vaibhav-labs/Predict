@@ -213,6 +213,31 @@ Section 5 is the closed form. This is the same game on the real range bank (`app
 - **The offset 1.25.** On bell-shaped outcomes the honest range's expected interval score is 1.254 reference widths (section 5); on the real bank, with the floor at -400, the record player averages -5.6 a range over all 380 questions, so knowing the record earns about 0. Some kinds (rain, life expectancy, child mortality) cost 2 to 3 reference widths on a miss-heavy average and others (income per person) 1.0, so points swing by kind; the Mirror shows the split.
 - **Open risk:** the reference interval is the record's, so a player with knowledge the record lacks can beat it. That is the intent: it is the outside view, and beating it is the skill.
 
+## 5c. Fermi and base rates on the real banks (Block 7)
+
+`sim/problem_sim.py` plays the Unit 4 and Unit 5 exams on the real exam pools (`fermi.json` 48 problems, `rates.json` 60 rate problems) with the real rules from `data/scoring.json`. A Fermi player guesses every part with a log-normal error (natural-log sd in the first column) and states a range of factor f around the guess; the worksheet combines the parts and the whole is judged against its truth and reference interval. A calibrated player states f = exp(1.645 sd). A rate player answers the truth plus Gaussian noise (sd in points) and a lean.
+
+| Fermi player | Hits of 20 | Median miss | Points a problem | Exam pass (16 hold and median miss within 3) |
+|---|---|---|---|---|
+| precise, calibrated (error sd 0.2) | 18.0 | 1.24x | +51 | 95.4% |
+| typical, calibrated (error sd 0.4) | 18.0 | 1.52x | -15 | 95.4% |
+| typical, overconfident (sd 0.4, says 1.3x) | 9.9 | 1.52x | -60 | 0.4% |
+| rough, overconfident (sd 0.7, says 1.5x) | 8.7 | 2.10x | -131 | 0.1% |
+| typical, humble (sd 0.4, says 3x) | 19.9 | 1.53x | -77 | 100.0% |
+| rough, calibrated (sd 0.7) | 18.0 | 2.10x | -105 | 93.7% |
+
+| Rate player | Within 7 of 40 | Points a problem | Exam pass (32 or more within 7) |
+|---|---|---|---|
+| knows the record (sd 3) | 39.3 | +67 | 100.0% |
+| close (sd 5) | 34.6 | +46 | 91.3% |
+| rough (sd 8) | 27.1 | +19 | 6.3% |
+| rough, leans high (sd 8, +6) | 21.1 | -1 | 0.0% |
+| anchored (sd 15) | 18.2 | -17 | 0.0% |
+
+- **The Fermi gate separates calibrated from overconfident:** a calibrated player passes about 95.4% whatever their skill (a rough guesser 93.7%, a precise one 95.4%); an overconfident one almost never (0.4%). Skill shows in the points, not the pass.
+- **Open risk: padding passes the gate.** A humble player who says 3x passes 100.0% (Unit 3 caps hits at 58 of 60 to stop this; Unit 4 does not), but earns -77 a problem against -15 for the calibrated player. If padding shows up in a real record, add an upper bound on hits or a width cap to the Unit 4 gate (one line in `data/scoring.json` and `gateU4`).
+- **The Unit 5 gate asks for a real outside view:** a player within 3 points on average passes 100.0%, within 5 91.3%, within 8 6.3%; a lean of 6 points high with that noise 0.0%.
+
 ## 6. Real predictions: raw points against edge
 
 - **Intent:** logging sure things must not pay.

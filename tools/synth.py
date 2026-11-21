@@ -370,6 +370,92 @@ def u1_passed_player(exam_bank, seed=19, start="2026-09-01"):
     return r
 
 
+# ---- Units 4 and 5 (Block 7): problem sessions, problems, and the exams ----
+def _bank(name):
+    return json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "content", "questions", name)))["questions"]
+
+
+def u3_passed_player(exam_bank, seed=23, start="2026-09-01"):
+    """The Unit 1 passer who then did 40 practice ranges and sat and passed the Unit 3 exam (60 ranges, 54 holding): Units 4 is open."""
+    import ref_range
+    r = u1_passed_player(exam_bank, seed, start)
+    pool = [q for q in _bank("ranges.json") if q["pool"] == "practice"]
+    xpool = [q for q in _bank("ranges.json") if q["pool"] == "exam"]
+    day0 = add_days(start, 20)
+    for k in range(4):
+        r.range_day(add_days(day0, k), pool[k * 10:(k + 1) * 10], centered_policy(1.0), minute=0)
+    att = r.range_exam_start(add_days(day0, 6), 10)
+    for k in range(3):
+        r.range_day(add_days(day0, 6 + k), xpool[k * 20:(k + 1) * 20], centered_policy(1.0), mode="exam", minute=20, exam=att, n=k + 1, of=3)
+    r._add("exam", add_days(day0, 9), 300, state="result", exam=att, unit="U3", **{"pass": True}, n=60, hits=60, coverage=1.0, points=0, reasons=[], dir=None)
+    return r
+
+
+def prob_session(r, day, minute, family, unit, plan, mode="practice", **extra):
+    return r._add("psession", day, minute, mode=mode, unit=unit, family=family, size=len(plan), plan=list(plan), **extra)["id"]
+
+
+def prob_fermi(r, sid, day, minute, q, stretch=1.5, mode="practice", exam=None, unit="U4"):
+    """One Fermi problem answered with every part's range the truth stretched by `stretch` either way; judged by ref_problem (written separately)."""
+    import ref_problem as RP
+    parts = [(p["truth"] / stretch, p["truth"] * stretch) for p in q["parts"]]
+    lo, hi = RP.combine(parts, q["mult"])
+    j = RP.judge(q, lo, hi)
+    pd = [{"low": a, "high": b, "truth": p["truth"], "hit": a <= p["truth"] <= b} for (a, b), p in zip(parts, q["parts"])]
+    return r._add("prob", day, minute, session=sid, mode=mode, unit=unit, family="fermi", exam=exam, q=q["id"], kind=q["kind"], domain=q["domain"], parts=pd, low=lo, high=hi, truth=q["truth"],
+                  scale="log", refLow=q["ref_low"], refHigh=q["ref_high"], hit=j["hit"], ratio=j["ratio"], score=j["score"], points=j["points"], miss=j["miss"], partsHit=sum(1 for x in pd if x["hit"]), claim=f"{q['lead']} {q['ask']}", ms=20000)
+
+
+def prob_rate(r, sid, day, minute, q, off=0.0, mode="practice", exam=None, unit="U5"):
+    g = min(100.0, max(0.0, q["truth"] + off))
+    miss = abs(g - q["truth"])
+    pts_ = max(-100, round(100 * (1 - miss / 7)))
+    return r._add("prob", day, minute, session=sid, mode=mode, unit=unit, family="rate", exam=exam, q=q["id"], kind=q["kind"], jdomain=q["jdomain"], guess=g, truth=q["truth"], miss=miss, signed=g - q["truth"],
+                  hit=miss <= 7 + 1e-9, points=pts_, claim=f"{q['lead']} {q['ask']}", ms=9000)
+
+
+def prob_end(r, sid, day, minute):
+    return r._add("psession_end", day, minute, session=sid)
+
+
+def u4_ready_player(exam_bank, seed=29, start="2026-09-01"):
+    """Unit 3 passed, then 16 Fermi practice problems (two sessions of 8): the Unit 4 exam is open."""
+    r = u3_passed_player(exam_bank, seed, start)
+    pool = [q for q in _bank("fermi.json") if q["pool"] == "practice"]
+    day0 = add_days(start, 32)
+    for k in range(2):
+        qs = pool[k * 8:(k + 1) * 8]
+        sid = prob_session(r, add_days(day0, k), 0, "fermi", "U4", [q["id"] for q in qs])
+        for i, q in enumerate(qs):
+            prob_fermi(r, sid, add_days(day0, k), 1 + i, q)
+        prob_end(r, sid, add_days(day0, k), 20)
+    return r
+
+
+def u5_ready_player(exam_bank, seed=31, start="2026-09-01"):
+    """Unit 4 passed (a sealed exam of 20 Fermi problems, 20 holding) and 36 practice rate/class problems done: the Unit 5 exam is open."""
+    r = u4_ready_player(exam_bank, seed, start)
+    xpool = [q for q in _bank("fermi.json") if q["pool"] == "exam"]
+    day0 = add_days(start, 36)
+    att = r._add("exam", day0, 5, state="start", unit="U4", n=20)["id"]
+    for k in range(2):
+        qs = xpool[k * 10:(k + 1) * 10]
+        sid = prob_session(r, add_days(day0, k), 10, "fermi", "U4", [q["id"] for q in qs], mode="exam", exam=att, n=k + 1, of=2)
+        for i, q in enumerate(qs):
+            prob_fermi(r, sid, add_days(day0, k), 11 + i, q, mode="exam", exam=att)
+        prob_end(r, sid, add_days(day0, k), 30)
+    r._add("exam", add_days(day0, 2), 5, state="result", exam=att, unit="U4", **{"pass": True}, n=20, hits=20, coverage=1.0, points=0, reasons=[], dir=None, medianMiss=1.2, meanRatio=1.0)
+    rates = [q for q in _bank("rates.json") if q["type"] == "rate" and q["pool"] == "practice"]
+    day1 = add_days(day0, 4)
+    for k in range(3):
+        qs = rates[k * 12:(k + 1) * 12]
+        sid = prob_session(r, add_days(day1, k), 0, "rate", "U5", [q["id"] for q in qs])
+        for i, q in enumerate(qs):
+            prob_rate(r, sid, add_days(day1, k), 1 + i, q, off=(0 if i % 3 else 5))
+        prob_end(r, sid, add_days(day1, k), 20)
+    return r
+
+
 def range_policy(f):
     """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
     import ref_range

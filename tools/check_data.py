@@ -74,7 +74,7 @@ for tid, t in cfg["lessons"]["triggers"].items():
     if str(window) != row["min_sample"]:
         errors.append(f"{tid}: scoring.json looks at {window} observations, data/lesson_triggers.csv says min_sample {row['min_sample']}")
     drill = t.get("drill")
-    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite", "stepwise", "budget"}:
+    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite", "stepwise", "budget", "chain", "plan", "classpick", "domain"}:
         errors.append(f"{tid}: unknown drill kind {drill['kind']!r}")
 with open(os.path.join(ROOT, "data", "vague_claims.csv"), encoding="utf-8", newline="") as f:
     vague = list(csv.DictReader(f))
@@ -121,6 +121,15 @@ import check_ranges  # noqa: E402
 range_errors, range_notes = check_ranges.check()
 errors += [f"range bank: {e}" for e in range_errors]
 bank_notes += [f"range bank: {n}" for n in range_notes]
+
+# 8. The Fermi bank and the Unit 5 bank (Block 7): every part, truth, reference interval, rung and chain worked out again from the records.
+import subprocess  # noqa: E402
+for _name, _script in (("fermi bank", "check_fermi.py"), ("outside-view bank", "check_rates.py")):
+    _r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), _script)], capture_output=True, text=True)
+    if _r.returncode != 0:
+        errors += [f"{_name}: {line}" for line in (_r.stdout + _r.stderr).strip().splitlines()[:20]]
+    else:
+        bank_notes.append(f"{_name}: " + _r.stdout.strip().splitlines()[-1])
 
 if errors:
     print("DATA CHECK FAILED")

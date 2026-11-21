@@ -10,7 +10,7 @@ its six-link chain, an offline checker, lock, resolve, and edge score against a 
 the Mirror: error bars and sample sizes on the calibration curve, the bias map by topic, domain and
 horizon, level, streak and the seven-day score, the journal-only record, and the case file's "your
 pattern" lens. Block 4, the Lesson Engine: pattern flags with a lesson, a drill and two re-tests, the note
-after a miss, the sealed 200-call Unit 1 exam, and the autopsy with its rule card. Block 6, Ranges (Unit 3): give a low and a high you are 90% sure of, scored against the reference interval of real cases, with a sealed 60-range exam. Block 5, the Coach: an optional private repository that holds your record, the weekly letter, drills and daily ideas from Predict (`design/coach.md`). `STATE.md` has the detail and the next step. The app is served by GitHub Pages at
+after a miss, the sealed 200-call Unit 1 exam, and the autopsy with its rule card. Block 7, Reasoning tools (Units 4 and 5): Fermi problems on a break-it-down worksheet, base-rate problems, reference-class ladders and probability chains, two sealed exams, four new patterns, and chain steps, an own-task tag and an outside-view grade in the journal. Block 6, Ranges (Unit 3): give a low and a high you are 90% sure of, scored against the reference interval of real cases, with a sealed 60-range exam. Block 5, the Coach: an optional private repository that holds your record, the weekly letter, drills and daily ideas from Predict (`design/coach.md`). `STATE.md` has the detail and the next step. The app is served by GitHub Pages at
 https://vaibhav-labs.github.io/Predict/.
 
 Everything personal stays off this repo. The code, tables and question bank are public; your calls,

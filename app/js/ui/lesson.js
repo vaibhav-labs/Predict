@@ -1,6 +1,6 @@
 import { h } from '../dom.js';
 import * as R from '../engine/record.js';
-import { cardList } from '../lessons.js';
+import { cardList, cardUnit } from '../lessons.js';
 import { focusFrame } from './common.js';
 import { wheel } from './dial.js';
 
@@ -24,7 +24,7 @@ export function lessonScreen(ctx, id) {
   const idx = LESSONS.findIndex((l) => l.id === id);
   const lesson = LESSONS[idx];
   const next = LESSONS[idx + 1];
-  const unit = LESSONS[0].id === 'points' ? 'Unit 1 · Calibration' : 'Unit 3 · Ranges';
+  const unit = cardUnit(id);
   const isRead = R.lessonsRead(ctx.store.events).has(id);
 
   const body = renderBlocks(lesson.blocks(ctx.S, ctx.cfg));

@@ -1,0 +1,14 @@
+Fermi player                       hits of 20 median miss pts/problem exam pass
+precise, calibrated (error sd 0.2)       18.0       1.24x        50.7     95.2%
+typical, calibrated (error sd 0.4)       18.0       1.51x       -14.6     95.5%
+typical, overconfident (sd 0.4, says 1.3x)        9.8       1.53x       -60.8      0.4%
+rough, overconfident (sd 0.7, says 1.5x)        8.7       2.11x      -133.2      0.1%
+typical, humble (sd 0.4, says 3x)        19.9       1.52x       -77.3    100.0%
+rough, calibrated (sd 0.7)               18.0       2.09x      -105.8     93.7%
+
+Rate player                        within of 40 pts/problem exam pass
+knows the record (sd 3)                    39.3        66.7    100.0%
+close (sd 5)                               34.5        46.2     90.9%
+rough (sd 8)                               27.0        19.5      5.5%
+rough, leans high (sd 8, +6)               21.0        -1.8      0.0%
+anchored (sd 15)                           18.3       -17.0      0.0%
