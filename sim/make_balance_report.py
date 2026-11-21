@@ -152,6 +152,29 @@ add(table(["Window and gap", "False alarm on a calibrated player", "Fires on mil
            "Fires on typical overconfidence", "median calls"], rows))
 add("\n- **Change made:** 40 calls and a 10-point gap. A typical overconfident player makes about 9 top-band calls a day, so 46 calls is about five days.")
 
+# 4b (Block 4): the same question for L02, from sim/trigger_sim.py ------------------------------------
+_trig = os.path.join(OUT, "trigger_results.json")
+if os.path.exists(_trig):
+    TR = json.load(open(_trig))["L02"]
+    L02 = CFG["lessons"]["triggers"]["L02"]
+    add("\n## 4b. Lesson trigger for underconfidence (L02)\n")
+    add("- **Intent:** the same as L01, in the 60 to 80% band, where the plan left the threshold OPEN (value 5).")
+    add("- **Method:** 3,000 runs of 150 calls stated at 60 to 80% (`sim/trigger_sim.py`), the trigger checked after every call and, more realistically, "
+        "once every 7 calls (about one session's worth of calls in that band).\n")
+    rows = []
+    for key in TR["honest"]:
+        w, g, lk = re.match(r"W(\d+)_gap(\d+)_(\w+)", key).groups()
+        chosen = int(w) == L02["window"] and int(g) == round(L02["gap"] * 100) and lk == "session_end"
+        look = "after every call" if lk == "every_call" else "every 7 calls (session end)"
+        rows.append([f"{w} calls, {g} points" + (" (chosen)" if chosen else ""), look, pct(TR["honest"][key]["fires_within_150"]),
+                     pct(TR["mild_underconfident"][key]["fires_within_150"]), f"{TR['mild_underconfident'][key]['median_calls_to_fire']:.0f}",
+                     pct(TR["underconfident"][key]["fires_within_150"]), f"{TR['underconfident'][key]['median_calls_to_fire']:.0f}"])
+    add(table(["Window and gap", "Looked at", "False alarm on a calibrated player", "Fires on mild underconfidence", "median calls",
+               "Fires on typical underconfidence", "median calls"], rows))
+    add(f"\n- **Change made:** the plan's 60 calls and 10 points fired falsely on a calibrated player {pct(TR['honest']['W60_gap10_session_end']['fires_within_150'])} of the time at session-end looks. "
+        f"{L02['window']} calls and {round(L02['gap'] * 100)} points: {pct(TR['honest']['W60_gap12_session_end']['fires_within_150'])} false alarms, "
+        f"{pct(TR['underconfident']['W60_gap12_session_end']['fires_within_150'])} of typical underconfident players caught in a median of {TR['underconfident']['W60_gap12_session_end']['median_calls_to_fire']:.0f} calls.")
+
 # 5 ------------------------------------------------------------------
 add("\n## 5. Ranges\n")
 add("- **Intent:** neither going wide nor going narrow may beat an honest 90% range.")

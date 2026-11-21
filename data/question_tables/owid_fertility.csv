@@ -1,0 +1,1044 @@
+code,country,year,value
+AFG,Afghanistan,1990,7.576
+AFG,Afghanistan,1995,7.767
+AFG,Afghanistan,2000,7.566
+AFG,Afghanistan,2005,6.858
+AFG,Afghanistan,2010,6.195
+AFG,Afghanistan,2015,5.652
+AFG,Afghanistan,2020,5.145
+ALB,Albania,1990,3.014
+ALB,Albania,1995,2.762
+ALB,Albania,2000,2.217
+ALB,Albania,2005,1.787
+ALB,Albania,2010,1.653
+ALB,Albania,2015,1.631
+ALB,Albania,2020,1.371
+DZA,Algeria,1990,4.509
+DZA,Algeria,1995,3.487
+DZA,Algeria,2000,2.59
+DZA,Algeria,2005,2.562
+DZA,Algeria,2010,2.875
+DZA,Algeria,2015,3.091
+DZA,Algeria,2020,2.94
+AGO,Angola,1990,7.272
+AGO,Angola,1995,6.918
+AGO,Angola,2000,6.639
+AGO,Angola,2005,6.461
+AGO,Angola,2010,6.194
+AGO,Angola,2015,5.774
+AGO,Angola,2020,5.371
+ARG,Argentina,1990,3.034
+ARG,Argentina,1995,2.864
+ARG,Argentina,2000,2.591
+ARG,Argentina,2005,2.426
+ARG,Argentina,2010,2.411
+ARG,Argentina,2015,2.35
+ARG,Argentina,2020,1.601
+ARM,Armenia,1990,2.708
+ARM,Armenia,1995,2.067
+ARM,Armenia,2000,1.47
+ARM,Armenia,2005,1.492
+ARM,Armenia,2010,1.588
+ARM,Armenia,2015,1.621
+ARM,Armenia,2020,1.619
+AUS,Australia,1990,1.908
+AUS,Australia,1995,1.825
+AUS,Australia,2000,1.764
+AUS,Australia,2005,1.849
+AUS,Australia,2010,1.948
+AUS,Australia,2015,1.803
+AUS,Australia,2020,1.593
+AUT,Austria,1990,1.467
+AUT,Austria,1995,1.431
+AUT,Austria,2000,1.364
+AUT,Austria,2005,1.406
+AUT,Austria,2010,1.44
+AUT,Austria,2015,1.492
+AUT,Austria,2020,1.439
+AZE,Azerbaijan,1990,2.983
+AZE,Azerbaijan,1995,2.193
+AZE,Azerbaijan,2000,1.698
+AZE,Azerbaijan,2005,1.982
+AZE,Azerbaijan,2010,1.924
+AZE,Azerbaijan,2015,2.092
+AZE,Azerbaijan,2020,1.764
+BGD,Bangladesh,1990,4.506
+BGD,Bangladesh,1995,3.588
+BGD,Bangladesh,2000,3.279
+BGD,Bangladesh,2005,2.846
+BGD,Bangladesh,2010,2.38
+BGD,Bangladesh,2015,2.227
+BGD,Bangladesh,2020,2.175
+BLR,Belarus,1990,1.86
+BLR,Belarus,1995,1.369
+BLR,Belarus,2000,1.272
+BLR,Belarus,2005,1.221
+BLR,Belarus,2010,1.478
+BLR,Belarus,2015,1.728
+BLR,Belarus,2020,1.369
+BEL,Belgium,1990,1.625
+BEL,Belgium,1995,1.564
+BEL,Belgium,2000,1.663
+BEL,Belgium,2005,1.754
+BEL,Belgium,2010,1.849
+BEL,Belgium,2015,1.69
+BEL,Belgium,2020,1.575
+BEN,Benin,1990,6.741
+BEN,Benin,1995,6.33
+BEN,Benin,2000,5.937
+BEN,Benin,2005,5.692
+BEN,Benin,2010,5.452
+BEN,Benin,2015,5.32
+BEN,Benin,2020,4.795
+BOL,Bolivia,1990,4.9
+BOL,Bolivia,1995,4.409
+BOL,Bolivia,2000,3.991
+BOL,Bolivia,2005,3.558
+BOL,Bolivia,2010,3.213
+BOL,Bolivia,2015,2.886
+BOL,Bolivia,2020,2.651
+BIH,Bosnia and Herzegovina,1990,1.786
+BIH,Bosnia and Herzegovina,1995,1.669
+BIH,Bosnia and Herzegovina,2000,1.282
+BIH,Bosnia and Herzegovina,2005,1.203
+BIH,Bosnia and Herzegovina,2010,1.26
+BIH,Bosnia and Herzegovina,2015,1.322
+BIH,Bosnia and Herzegovina,2020,1.515
+BWA,Botswana,1990,4.509
+BWA,Botswana,1995,3.792
+BWA,Botswana,2000,3.294
+BWA,Botswana,2005,3.082
+BWA,Botswana,2010,3.135
+BWA,Botswana,2015,3.008
+BWA,Botswana,2020,2.861
+BRA,Brazil,1990,2.896
+BRA,Brazil,1995,2.567
+BRA,Brazil,2000,2.247
+BRA,Brazil,2005,1.942
+BRA,Brazil,2010,1.786
+BRA,Brazil,2015,1.777
+BRA,Brazil,2020,1.653
+BGR,Bulgaria,1990,1.795
+BGR,Bulgaria,1995,1.247
+BGR,Bulgaria,2000,1.29
+BGR,Bulgaria,2005,1.358
+BGR,Bulgaria,2010,1.567
+BGR,Bulgaria,2015,1.528
+BGR,Bulgaria,2020,1.557
+BFA,Burkina Faso,1990,7.009
+BFA,Burkina Faso,1995,6.814
+BFA,Burkina Faso,2000,6.519
+BFA,Burkina Faso,2005,6.182
+BFA,Burkina Faso,2010,5.936
+BFA,Burkina Faso,2015,5.478
+BFA,Burkina Faso,2020,4.44
+BDI,Burundi,1990,7.365
+BDI,Burundi,1995,7.184
+BDI,Burundi,2000,6.872
+BDI,Burundi,2005,6.708
+BDI,Burundi,2010,6.26
+BDI,Burundi,2015,5.695
+BDI,Burundi,2020,5.177
+KHM,Cambodia,1990,5.642
+KHM,Cambodia,1995,5.076
+KHM,Cambodia,2000,3.794
+KHM,Cambodia,2005,3.238
+KHM,Cambodia,2010,2.859
+KHM,Cambodia,2015,2.729
+KHM,Cambodia,2020,2.699
+CMR,Cameroon,1990,6.362
+CMR,Cameroon,1995,5.919
+CMR,Cameroon,2000,5.514
+CMR,Cameroon,2005,5.421
+CMR,Cameroon,2010,5.154
+CMR,Cameroon,2015,4.841
+CMR,Cameroon,2020,4.557
+CAN,Canada,1990,1.696
+CAN,Canada,1995,1.674
+CAN,Canada,2000,1.51
+CAN,Canada,2005,1.566
+CAN,Canada,2010,1.642
+CAN,Canada,2015,1.601
+CAN,Canada,2020,1.413
+CAF,Central African Republic,1990,6.049
+CAF,Central African Republic,1995,5.943
+CAF,Central African Republic,2000,5.851
+CAF,Central African Republic,2005,5.812
+CAF,Central African Republic,2010,5.963
+CAF,Central African Republic,2015,6.126
+CAF,Central African Republic,2020,6.059
+TCD,Chad,1990,7.219
+TCD,Chad,1995,7.29
+TCD,Chad,2000,7.249
+TCD,Chad,2005,7.134
+TCD,Chad,2010,6.99
+TCD,Chad,2015,6.706
+TCD,Chad,2020,6.346
+CHL,Chile,1990,2.579
+CHL,Chile,1995,2.353
+CHL,Chile,2000,2.046
+CHL,Chile,2005,1.825
+CHL,Chile,2010,1.844
+CHL,Chile,2015,1.737
+CHL,Chile,2020,1.307
+CHN,China,1990,2.514
+CHN,China,1995,1.588
+CHN,China,2000,1.628
+CHN,China,2005,1.624
+CHN,China,2010,1.687
+CHN,China,2015,1.67
+CHN,China,2020,1.236
+COL,Colombia,1990,2.995
+COL,Colombia,1995,2.85
+COL,Colombia,2000,2.574
+COL,Colombia,2005,2.309
+COL,Colombia,2010,2.01
+COL,Colombia,2015,1.771
+COL,Colombia,2020,1.694
+COG,Congo,1990,5.266
+COG,Congo,1995,5.068
+COG,Congo,2000,4.724
+COG,Congo,2005,4.669
+COG,Congo,2010,4.851
+COG,Congo,2015,4.607
+COG,Congo,2020,4.329
+CRI,Costa Rica,1990,3.167
+CRI,Costa Rica,1995,2.779
+CRI,Costa Rica,2000,2.413
+CRI,Costa Rica,2005,2.038
+CRI,Costa Rica,2010,1.827
+CRI,Costa Rica,2015,1.797
+CRI,Costa Rica,2020,1.448
+CIV,Cote d'Ivoire,1990,6.719
+CIV,Cote d'Ivoire,1995,6.038
+CIV,Cote d'Ivoire,2000,5.773
+CIV,Cote d'Ivoire,2005,5.499
+CIV,Cote d'Ivoire,2010,5.292
+CIV,Cote d'Ivoire,2015,4.97
+CIV,Cote d'Ivoire,2020,4.461
+HRV,Croatia,1990,1.628
+HRV,Croatia,1995,1.579
+HRV,Croatia,2000,1.423
+HRV,Croatia,2005,1.506
+HRV,Croatia,2010,1.551
+HRV,Croatia,2015,1.403
+HRV,Croatia,2020,1.484
+CUB,Cuba,1990,1.806
+CUB,Cuba,1995,1.481
+CUB,Cuba,2000,1.608
+CUB,Cuba,2005,1.486
+CUB,Cuba,2010,1.673
+CUB,Cuba,2015,1.685
+CUB,Cuba,2020,1.489
+CZE,Czechia,1990,1.885
+CZE,Czechia,1995,1.275
+CZE,Czechia,2000,1.146
+CZE,Czechia,2005,1.281
+CZE,Czechia,2010,1.509
+CZE,Czechia,2015,1.589
+CZE,Czechia,2020,1.763
+COD,Democratic Republic of Congo,1990,6.649
+COD,Democratic Republic of Congo,1995,6.676
+COD,Democratic Republic of Congo,2000,6.702
+COD,Democratic Republic of Congo,2005,6.526
+COD,Democratic Republic of Congo,2010,6.587
+COD,Democratic Republic of Congo,2015,6.437
+COD,Democratic Republic of Congo,2020,6.206
+DNK,Denmark,1990,1.664
+DNK,Denmark,1995,1.801
+DNK,Denmark,2000,1.765
+DNK,Denmark,2005,1.798
+DNK,Denmark,2010,1.858
+DNK,Denmark,2015,1.712
+DNK,Denmark,2020,1.678
+DOM,Dominican Republic,1990,3.411
+DOM,Dominican Republic,1995,3.101
+DOM,Dominican Republic,2000,2.869
+DOM,Dominican Republic,2005,2.574
+DOM,Dominican Republic,2010,2.556
+DOM,Dominican Republic,2015,2.43
+DOM,Dominican Republic,2020,2.329
+ECU,Ecuador,1990,3.68
+ECU,Ecuador,1995,3.381
+ECU,Ecuador,2000,3.102
+ECU,Ecuador,2005,2.8
+ECU,Ecuador,2010,2.615
+ECU,Ecuador,2015,2.209
+ECU,Ecuador,2020,1.967
+EGY,Egypt,1990,4.512
+EGY,Egypt,1995,3.764
+EGY,Egypt,2000,3.505
+EGY,Egypt,2005,3.254
+EGY,Egypt,2010,3.296
+EGY,Egypt,2015,3.5
+EGY,Egypt,2020,2.85
+SLV,El Salvador,1990,3.964
+SLV,El Salvador,1995,3.568
+SLV,El Salvador,2000,3.076
+SLV,El Salvador,2005,2.44
+SLV,El Salvador,2010,2.239
+SLV,El Salvador,2015,2.067
+SLV,El Salvador,2020,1.819
+ERI,Eritrea,1990,6.338
+ERI,Eritrea,1995,5.939
+ERI,Eritrea,2000,5.397
+ERI,Eritrea,2005,4.934
+ERI,Eritrea,2010,4.571
+ERI,Eritrea,2015,4.217
+ERI,Eritrea,2020,3.933
+ETH,Ethiopia,1990,7.196
+ETH,Ethiopia,1995,6.998
+ETH,Ethiopia,2000,6.654
+ETH,Ethiopia,2005,6.194
+ETH,Ethiopia,2010,5.282
+ETH,Ethiopia,2015,4.529
+ETH,Ethiopia,2020,4.274
+FIN,Finland,1990,1.776
+FIN,Finland,1995,1.805
+FIN,Finland,2000,1.726
+FIN,Finland,2005,1.801
+FIN,Finland,2010,1.863
+FIN,Finland,2015,1.645
+FIN,Finland,2020,1.374
+FRA,France,1990,1.782
+FRA,France,1995,1.718
+FRA,France,2000,1.876
+FRA,France,2005,1.916
+FRA,France,2010,2.017
+FRA,France,2015,1.927
+FRA,France,2020,1.785
+GAB,Gabon,1990,5.459
+GAB,Gabon,1995,4.884
+GAB,Gabon,2000,4.469
+GAB,Gabon,2005,4.21
+GAB,Gabon,2010,4.153
+GAB,Gabon,2015,3.921
+GAB,Gabon,2020,3.831
+GMB,Gambia,1990,6.246
+GMB,Gambia,1995,5.994
+GMB,Gambia,2000,5.716
+GMB,Gambia,2005,5.708
+GMB,Gambia,2010,5.558
+GMB,Gambia,2015,5.003
+GMB,Gambia,2020,4.248
+GEO,Georgia,1990,2.306
+GEO,Georgia,1995,1.807
+GEO,Georgia,2000,1.609
+GEO,Georgia,2005,1.583
+GEO,Georgia,2010,1.973
+GEO,Georgia,2015,2.214
+GEO,Georgia,2020,1.976
+DEU,Germany,1990,1.46
+DEU,Germany,1995,1.262
+DEU,Germany,2000,1.386
+DEU,Germany,2005,1.344
+DEU,Germany,2010,1.4
+DEU,Germany,2015,1.501
+DEU,Germany,2020,1.531
+GHA,Ghana,1990,5.737
+GHA,Ghana,1995,5.106
+GHA,Ghana,2000,4.827
+GHA,Ghana,2005,4.496
+GHA,Ghana,2010,4.181
+GHA,Ghana,2015,3.982
+GHA,Ghana,2020,3.541
+GRC,Greece,1990,1.466
+GRC,Greece,1995,1.385
+GRC,Greece,2000,1.331
+GRC,Greece,2005,1.358
+GRC,Greece,2010,1.485
+GRC,Greece,2015,1.328
+GRC,Greece,2020,1.386
+GTM,Guatemala,1990,5.48
+GTM,Guatemala,1995,5.105
+GTM,Guatemala,2000,4.583
+GTM,Guatemala,2005,3.974
+GTM,Guatemala,2010,3.375
+GTM,Guatemala,2015,3.029
+GTM,Guatemala,2020,2.47
+GIN,Guinea,1990,6.515
+GIN,Guinea,1995,6.288
+GIN,Guinea,2000,5.918
+GIN,Guinea,2005,5.727
+GIN,Guinea,2010,5.435
+GIN,Guinea,2015,5.002
+GIN,Guinea,2020,4.489
+GNB,Guinea-Bissau,1990,6.501
+GNB,Guinea-Bissau,1995,6.223
+GNB,Guinea-Bissau,2000,5.786
+GNB,Guinea-Bissau,2005,5.46
+GNB,Guinea-Bissau,2010,5.111
+GNB,Guinea-Bissau,2015,4.661
+GNB,Guinea-Bissau,2020,4.075
+HTI,Haiti,1990,5.414
+HTI,Haiti,1995,4.884
+HTI,Haiti,2000,4.39
+HTI,Haiti,2005,3.835
+HTI,Haiti,2010,3.497
+HTI,Haiti,2015,3.11
+HTI,Haiti,2020,2.804
+HND,Honduras,1990,5.271
+HND,Honduras,1995,4.835
+HND,Honduras,2000,4.289
+HND,Honduras,2005,3.577
+HND,Honduras,2010,3.078
+HND,Honduras,2015,2.746
+HND,Honduras,2020,2.577
+HKG,Hong Kong,1990,1.283
+HKG,Hong Kong,1995,1.304
+HKG,Hong Kong,2000,1.027
+HKG,Hong Kong,2005,0.957
+HKG,Hong Kong,2010,1.12
+HKG,Hong Kong,2015,1.227
+HKG,Hong Kong,2020,0.892
+HUN,Hungary,1990,1.857
+HUN,Hungary,1995,1.568
+HUN,Hungary,2000,1.32
+HUN,Hungary,2005,1.312
+HUN,Hungary,2010,1.257
+HUN,Hungary,2015,1.446
+HUN,Hungary,2020,1.576
+IND,India,1990,4.045
+IND,India,1995,3.651
+IND,India,2000,3.35
+IND,India,2005,2.958
+IND,India,2010,2.598
+IND,India,2015,2.289
+IND,India,2020,2.047
+IDN,Indonesia,1990,3.114
+IDN,Indonesia,1995,2.809
+IDN,Indonesia,2000,2.503
+IDN,Indonesia,2005,2.452
+IDN,Indonesia,2010,2.462
+IDN,Indonesia,2015,2.346
+IDN,Indonesia,2020,2.189
+IRN,Iran,1990,4.934
+IRN,Iran,1995,2.852
+IRN,Iran,2000,1.999
+IRN,Iran,2005,1.756
+IRN,Iran,2010,1.749
+IRN,Iran,2015,2.017
+IRN,Iran,2020,1.7
+IRQ,Iraq,1990,5.929
+IRQ,Iraq,1995,5.36
+IRQ,Iraq,2000,4.92
+IRQ,Iraq,2005,4.446
+IRQ,Iraq,2010,4.457
+IRQ,Iraq,2015,4.08
+IRQ,Iraq,2020,3.419
+IRL,Ireland,1990,2.11
+IRL,Ireland,1995,1.843
+IRL,Ireland,2000,1.893
+IRL,Ireland,2005,1.865
+IRL,Ireland,2010,2.056
+IRL,Ireland,2015,1.861
+IRL,Ireland,2020,1.653
+ISR,Israel,1990,2.84
+ISR,Israel,1995,2.823
+ISR,Israel,2000,2.921
+ISR,Israel,2005,2.793
+ISR,Israel,2010,3.028
+ISR,Israel,2015,3.093
+ISR,Israel,2020,2.937
+ITA,Italy,1990,1.331
+ITA,Italy,1995,1.188
+ITA,Italy,2000,1.249
+ITA,Italy,2005,1.332
+ITA,Italy,2010,1.443
+ITA,Italy,2015,1.344
+ITA,Italy,2020,1.242
+JAM,Jamaica,1990,2.955
+JAM,Jamaica,1995,2.851
+JAM,Jamaica,2000,2.345
+JAM,Jamaica,2005,2.148
+JAM,Jamaica,2010,1.799
+JAM,Jamaica,2015,1.508
+JAM,Jamaica,2020,1.383
+JPN,Japan,1990,1.509
+JPN,Japan,1995,1.407
+JPN,Japan,2000,1.346
+JPN,Japan,2005,1.245
+JPN,Japan,2010,1.357
+JPN,Japan,2015,1.415
+JPN,Japan,2020,1.304
+JOR,Jordan,1990,5.544
+JOR,Jordan,1995,4.676
+JOR,Jordan,2000,3.864
+JOR,Jordan,2005,3.653
+JOR,Jordan,2010,3.78
+JOR,Jordan,2015,3.141
+JOR,Jordan,2020,2.791
+KAZ,Kazakhstan,1990,2.745
+KAZ,Kazakhstan,1995,2.253
+KAZ,Kazakhstan,2000,1.898
+KAZ,Kazakhstan,2005,2.274
+KAZ,Kazakhstan,2010,2.61
+KAZ,Kazakhstan,2015,2.755
+KAZ,Kazakhstan,2020,3.13
+KEN,Kenya,1990,6.135
+KEN,Kenya,1995,5.372
+KEN,Kenya,2000,5.136
+KEN,Kenya,2005,4.801
+KEN,Kenya,2010,4.446
+KEN,Kenya,2015,3.766
+KEN,Kenya,2020,3.364
+KWT,Kuwait,1990,3.487
+KWT,Kuwait,1995,3.248
+KWT,Kuwait,2000,2.887
+KWT,Kuwait,2005,2.731
+KWT,Kuwait,2010,2.044
+KWT,Kuwait,2015,2.03
+KWT,Kuwait,2020,2.099
+KGZ,Kyrgyzstan,1990,3.798
+KGZ,Kyrgyzstan,1995,3.291
+KGZ,Kyrgyzstan,2000,2.576
+KGZ,Kyrgyzstan,2005,2.645
+KGZ,Kyrgyzstan,2010,3.096
+KGZ,Kyrgyzstan,2015,3.208
+KGZ,Kyrgyzstan,2020,3.05
+LAO,Laos,1990,6.057
+LAO,Laos,1995,5.355
+LAO,Laos,2000,4.429
+LAO,Laos,2005,3.685
+LAO,Laos,2010,3.137
+LAO,Laos,2015,2.796
+LAO,Laos,2020,2.535
+LBN,Lebanon,1990,3.268
+LBN,Lebanon,1995,2.725
+LBN,Lebanon,2000,2.6
+LBN,Lebanon,2005,2.291
+LBN,Lebanon,2010,2.256
+LBN,Lebanon,2015,2.382
+LBN,Lebanon,2020,2.308
+LSO,Lesotho,1990,4.813
+LSO,Lesotho,1995,4.125
+LSO,Lesotho,2000,3.605
+LSO,Lesotho,2005,3.428
+LSO,Lesotho,2010,3.25
+LSO,Lesotho,2015,3.217
+LSO,Lesotho,2020,2.846
+LBR,Liberia,1990,6.37
+LBR,Liberia,1995,6.173
+LBR,Liberia,2000,5.875
+LBR,Liberia,2005,5.519
+LBR,Liberia,2010,5.058
+LBR,Liberia,2015,4.523
+LBR,Liberia,2020,4.174
+LBY,Libya,1990,4.776
+LBY,Libya,1995,3.442
+LBY,Libya,2000,2.906
+LBY,Libya,2005,2.765
+LBY,Libya,2010,2.603
+LBY,Libya,2015,2.711
+LBY,Libya,2020,2.507
+LTU,Lithuania,1990,2.031
+LTU,Lithuania,1995,1.552
+LTU,Lithuania,2000,1.383
+LTU,Lithuania,2005,1.291
+LTU,Lithuania,2010,1.499
+LTU,Lithuania,2015,1.705
+LTU,Lithuania,2020,1.487
+MDG,Madagascar,1990,6.14
+MDG,Madagascar,1995,6.036
+MDG,Madagascar,2000,5.665
+MDG,Madagascar,2005,5.195
+MDG,Madagascar,2010,4.896
+MDG,Madagascar,2015,4.335
+MDG,Madagascar,2020,4.17
+MWI,Malawi,1990,6.74
+MWI,Malawi,1995,6.392
+MWI,Malawi,2000,6.002
+MWI,Malawi,2005,5.848
+MWI,Malawi,2010,5.263
+MWI,Malawi,2015,4.384
+MWI,Malawi,2020,3.877
+MYS,Malaysia,1990,3.304
+MYS,Malaysia,1995,3.317
+MYS,Malaysia,2000,2.942
+MYS,Malaysia,2005,2.391
+MYS,Malaysia,2010,2.144
+MYS,Malaysia,2015,2.008
+MYS,Malaysia,2020,1.68
+MLI,Mali,1990,7.311
+MLI,Mali,1995,7.052
+MLI,Mali,2000,6.886
+MLI,Mali,2005,6.708
+MLI,Mali,2010,6.579
+MLI,Mali,2015,6.385
+MLI,Mali,2020,5.85
+MRT,Mauritania,1990,6.175
+MRT,Mauritania,1995,5.962
+MRT,Mauritania,2000,5.456
+MRT,Mauritania,2005,5.376
+MRT,Mauritania,2010,5.384
+MRT,Mauritania,2015,5.211
+MRT,Mauritania,2020,4.912
+MEX,Mexico,1990,3.444
+MEX,Mexico,1995,3.044
+MEX,Mexico,2000,2.714
+MEX,Mexico,2005,2.495
+MEX,Mexico,2010,2.34
+MEX,Mexico,2015,2.137
+MEX,Mexico,2020,1.99
+MDA,Moldova,1990,2.392
+MDA,Moldova,1995,1.825
+MDA,Moldova,2000,1.496
+MDA,Moldova,2005,1.528
+MDA,Moldova,2010,1.703
+MDA,Moldova,2015,1.87
+MDA,Moldova,2020,1.77
+MNG,Mongolia,1990,4.206
+MNG,Mongolia,1995,2.736
+MNG,Mongolia,2000,2.255
+MNG,Mongolia,2005,1.99
+MNG,Mongolia,2010,2.521
+MNG,Mongolia,2015,3.01
+MNG,Mongolia,2020,2.949
+MAR,Morocco,1990,4.06
+MAR,Morocco,1995,3.295
+MAR,Morocco,2000,2.774
+MAR,Morocco,2005,2.613
+MAR,Morocco,2010,2.629
+MAR,Morocco,2015,2.406
+MAR,Morocco,2020,2.32
+MOZ,Mozambique,1990,6.319
+MOZ,Mozambique,1995,6.019
+MOZ,Mozambique,2000,5.83
+MOZ,Mozambique,2005,5.5
+MOZ,Mozambique,2010,5.66
+MOZ,Mozambique,2015,5.245
+MOZ,Mozambique,2020,4.959
+MMR,Myanmar,1990,3.504
+MMR,Myanmar,1995,3.127
+MMR,Myanmar,2000,2.813
+MMR,Myanmar,2005,2.515
+MMR,Myanmar,2010,2.335
+MMR,Myanmar,2015,2.266
+MMR,Myanmar,2020,2.179
+NAM,Namibia,1990,5.398
+NAM,Namibia,1995,4.417
+NAM,Namibia,2000,3.991
+NAM,Namibia,2005,3.571
+NAM,Namibia,2010,3.657
+NAM,Namibia,2015,3.604
+NAM,Namibia,2020,3.349
+NPL,Nepal,1990,5.211
+NPL,Nepal,1995,4.869
+NPL,Nepal,2000,3.984
+NPL,Nepal,2005,3.115
+NPL,Nepal,2010,2.541
+NPL,Nepal,2015,2.273
+NPL,Nepal,2020,2.051
+NLD,Netherlands,1990,1.614
+NLD,Netherlands,1995,1.534
+NLD,Netherlands,2000,1.721
+NLD,Netherlands,2005,1.706
+NLD,Netherlands,2010,1.787
+NLD,Netherlands,2015,1.657
+NLD,Netherlands,2020,1.545
+NZL,New Zealand,1990,2.167
+NZL,New Zealand,1995,1.979
+NZL,New Zealand,2000,1.977
+NZL,New Zealand,2005,1.961
+NZL,New Zealand,2010,2.165
+NZL,New Zealand,2015,1.982
+NZL,New Zealand,2020,1.63
+NIC,Nicaragua,1990,4.596
+NIC,Nicaragua,1995,3.775
+NIC,Nicaragua,2000,3.12
+NIC,Nicaragua,2005,2.765
+NIC,Nicaragua,2010,2.596
+NIC,Nicaragua,2015,2.434
+NIC,Nicaragua,2020,2.299
+NER,Niger,1990,7.806
+NER,Niger,1995,7.776
+NER,Niger,2000,7.829
+NER,Niger,2005,7.769
+NER,Niger,2010,7.64
+NER,Niger,2015,7.215
+NER,Niger,2020,6.369
+NGA,Nigeria,1990,6.459
+NGA,Nigeria,1995,6.273
+NGA,Nigeria,2000,6.124
+NGA,Nigeria,2005,6.063
+NGA,Nigeria,2010,5.948
+NGA,Nigeria,2015,5.503
+NGA,Nigeria,2020,4.7
+PRK,North Korea,1990,2.388
+PRK,North Korea,1995,2.146
+PRK,North Korea,2000,1.941
+PRK,North Korea,2005,1.872
+PRK,North Korea,2010,1.89
+PRK,North Korea,2015,1.863
+PRK,North Korea,2020,1.821
+NOR,Norway,1990,1.932
+NOR,Norway,1995,1.873
+NOR,Norway,2000,1.854
+NOR,Norway,2005,1.835
+NOR,Norway,2010,1.941
+NOR,Norway,2015,1.728
+NOR,Norway,2020,1.482
+OMN,Oman,1990,6.456
+OMN,Oman,1995,5.067
+OMN,Oman,2000,3.852
+OMN,Oman,2005,3.029
+OMN,Oman,2010,2.973
+OMN,Oman,2015,2.965
+OMN,Oman,2020,2.638
+PAK,Pakistan,1990,6.364
+PAK,Pakistan,1995,5.894
+PAK,Pakistan,2000,5.352
+PAK,Pakistan,2005,4.595
+PAK,Pakistan,2010,4.398
+PAK,Pakistan,2015,3.988
+PAK,Pakistan,2020,3.765
+PSE,Palestine,1990,6.809
+PSE,Palestine,1995,6.161
+PSE,Palestine,2000,5.457
+PSE,Palestine,2005,4.867
+PSE,Palestine,2010,4.434
+PSE,Palestine,2015,3.977
+PSE,Palestine,2020,3.511
+PAN,Panama,1990,3.072
+PAN,Panama,1995,2.852
+PAN,Panama,2000,2.744
+PAN,Panama,2005,2.643
+PAN,Panama,2010,2.587
+PAN,Panama,2015,2.53
+PAN,Panama,2020,2.184
+PNG,Papua New Guinea,1990,5.18
+PNG,Papua New Guinea,1995,4.78
+PNG,Papua New Guinea,2000,4.525
+PNG,Papua New Guinea,2005,4.22
+PNG,Papua New Guinea,2010,3.883
+PNG,Papua New Guinea,2015,3.558
+PNG,Papua New Guinea,2020,3.274
+PRY,Paraguay,1990,4.565
+PRY,Paraguay,1995,4.108
+PRY,Paraguay,2000,3.508
+PRY,Paraguay,2005,2.973
+PRY,Paraguay,2010,2.695
+PRY,Paraguay,2015,2.645
+PRY,Paraguay,2020,2.497
+PER,Peru,1990,3.912
+PER,Peru,1995,3.315
+PER,Peru,2000,2.845
+PER,Peru,2005,2.643
+PER,Peru,2010,2.421
+PER,Peru,2015,2.229
+PER,Peru,2020,2.056
+PHL,Philippines,1990,4.322
+PHL,Philippines,1995,4.067
+PHL,Philippines,2000,3.754
+PHL,Philippines,2005,3.448
+PHL,Philippines,2010,3.315
+PHL,Philippines,2015,2.829
+PHL,Philippines,2020,2.075
+POL,Poland,1990,2.065
+POL,Poland,1995,1.634
+POL,Poland,2000,1.366
+POL,Poland,2005,1.244
+POL,Poland,2010,1.407
+POL,Poland,2015,1.323
+POL,Poland,2020,1.384
+PRT,Portugal,1990,1.555
+PRT,Portugal,1995,1.411
+PRT,Portugal,2000,1.538
+PRT,Portugal,2005,1.408
+PRT,Portugal,2010,1.381
+PRT,Portugal,2015,1.302
+PRT,Portugal,2020,1.405
+PRI,Puerto Rico,1990,2.291
+PRI,Puerto Rico,1995,2.15
+PRI,Puerto Rico,2000,2.041
+PRI,Puerto Rico,2005,1.842
+PRI,Puerto Rico,2010,1.619
+PRI,Puerto Rico,2015,1.35
+PRI,Puerto Rico,2020,0.934
+QAT,Qatar,1990,4.23
+QAT,Qatar,1995,3.557
+QAT,Qatar,2000,3.073
+QAT,Qatar,2005,2.635
+QAT,Qatar,2010,2.137
+QAT,Qatar,2015,1.976
+QAT,Qatar,2020,1.675
+ROU,Romania,1990,1.837
+ROU,Romania,1995,1.337
+ROU,Romania,2000,1.303
+ROU,Romania,2005,1.394
+ROU,Romania,2010,1.574
+ROU,Romania,2015,1.621
+ROU,Romania,2020,1.726
+RUS,Russia,1990,1.91
+RUS,Russia,1995,1.352
+RUS,Russia,2000,1.19
+RUS,Russia,2005,1.299
+RUS,Russia,2010,1.585
+RUS,Russia,2015,1.79
+RUS,Russia,2020,1.505
+RWA,Rwanda,1990,6.803
+RWA,Rwanda,1995,6.345
+RWA,Rwanda,2000,5.967
+RWA,Rwanda,2005,5.5
+RWA,Rwanda,2010,4.522
+RWA,Rwanda,2015,4.108
+RWA,Rwanda,2020,3.913
+SAU,Saudi Arabia,1990,5.804
+SAU,Saudi Arabia,1995,4.986
+SAU,Saudi Arabia,2000,4.206
+SAU,Saudi Arabia,2005,3.161
+SAU,Saudi Arabia,2010,2.81
+SAU,Saudi Arabia,2015,2.63
+SAU,Saudi Arabia,2020,2.27
+SEN,Senegal,1990,6.396
+SEN,Senegal,1995,5.819
+SEN,Senegal,2000,5.498
+SEN,Senegal,2005,5.133
+SEN,Senegal,2010,5.055
+SEN,Senegal,2015,4.751
+SEN,Senegal,2020,4.003
+SRB,Serbia,1990,1.649
+SRB,Serbia,1995,1.468
+SRB,Serbia,2000,1.353
+SRB,Serbia,2005,1.336
+SRB,Serbia,2010,1.399
+SRB,Serbia,2015,1.46
+SRB,Serbia,2020,1.485
+SLE,Sierra Leone,1990,6.567
+SLE,Sierra Leone,1995,6.555
+SLE,Sierra Leone,2000,6.355
+SLE,Sierra Leone,2005,5.807
+SLE,Sierra Leone,2010,5.327
+SLE,Sierra Leone,2015,4.548
+SLE,Sierra Leone,2020,4.08
+SGP,Singapore,1990,1.583
+SGP,Singapore,1995,1.443
+SGP,Singapore,2000,1.342
+SGP,Singapore,2005,1.072
+SGP,Singapore,2010,0.934
+SGP,Singapore,2015,0.977
+SGP,Singapore,2020,0.942
+SVK,Slovakia,1990,2.076
+SVK,Slovakia,1995,1.523
+SVK,Slovakia,2000,1.293
+SVK,Slovakia,2005,1.262
+SVK,Slovakia,2010,1.43
+SVK,Slovakia,2015,1.403
+SVK,Slovakia,2020,1.591
+SVN,Slovenia,1990,1.462
+SVN,Slovenia,1995,1.288
+SVN,Slovenia,2000,1.253
+SVN,Slovenia,2005,1.263
+SVN,Slovenia,2010,1.579
+SVN,Slovenia,2015,1.576
+SVN,Slovenia,2020,1.594
+SOM,Somalia,1990,7.44
+SOM,Somalia,1995,7.581
+SOM,Somalia,2000,7.645
+SOM,Somalia,2005,7.527
+SOM,Somalia,2010,7.322
+SOM,Somalia,2015,6.975
+SOM,Somalia,2020,6.453
+ZAF,South Africa,1990,3.724
+ZAF,South Africa,1995,3.172
+ZAF,South Africa,2000,2.413
+ZAF,South Africa,2005,2.512
+ZAF,South Africa,2010,2.445
+ZAF,South Africa,2015,2.359
+ZAF,South Africa,2020,2.257
+KOR,South Korea,1990,1.603
+KOR,South Korea,1995,1.646
+KOR,South Korea,2000,1.467
+KOR,South Korea,2005,1.115
+KOR,South Korea,2010,1.226
+KOR,South Korea,2015,1.202
+KOR,South Korea,2020,0.812
+SSD,South Sudan,1990,7.377
+SSD,South Sudan,1995,7.337
+SSD,South Sudan,2000,6.803
+SSD,South Sudan,2005,6.022
+SSD,South Sudan,2010,5.318
+SSD,South Sudan,2015,4.695
+SSD,South Sudan,2020,4.16
+ESP,Spain,1990,1.358
+ESP,Spain,1995,1.153
+ESP,Spain,2000,1.21
+ESP,Spain,2005,1.329
+ESP,Spain,2010,1.366
+ESP,Spain,2015,1.33
+ESP,Spain,2020,1.186
+LKA,Sri Lanka,1990,2.541
+LKA,Sri Lanka,1995,2.353
+LKA,Sri Lanka,2000,2.213
+LKA,Sri Lanka,2005,2.263
+LKA,Sri Lanka,2010,2.134
+LKA,Sri Lanka,2015,2.09
+LKA,Sri Lanka,2020,2.007
+SDN,Sudan,1990,6.074
+SDN,Sudan,1995,5.856
+SDN,Sudan,2000,5.596
+SDN,Sudan,2005,5.397
+SDN,Sudan,2010,5.141
+SDN,Sudan,2015,4.898
+SDN,Sudan,2020,4.542
+SWE,Sweden,1990,2.121
+SWE,Sweden,1995,1.73
+SWE,Sweden,2000,1.542
+SWE,Sweden,2005,1.772
+SWE,Sweden,2010,1.973
+SWE,Sweden,2015,1.847
+SWE,Sweden,2020,1.671
+CHE,Switzerland,1990,1.578
+CHE,Switzerland,1995,1.478
+CHE,Switzerland,2000,1.486
+CHE,Switzerland,2005,1.416
+CHE,Switzerland,2010,1.517
+CHE,Switzerland,2015,1.537
+CHE,Switzerland,2020,1.466
+SYR,Syria,1990,5.561
+SYR,Syria,1995,4.697
+SYR,Syria,2000,4.068
+SYR,Syria,2005,3.605
+SYR,Syria,2010,3.355
+SYR,Syria,2015,3.067
+SYR,Syria,2020,2.837
+TWN,Taiwan,1990,1.787
+TWN,Taiwan,1995,1.782
+TWN,Taiwan,2000,1.472
+TWN,Taiwan,2005,1.133
+TWN,Taiwan,2010,0.916
+TWN,Taiwan,2015,1.185
+TWN,Taiwan,2020,0.99
+TJK,Tajikistan,1990,5.456
+TJK,Tajikistan,1995,4.664
+TJK,Tajikistan,2000,3.49
+TJK,Tajikistan,2005,3.398
+TJK,Tajikistan,2010,3.457
+TJK,Tajikistan,2015,3.459
+TJK,Tajikistan,2020,3.211
+TZA,Tanzania,1990,6.201
+TZA,Tanzania,1995,5.822
+TZA,Tanzania,2000,5.67
+TZA,Tanzania,2005,5.579
+TZA,Tanzania,2010,5.225
+TZA,Tanzania,2015,5.025
+TZA,Tanzania,2020,4.801
+THA,Thailand,1990,2.065
+THA,Thailand,1995,1.888
+THA,Thailand,2000,1.734
+THA,Thailand,2005,1.644
+THA,Thailand,2010,1.562
+THA,Thailand,2015,1.451
+THA,Thailand,2020,1.259
+TGO,Togo,1990,6.067
+TGO,Togo,1995,5.565
+TGO,Togo,2000,5.165
+TGO,Togo,2005,5.038
+TGO,Togo,2010,5.087
+TGO,Togo,2015,4.662
+TGO,Togo,2020,4.386
+TUN,Tunisia,1990,3.441
+TUN,Tunisia,1995,2.67
+TUN,Tunisia,2000,2.025
+TUN,Tunisia,2005,1.953
+TUN,Tunisia,2010,2.075
+TUN,Tunisia,2015,2.306
+TUN,Tunisia,2020,2
+TUR,Turkey,1990,3.107
+TUR,Turkey,1995,2.835
+TUR,Turkey,2000,2.487
+TUR,Turkey,2005,2.197
+TUR,Turkey,2010,2.08
+TUR,Turkey,2015,2.157
+TUR,Turkey,2020,1.768
+TKM,Turkmenistan,1990,4.288
+TKM,Turkmenistan,1995,3.491
+TKM,Turkmenistan,2000,2.9
+TKM,Turkmenistan,2005,2.706
+TKM,Turkmenistan,2010,2.848
+TKM,Turkmenistan,2015,3.033
+TKM,Turkmenistan,2020,2.793
+UGA,Uganda,1990,7.014
+UGA,Uganda,1995,6.871
+UGA,Uganda,2000,6.788
+UGA,Uganda,2005,6.525
+UGA,Uganda,2010,6.019
+UGA,Uganda,2015,5.251
+UGA,Uganda,2020,4.621
+UKR,Ukraine,1990,1.845
+UKR,Ukraine,1995,1.399
+UKR,Ukraine,2000,1.108
+UKR,Ukraine,2005,1.221
+UKR,Ukraine,2010,1.436
+UKR,Ukraine,2015,1.387
+UKR,Ukraine,2020,1.208
+ARE,United Arab Emirates,1990,4.506
+ARE,United Arab Emirates,1995,3.278
+ARE,United Arab Emirates,2000,2.733
+ARE,United Arab Emirates,2005,2.232
+ARE,United Arab Emirates,2010,1.565
+ARE,United Arab Emirates,2015,1.417
+ARE,United Arab Emirates,2020,1.289
+GBR,United Kingdom,1990,1.829
+GBR,United Kingdom,1995,1.709
+GBR,United Kingdom,2000,1.641
+GBR,United Kingdom,2005,1.761
+GBR,United Kingdom,2010,1.918
+GBR,United Kingdom,2015,1.801
+GBR,United Kingdom,2020,1.571
+USA,United States,1990,2.072
+USA,United States,1995,1.965
+USA,United States,2000,2.03
+USA,United States,2005,2.04
+USA,United States,2010,1.916
+USA,United States,2015,1.832
+USA,United States,2020,1.616
+URY,Uruguay,1990,2.477
+URY,Uruguay,1995,2.401
+URY,Uruguay,2000,2.196
+URY,Uruguay,2005,2.097
+URY,Uruguay,2010,2.011
+URY,Uruguay,2015,2.041
+URY,Uruguay,2020,1.497
+UZB,Uzbekistan,1990,4.122
+UZB,Uzbekistan,1995,3.566
+UZB,Uzbekistan,2000,2.696
+UZB,Uzbekistan,2005,2.438
+UZB,Uzbekistan,2010,2.442
+UZB,Uzbekistan,2015,2.583
+UZB,Uzbekistan,2020,3.062
+VEN,Venezuela,1990,3.448
+VEN,Venezuela,1995,3.082
+VEN,Venezuela,2000,2.79
+VEN,Venezuela,2005,2.629
+VEN,Venezuela,2010,2.396
+VEN,Venezuela,2015,2.253
+VEN,Venezuela,2020,2.116
+VNM,Vietnam,1990,3.602
+VNM,Vietnam,1995,2.7
+VNM,Vietnam,2000,2.028
+VNM,Vietnam,2005,1.887
+VNM,Vietnam,2010,1.906
+VNM,Vietnam,2015,2.1
+VNM,Vietnam,2020,1.957
+YEM,Yemen,1990,8.606
+YEM,Yemen,1995,7.525
+YEM,Yemen,2000,6.317
+YEM,Yemen,2005,5.563
+YEM,Yemen,2010,4.81
+YEM,Yemen,2015,4.617
+YEM,Yemen,2020,4.6
+ZMB,Zambia,1990,6.567
+ZMB,Zambia,1995,6.232
+ZMB,Zambia,2000,5.921
+ZMB,Zambia,2005,5.697
+ZMB,Zambia,2010,5.359
+ZMB,Zambia,2015,4.775
+ZMB,Zambia,2020,4.323
+ZWE,Zimbabwe,1990,4.876
+ZWE,Zimbabwe,1995,4.153
+ZWE,Zimbabwe,2000,4.009
+ZWE,Zimbabwe,2005,3.693
+ZWE,Zimbabwe,2010,4.04
+ZWE,Zimbabwe,2015,3.911
+ZWE,Zimbabwe,2020,3.754

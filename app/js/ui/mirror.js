@@ -1,6 +1,7 @@
 // The Mirror: where the numbers live. A first calibration curve with an error bar on every band, the bias map split by
 // topic, domain and horizon, the journal-only record, level, streak, the seven-day score and the belts.
 // Every statistic shows its sample size, and a group too small to say anything says "too few".
+import { gateState } from '../flags.js';
 import { h, s } from '../dom.js';
 import * as R from '../engine/record.js';
 import * as J from '../engine/journal.js';
@@ -163,7 +164,7 @@ export function mirrorScreen(ctx) {
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
-  const beltFacts = { gatesPassed: new Set(base.complete ? ['U0'] : []), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
+  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
   const belts = P.beltRows(ctx.belts, beltFacts);
   const beltCard = h('section', { class: 'card stack', id: 'belts' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Belts'), h('span', { class: 'cap' }, 'feedback, not play')),

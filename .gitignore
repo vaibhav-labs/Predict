@@ -6,3 +6,5 @@ __pycache__/
 # Three helper scripts copied from the game-design skill. Not published here;
 # keep them locally in sim/tools/ to run sim/run_all.sh.
 sim/tools/
+# A git bundle used to hand branches to the Mac: never committed.
+*.bundle

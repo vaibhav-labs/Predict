@@ -1,0 +1,13 @@
+id,vague,hint,sharp_example
+V01,The team will do better next quarter.,Better at what? Name the number and the date.,"By 31 December 2026, the team will have closed at least 40 sales."
+V02,Sales will improve soon.,How much more than what? Soon is when?,"By the end of March 2027, monthly sales will be at least 10% above March 2026."
+V03,The weather will be nice this weekend.,Nice is a feeling. Which reading would settle it?,"On Saturday 6 February 2027, the high in Seattle will be at least 12 degrees Celsius."
+V04,My boss will be happy with the report.,Happy is inside someone's head. What could a stranger see?,"By Friday, my boss will have replied to the report with written approval."
+V05,The new law will have a big impact.,Big compared with what? Pick something that can be counted.,"By 1 January 2028, at least 1,000 firms will have registered under the new law."
+V06,Prices will go up eventually.,Eventually never ends. Pick the date and the price.,"By June 2027, the price of a one-litre bottle of milk in my shop will be higher than it is today."
+V07,The match will probably be close.,Probably is a probability: say it with the number later. What does close mean?,"On Sunday, the match will be decided by one goal or fewer."
+V08,The company will do much better this year.,Better at what? Revenue? Say which number.,"By 31 December 2027, the company's annual revenue will exceed its 2026 revenue."
+V09,Traffic on the bridge will get worse.,Worse by what measure? Which day and hour?,"On Monday morning, the 8 am drive across the bridge will take longer than 30 minutes."
+V10,The launch will be a success.,Success is a judgment. What count would a stranger accept?,"By 1 March 2027, the launch page will have at least 5,000 sign-ups."
+V11,Interest rates will change.,"Up or down, and by when? A claim that fits everything says nothing.","By 31 March 2027, the central bank's policy rate will be below its current level."
+V12,The project will go well.,"Well is not a result. What will exist, and by when?","By 30 June 2027, the project will have shipped its first release to customers."

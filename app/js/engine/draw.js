@@ -82,11 +82,21 @@ export function planBaseline({ bank, usedIds = new Set(), disputedIds = new Set(
 
 // Practice: pick the next question from the open pool. If the recent hit rate is above the target band the mix
 // shifts to harder questions, below it to easier ones. True and false are kept near half and half within the session.
-export function pickNext({ bank, usedIds = new Set(), disputedIds = new Set(), skippedIds = new Set(), lastUsed, recent = [], shownTruths = [], cfg, rng }) {
-  const { pool: all } = availablePool(bank, usedIds, disputedIds, 1, lastUsed);
+//
+// The 90-day rule and the 70/30 split (design/mechanics.md 4.1): `recentIds` are the questions answered within
+// gym.reseen_days, which are not served again (when it is left out, every answered question is blocked, as in Block 1).
+// Of the draws, `reviewShare` come from questions answered before but not recently, when there are any: before day 90 there
+// are none, so every draw comes from the questions never seen.
+export function pickNext({ bank, usedIds = new Set(), recentIds, disputedIds = new Set(), skippedIds = new Set(), lastUsed, recent = [], shownTruths = [], cfg, rng, reviewShare = 0 }) {
+  const { pool: all } = availablePool(bank, recentIds || usedIds, disputedIds, 1, lastUsed);
   const pool = all.filter((q) => !skippedIds.has(q.id));
-  const open = pool.length ? pool : all;
+  let open = pool.length ? pool : all;
   if (!open.length) return null;
+  if (reviewShare > 0 && recentIds) {
+    const seen = open.filter((q) => usedIds.has(q.id));
+    const never = open.filter((q) => !usedIds.has(q.id));
+    if (seen.length && never.length) open = rng() < reviewShare ? seen : never;
+  }
   const [lo, hi] = cfg.target_hit_rate;
   const window = recent.slice(-cfg.recent_window);
   const rate = window.length >= 8 ? window.filter(Boolean).length / window.length : null;

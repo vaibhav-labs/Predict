@@ -52,3 +52,18 @@ export const LESSONS = [
     ],
   },
 ];
+
+// The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), and one more card for soft questions.
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger' };
+export const STRANGER = {
+  id: 'stranger',
+  title: 'Could a stranger score this?',
+  blurb: 'The clairvoyant test',
+  blocks: () => [
+    { p: ['A prediction is only worth keeping if a stranger could score it without asking what you meant. Picture a clairvoyant who knows exactly what will happen. Could they answer your claim with a plain yes or no?'] },
+    { p: ['“The launch will go well” fails: the clairvoyant has to ask what well means. “By 1 March 2027 the launch page will have at least 5,000 sign-ups” passes: there is a date, a thing to count and a number to beat.'] },
+    { p: ['Three habits fix most soft claims. ', { b: 'Name the date.' }, ' ', { b: 'Name the count or the event.' }, ' ', { b: 'Say something that happens outside your head.' }] },
+    { p: ['The checker catches the common ones: no date, a vague word such as better or soon, a feeling in place of an event. When it flags a claim, rewrite it until the clairvoyant could answer.'] },
+  ],
+};
+export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.find((l) => l.id === FLAG_CARD[trigger]) || null);

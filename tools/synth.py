@@ -92,6 +92,20 @@ class Rec:
         base = pts(pred["b"]) if yes else pts(1 - pred["b"])
         return self._add("resolve", day, minute, prediction=pred["id"], outcome=outcome, note=note, raw=raw, edge=EDGE_WEIGHT * (raw - base) if pred["scored"] else None)
 
+    # ---- the Unit 1 exam (Block 4): an attempt, and its sittings of sealed calls ----
+    def exam_start(self, day, minute, n=200, reused=0):
+        return self._add("exam", day, minute, state="start", unit="U1", n=n, reused=reused)["id"]
+
+    def exam_sitting(self, attempt, day, minute, rows, n, of=10):
+        """One sitting. rows = [(question, stated confidence, side)], a question being a dict of the exam bank."""
+        sid = self._add("session", day, minute, mode="exam", unit="U1", size=len(rows), exam=attempt, n=n, of=of)["id"]
+        for i, (q, c, side) in enumerate(rows):
+            hit = (side == "yes") == q["answer"]
+            self._add("call", day, minute + 1 + i, session=sid, mode="exam", unit="U1", exam=attempt, q=q["id"], claim=q["claim"], domain=q["domain"], diff=q["diff"],
+                      side=side, c=c, truth=q["answer"], hit=hit, points=pts(c) if hit else pts(1 - c), rule="brier_points", ms=4000)
+        self.end(sid, day, minute + len(rows) + 1)
+        return sid
+
     # ---- output ----
     def sorted(self):
         return sorted(self.events, key=lambda e: (e["t"], e["id"]))
@@ -171,3 +185,210 @@ def mixed_player(today="2026-11-30", seed=7):
     # One card written on the last played day that is due on `today` (a 'tomorrow' card from yesterday would be due today).
     pred = r.prediction(add_days(today, -1) if add_days(today, -1) in played_set else last_play, 450, 0.65, 0.5, domain="world", due_option="tomorrow")
     return r
+
+
+# =====================================================================================================================
+# Block 4: players for the Lesson Engine. Each builder returns a Rec holding only what the player did (calls, journal
+# cards), never a flag: the tests let the engine find the pattern, once in JS and once in tools/ref_lessons.py.
+# =====================================================================================================================
+STEP_WEIGHTS = {0.5: 1, 0.55: 1, 0.6: 2, 0.65: 2, 0.7: 3, 0.75: 3, 0.8: 3, 0.85: 2, 0.9: 3, 0.95: 2, 0.99: 1}
+
+
+def _pick(rng, weights=STEP_WEIGHTS):
+    steps = list(weights)
+    return rng.choices(steps, [weights[s] for s in steps])[0]
+
+
+def pol_calibrated(i, rng):
+    c = _pick(rng)
+    return c, c
+
+
+def pol_over(gap=0.16):
+    """Says 90 to 99% where they are right gap less often, honest everywhere else."""
+    def policy(i, rng):
+        c = _pick(rng)
+        return c, (max(0.5, c - gap) if c >= 0.9 else c)
+    return policy
+
+
+def pol_under(lift=0.2):
+    """Says 60 to 80% where they are right lift more often, honest everywhere else."""
+    def policy(i, rng):
+        c = _pick(rng)
+        return c, (min(0.97, c + lift) if 0.6 - 1e-9 <= c <= 0.8 + 1e-9 else c)
+    return policy
+
+
+def pol_fence(share=0.4):
+    """Says 50 or 55% on a share of the calls although they are right 7 times in 10 on those."""
+    def policy(i, rng):
+        if rng.random() < share:
+            return rng.choice([0.5, 0.55]), 0.7
+        c = _pick(rng, {k: v for k, v in STEP_WEIGHTS.items() if k >= 0.6})
+        return c, c
+    return policy
+
+
+def lesson_player(kind, seed=11, days=60, start="2026-09-01"):
+    r = Rec(seed)
+    mid = {"calibrated": [("calibrated", days)], "over_fixed": [("over", 9), ("calibrated", days)], "over_stuck": [("over", days)],
+           "under": [("under", days)], "fence": [("fence", days)], "busy": [("busy_two", 14), ("busy_three", days)]}
+    pols = {"calibrated": pol_calibrated, "over": pol_over(), "under": pol_under(), "fence": pol_fence(), "busy_two": None, "busy_three": None}
+
+    def busy_two(i, rng):  # top band too sure and mid band too shy
+        x = rng.random()
+        if x < 0.28:
+            return rng.choice([0.9, 0.95, 0.99]), 0.74
+        if x < 0.62:
+            return rng.choice([0.6, 0.65, 0.7, 0.75, 0.8]), 0.92
+        return 0.85, 0.85
+
+    def busy_three(i, rng):  # the same two, and from the third week a fence at 50% on two calls in five (so the third pattern arrives while two are in repair)
+        x = rng.random()
+        if x < 0.22:
+            return rng.choice([0.9, 0.95, 0.99]), 0.74
+        if x < 0.5:
+            return rng.choice([0.6, 0.65, 0.7, 0.75, 0.8]), 0.92
+        if x < 0.9:
+            return rng.choice([0.5, 0.55]), 0.75
+        return 0.85, 0.85
+    pols["busy_two"], pols["busy_three"] = busy_two, busy_three
+    plan = mid[kind]
+    for k in range(days):
+        day = add_days(start, k)
+        acc, policy = 0, None
+        for name, upto in plan:
+            acc += upto
+            if k < acc:
+                policy = pols[name]
+                break
+        if k < 3:
+            r.play_day(day, 20, pol_calibrated, mode="baseline", unit="U0")
+        else:
+            r.play_day(day, 18, policy)
+        r.prediction(day, 400, 0.6, 0.5, flags=(), flagged=False)
+    return r
+
+
+def soft_player(seed=5, days=40, start="2026-09-01"):
+    """A call a day (to keep the day played), a journal card a day; the first ten days half of the cards are vague, then all are sharp."""
+    r = Rec(seed)
+    for k in range(days):
+        day = add_days(start, k)
+        r.play_day(day, 6, pol_calibrated)
+        vague = k < 10 and k % 2 == 0
+        r.prediction(day, 400, 0.6, 0.5, flags=("no_date",) if vague else (), flagged=vague)
+    return r
+
+
+def missed_player(seed=9, start="2026-09-01"):
+    """Plays days 0 to 9, skips 10 to 12, comes back on day 13 with the minimum (5 calls and a card) every day, except
+    day 15 with only 4 calls (which breaks the run) and one more skipped pair at 30 and 31."""
+    r = Rec(seed)
+    for k in range(0, 45):
+        day = add_days(start, k)
+        if k in (10, 11, 12, 30, 31):
+            continue
+        n = 18 if k < 10 else (4 if k == 15 else 5)
+        r.play_day(day, n, pol_calibrated)
+        r.prediction(day, 400, 0.6, 0.5)
+    return r
+
+
+def autopsy_player(seed=13, start="2026-09-01"):
+    """Resolved journal cards for the autopsy queue: confident misses on both sides, confident hits (every fifth is sampled),
+    cards under the bar, a void card, an unscored extra, and two autopsies already filed."""
+    r = Rec(seed)
+    spec = [  # (stated, outcome, scored)
+        (0.90, "no", True), (0.85, "yes", True), (0.95, "yes", True), (0.60, "no", True), (0.10, "yes", True), (0.15, "no", True),
+        (0.92, "yes", True), (0.88, "yes", True), (0.97, "yes", True), (0.30, "yes", True), (0.85, "yes", True), (0.90, "void", True),
+        (0.95, "no", False), (0.05, "no", True), (0.86, "yes", True), (0.84, "no", True), (0.93, "yes", True), (0.07, "yes", True),
+        (0.91, "yes", True), (0.89, "yes", True), (0.96, "yes", True), (0.12, "no", True), (0.99, "yes", True), (0.5, "no", True),
+    ]
+    for i, (c, outcome, scored) in enumerate(spec):
+        day = add_days(start, i)
+        p = r.prediction(day, 400, c, 0.5, domain=("work", "life", "world")[i % 3], due_option="tomorrow", scored=scored)
+        r.resolve(p, add_days(day, 1), 420, outcome)
+        if i in (0, 4):
+            r._add("autopsy", add_days(day, 1), 430, prediction=p["id"], kind="miss", knew="I knew the usual rate.", missed="I did not ask who decides.", verdict="judgment", rule="Ask who decides first.")
+    return r
+
+
+def eligible_player(seed=17, start="2026-09-01"):
+    """A calibrated player who has done the 60-call baseline (three days) and the 90 practice calls (five days): the Unit 1 exam is open."""
+    r = Rec(seed)
+    for k in range(8):
+        day = add_days(start, k)
+        if k < 3:
+            r.play_day(day, 20, pol_calibrated, mode="baseline", unit="U0")
+        else:
+            r.play_day(day, 18, pol_calibrated)
+        r.prediction(day, 400, 0.6, 0.5)
+    return r
+
+
+def exam_rows(bank, groups, rng):
+    """Calls for an exam from real questions: groups = [(stated, how many, how many of them right)]. Questions are drawn in a random
+    order without repeats, the side is the right one for the first `right` calls of a group and the wrong one for the rest."""
+    order = list(bank)
+    rng.shuffle(order)
+    rows, k = [], 0
+    for c, n, right in groups:
+        for i in range(n):
+            q = order[k]
+            k += 1
+            yes_is_right = q["answer"]
+            side = ("yes" if yes_is_right else "no") if i < right else ("no" if yes_is_right else "yes")
+            rows.append((q, c, side))
+    rng.shuffle(rows)
+    return rows
+
+
+# ---- Monte Carlo draws: the same players as sim/scoring_sim.py, written out for the JS engine to judge --------------------
+def _sim():
+    import sys
+    sys.path.insert(0, os.path.join(ROOT, "sim"))
+    import scoring_sim
+    return scoring_sim
+
+
+def mc_band_runs(policy, lo, hi, runs, horizon, seed):
+    """`runs` players' first `horizon` calls stated inside [lo, hi]: [{"c": [...], "h": "0101..."}]."""
+    S = _sim()
+    rng = random.Random(seed)
+    pol = {"honest": S.SIM["policies"]["honest"], "mild_overconfident": S.SIM["policies"]["mild_overconfident"], "overconfident": S.SIM["policies"]["overconfident"],
+           "underconfident": S.SIM["policies"]["underconfident"], "mild_underconfident": {"type": "logit_scale", "factor": 0.7}}[policy]
+    mix = S.SIM["question_mixes"]["mixed"]
+    out = []
+    for _ in range(runs):
+        cs, hs = [], []
+        while len(cs) < horizon:
+            q = S.draw_q(mix, rng)
+            c = S.conf(pol, q, rng)
+            if lo - 1e-9 <= c <= hi + 1e-9:
+                cs.append(round(c, 6))
+                hs.append("1" if rng.random() < q else "0")
+        out.append({"c": cs, "h": "".join(hs)})
+    return out
+
+
+def mc_gate_players(policy, runs, n, seed):
+    """`runs` players' n exam calls under a policy of sim/scoring_sim.py: [{"c": [...], "h": "0101..."}]."""
+    S = _sim()
+    rng = random.Random(seed)
+    pols = S.SIM["policies"]
+    mix = S.SIM["question_mixes"]["mixed"]
+    out = []
+    for _ in range(runs):
+        qs = [S.draw_q(mix, rng) for _ in range(n)]
+        cs = [round(S.conf(pols[policy], q, rng), 6) for q in qs]
+        hs = "".join("1" if rng.random() < q else "0" for q in qs)
+        out.append({"c": cs, "h": hs})
+    return out
+
+
+def dump(obj, path):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, separators=(",", ":"))
+    return path

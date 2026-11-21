@@ -126,6 +126,58 @@ Count-based exams (exact binomial):
 
 - **Change made:** 40 calls and a 10-point gap. A typical overconfident player makes about 9 top-band calls a day, so 46 calls is about five days.
 
+## 4b. Lesson trigger for underconfidence (L02)
+
+- **Intent:** the same as L01, in the 60 to 80% band, where the plan left the threshold OPEN (value 5).
+- **Method:** 3,000 runs of 150 calls stated at 60 to 80% (`sim/trigger_sim.py`), the trigger checked after every call and, more realistically, once every 7 calls (about one session's worth of calls in that band).
+
+| Window and gap | Looked at | False alarm on a calibrated player | Fires on mild underconfidence | median calls | Fires on typical underconfidence | median calls |
+|---|---|---|---|---|---|---|
+| 60 calls, 8 points | after every call | 44.0% | 90.8% | 63 | 100.0% | 60 |
+| 60 calls, 8 points | every 7 calls (session end) | 34.0% | 84.9% | 70 | 99.8% | 63 |
+| 60 calls, 10 points | after every call | 26.4% | 78.8% | 72 | 99.2% | 60 |
+| 60 calls, 10 points | every 7 calls (session end) | 19.7% | 71.0% | 77 | 98.8% | 63 |
+| 60 calls, 12 points | after every call | 13.8% | 60.6% | 80 | 97.5% | 60 |
+| 60 calls, 12 points (chosen) | every 7 calls (session end) | 9.6% | 51.7% | 84 | 95.8% | 63 |
+| 80 calls, 8 points | after every call | 23.4% | 78.1% | 81 | 99.5% | 80 |
+| 80 calls, 8 points | every 7 calls (session end) | 17.9% | 71.8% | 84 | 98.9% | 84 |
+| 80 calls, 10 points | after every call | 11.0% | 60.6% | 86 | 98.0% | 80 |
+| 80 calls, 10 points | every 7 calls (session end) | 8.2% | 52.7% | 91 | 96.4% | 84 |
+| 80 calls, 12 points | after every call | 4.6% | 40.4% | 94 | 93.4% | 80 |
+| 80 calls, 12 points | every 7 calls (session end) | 3.1% | 33.3% | 98 | 89.5% | 84 |
+| 100 calls, 8 points | after every call | 11.9% | 65.9% | 100 | 98.5% | 100 |
+| 100 calls, 8 points | every 7 calls (session end) | 8.7% | 58.2% | 105 | 97.6% | 105 |
+| 100 calls, 10 points | after every call | 4.6% | 45.2% | 102 | 95.3% | 100 |
+| 100 calls, 10 points | every 7 calls (session end) | 3.3% | 38.2% | 105 | 93.1% | 105 |
+| 100 calls, 12 points | after every call | 1.4% | 25.9% | 107 | 86.8% | 100 |
+| 100 calls, 12 points | every 7 calls (session end) | 1.2% | 19.9% | 112 | 82.5% | 105 |
+| 120 calls, 8 points | after every call | 6.0% | 54.4% | 120 | 97.7% | 120 |
+| 120 calls, 8 points | every 7 calls (session end) | 4.2% | 47.4% | 126 | 96.7% | 126 |
+| 120 calls, 10 points | after every call | 1.8% | 32.7% | 120 | 93.3% | 120 |
+| 120 calls, 10 points | every 7 calls (session end) | 1.2% | 27.2% | 126 | 89.5% | 126 |
+| 120 calls, 12 points | after every call | 0.4% | 16.2% | 121 | 81.1% | 120 |
+| 120 calls, 12 points | every 7 calls (session end) | 0.3% | 12.6% | 126 | 76.3% | 126 |
+
+- **Change made:** the plan's 60 calls and 10 points fired falsely on a calibrated player 19.7% of the time at session-end looks. 60 calls and 12 points: 9.6% false alarms, 95.8% of typical underconfident players caught in a median of 63 calls.
+
+## 4c. Re-tests: what a pattern flag costs a player who really fixed the habit
+
+- **Intent:** a flag clears after two re-tests (the next `clear_window` calls in the band, 3 and then 10 days after the drill). The question is whether that rule clears players who changed, keeps players who did not, and what it costs an honest fixer through bad luck alone.
+- **Method:** `sim/retest_sim.py`, 20,000 runs per row. The typical old biases are the ones the L01 and L02 sims used (12 points over at 95%; 14 points under at 70%). A re-test passes when the gap between stated and hit rate is within `clear_gap` (7 points for both). A round is a pair of re-tests; three failed rounds escalate the flag.
+
+| Trigger | Player after the drill | Window | Pass gap | Passes re-test 1 | Passes both re-tests | Clears within 3 rounds |
+|---|---|---|---|---|---|---|
+| L01 | fixed | 40 calls | 7 points | 95.1% | 90.5% | 99.9% |
+| L01 | partly fixed | 40 calls | 7 points | 55.4% | 29.9% | 65.7% |
+| L01 | unchanged | 40 calls | 7 points | 16.6% | 2.7% | 7.9% |
+| L02 | fixed | 60 calls | 7 points | 79.8% | 63.1% | 95.0% |
+| L02 | partly fixed | 60 calls | 7 points | 51.7% | 27.5% | 61.6% |
+| L02 | unchanged | 60 calls | 7 points | 8.8% | 0.7% | 2.3% |
+
+- **Reading it:** a player who truly fixed L01 clears 90.5% of the time on the first round and 99.9% within three rounds. A player who did nothing clears 2.7% of rounds. Half-fixed players are the middle: about a third pass a round, and two thirds clear in three rounds, which is the intended pressure to finish the job.
+- **The cost to be honest about:** L02's re-test needs 60 calls inside a 20-point band, so a calibrated player fails one of its two re-tests by chance about a third of the time (63% pass both), and 5% of honest fixers fail all three rounds and escalate. A failed round adds a fire and repeats the lesson, so the harm is a repeated drill, not a lost belt. Widening `clear_gap` to 9 points raises the honest pass to about 76% but also lets half-fixed players through, so it is left at 7 and listed as an open risk.
+- **Long-horizon false alarms:** the L01 and L02 tables above are for 150 calls. Over a year, with a flag open only when the trigger fires on calls after the last clearance, a calibrated player meets a false L02 fire about once in 10 windows of 60; the one-new-pattern-a-day and two-in-repair limits stop a burst, and a false fire is cleared by the first re-test that reads near zero.
+
 ## 5. Ranges
 
 - **Intent:** neither going wide nor going narrow may beat an honest 90% range.

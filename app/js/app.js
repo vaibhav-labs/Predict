@@ -13,6 +13,11 @@ import { lessonScreen } from './ui/lesson.js';
 import { coachScreen } from './ui/coach.js';
 import { journalScreen } from './ui/journal.js';
 import { helpScreen } from './ui/help.js';
+import { flagScreen } from './ui/flag.js';
+import { rewriteScreen } from './ui/rewrite.js';
+import { examScreen } from './ui/exam.js';
+import { autopsyScreen } from './ui/autopsy.js';
+import { runLessonEngine } from './flags.js';
 import { compileCheckerRules } from './engine/journal.js';
 
 const root = document.getElementById('app');
@@ -43,8 +48,15 @@ const routes = {
   help: (c) => helpScreen(c),
   lesson: (c, arg) => lessonScreen(c, arg),
   summary: (c, arg) => summaryScreen(c, arg),
-  gym: async (c, arg, token) => { await gymScreen(c, root, token); return null; },
+  flag: (c, arg) => flagScreen(c, arg),
+  rewrite: (c, arg) => rewriteScreen(c, arg),
+  exam: (c, arg) => examScreen(c, arg),
+  autopsy: (c, arg) => autopsyScreen(c, arg),
+  gym: async (c, arg, token) => { await gymScreen(c, root, token, arg); return null; },
 };
+
+// The screens that show lessons ask the lesson engine to look at the record first. Asking again changes nothing.
+const READS_LESSONS = new Set(['today', 'journal', 'mirror', 'path', 'summary', 'flag', 'rewrite', 'exam', 'autopsy', 'lesson']);
 
 async function route() {
   const token = ++routeId;
@@ -53,6 +65,7 @@ async function route() {
   const [name, arg] = location.hash.replace(/^#\/?/, '').split('/');
   const fn = routes[name] || routes.today;
   try {
+    if (READS_LESSONS.has(name) || !routes[name]) await runLessonEngine(ctx);
     const view = await fn(ctx, arg, token);
     if (view && token === routeId) { root.replaceChildren(view); window.scrollTo(0, 0); }
   } catch (err) {
@@ -62,27 +75,38 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, checkerText, journalBaselinesText, beltsText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, exam, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
       getOK('./content/questions/starter.json').then((r) => r.json()),
+      getOK('./content/questions/exam-u1.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
       getOK('./data/belts.csv').then((r) => r.text()),
+      getOK('./data/lesson_triggers.csv').then((r) => r.text()),
+      getOK('./data/vague_claims.csv').then((r) => r.text()),
     ]);
     const store = await openStore();
     const opens = ((await store.getMeta('opens')) || 0) + 1;
     await store.setMeta('opens', opens);
 
     let persistAsked = false;
+    const bankById = new Map(bank.questions.map((q) => [q.id, q]));
+    const examById = new Map(exam.questions.map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
       gymMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').gym_min),
       journalMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').journal_min),
+      // Two pools: practice (the starter bank) and the Unit 1 exam. The exam pool is never served in practice.
       bank: bank.questions,
-      bankById: new Map(bank.questions.map((q) => [q.id, q])),
+      bankById,
+      examBank: exam.questions,
+      examById,
+      questionById: (id) => bankById.get(id) || examById.get(id),
+      triggers: parseTable(triggersText),
+      vagueClaims: parseTable(vagueText),
       checkerRules: compileCheckerRules(parseTable(checkerText)),
       journalBaselines: parseTable(journalBaselinesText),
       belts: parseTable(beltsText),
@@ -90,6 +114,8 @@ async function boot() {
       nav: (hash) => { location.hash = hash; },
       // Swap the current history entry for another screen, so Back from it never lands on a screen that acts on arrival.
       replace: (hash) => location.replace(hash),
+      // Draw the current screen again (an answer saved on a screen whose address does not change).
+      refresh: () => route(),
       onLeave: (fn) => leaving.push(fn),
       alive: (token) => token === routeId,
       toast(text) {

@@ -374,3 +374,4 @@ test('the store saves each event before it returns, refuses overwrites, and impo
 
 // ---- later blocks live in tools/engine_tests/ ----------------------------------------------------------------------
 import './engine_tests/b3.mjs';
+import './engine_tests/b4.mjs';

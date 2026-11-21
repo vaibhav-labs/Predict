@@ -1,0 +1,303 @@
+{
+ "L02": {
+  "honest": {
+   "W60_gap8_every_call": {
+    "fires_within_150": 0.44033333333333335,
+    "median_calls_to_fire": 90
+   },
+   "W60_gap8_session_end": {
+    "fires_within_150": 0.3403333333333333,
+    "median_calls_to_fire": 91
+   },
+   "W60_gap10_every_call": {
+    "fires_within_150": 0.26366666666666666,
+    "median_calls_to_fire": 94
+   },
+   "W60_gap10_session_end": {
+    "fires_within_150": 0.19666666666666666,
+    "median_calls_to_fire": 98.0
+   },
+   "W60_gap12_every_call": {
+    "fires_within_150": 0.138,
+    "median_calls_to_fire": 96.5
+   },
+   "W60_gap12_session_end": {
+    "fires_within_150": 0.096,
+    "median_calls_to_fire": 105.0
+   },
+   "W80_gap8_every_call": {
+    "fires_within_150": 0.23366666666666666,
+    "median_calls_to_fire": 100
+   },
+   "W80_gap8_session_end": {
+    "fires_within_150": 0.17866666666666667,
+    "median_calls_to_fire": 105.0
+   },
+   "W80_gap10_every_call": {
+    "fires_within_150": 0.11033333333333334,
+    "median_calls_to_fire": 102
+   },
+   "W80_gap10_session_end": {
+    "fires_within_150": 0.082,
+    "median_calls_to_fire": 105.0
+   },
+   "W80_gap12_every_call": {
+    "fires_within_150": 0.046,
+    "median_calls_to_fire": 106.5
+   },
+   "W80_gap12_session_end": {
+    "fires_within_150": 0.030666666666666665,
+    "median_calls_to_fire": 105.0
+   },
+   "W100_gap8_every_call": {
+    "fires_within_150": 0.119,
+    "median_calls_to_fire": 108
+   },
+   "W100_gap8_session_end": {
+    "fires_within_150": 0.087,
+    "median_calls_to_fire": 112
+   },
+   "W100_gap10_every_call": {
+    "fires_within_150": 0.04566666666666667,
+    "median_calls_to_fire": 110
+   },
+   "W100_gap10_session_end": {
+    "fires_within_150": 0.03266666666666666,
+    "median_calls_to_fire": 112.0
+   },
+   "W100_gap12_every_call": {
+    "fires_within_150": 0.014333333333333333,
+    "median_calls_to_fire": 112
+   },
+   "W100_gap12_session_end": {
+    "fires_within_150": 0.011666666666666667,
+    "median_calls_to_fire": 112
+   },
+   "W120_gap8_every_call": {
+    "fires_within_150": 0.06,
+    "median_calls_to_fire": 122.0
+   },
+   "W120_gap8_session_end": {
+    "fires_within_150": 0.042333333333333334,
+    "median_calls_to_fire": 126
+   },
+   "W120_gap10_every_call": {
+    "fires_within_150": 0.018,
+    "median_calls_to_fire": 123.0
+   },
+   "W120_gap10_session_end": {
+    "fires_within_150": 0.012333333333333333,
+    "median_calls_to_fire": 126
+   },
+   "W120_gap12_every_call": {
+    "fires_within_150": 0.004333333333333333,
+    "median_calls_to_fire": 125
+   },
+   "W120_gap12_session_end": {
+    "fires_within_150": 0.0033333333333333335,
+    "median_calls_to_fire": 133.0
+   }
+  },
+  "mild_underconfident": {
+   "W60_gap8_every_call": {
+    "fires_within_150": 0.9083333333333333,
+    "median_calls_to_fire": 63
+   },
+   "W60_gap8_session_end": {
+    "fires_within_150": 0.8486666666666667,
+    "median_calls_to_fire": 70.0
+   },
+   "W60_gap10_every_call": {
+    "fires_within_150": 0.7876666666666666,
+    "median_calls_to_fire": 72
+   },
+   "W60_gap10_session_end": {
+    "fires_within_150": 0.71,
+    "median_calls_to_fire": 77.0
+   },
+   "W60_gap12_every_call": {
+    "fires_within_150": 0.6063333333333333,
+    "median_calls_to_fire": 80
+   },
+   "W60_gap12_session_end": {
+    "fires_within_150": 0.5173333333333333,
+    "median_calls_to_fire": 84.0
+   },
+   "W80_gap8_every_call": {
+    "fires_within_150": 0.7813333333333333,
+    "median_calls_to_fire": 81.0
+   },
+   "W80_gap8_session_end": {
+    "fires_within_150": 0.7176666666666667,
+    "median_calls_to_fire": 84
+   },
+   "W80_gap10_every_call": {
+    "fires_within_150": 0.6056666666666667,
+    "median_calls_to_fire": 86
+   },
+   "W80_gap10_session_end": {
+    "fires_within_150": 0.5266666666666666,
+    "median_calls_to_fire": 91.0
+   },
+   "W80_gap12_every_call": {
+    "fires_within_150": 0.404,
+    "median_calls_to_fire": 94.0
+   },
+   "W80_gap12_session_end": {
+    "fires_within_150": 0.33266666666666667,
+    "median_calls_to_fire": 98.0
+   },
+   "W100_gap8_every_call": {
+    "fires_within_150": 0.659,
+    "median_calls_to_fire": 100
+   },
+   "W100_gap8_session_end": {
+    "fires_within_150": 0.582,
+    "median_calls_to_fire": 105.0
+   },
+   "W100_gap10_every_call": {
+    "fires_within_150": 0.45166666666666666,
+    "median_calls_to_fire": 102
+   },
+   "W100_gap10_session_end": {
+    "fires_within_150": 0.382,
+    "median_calls_to_fire": 105.0
+   },
+   "W100_gap12_every_call": {
+    "fires_within_150": 0.25866666666666666,
+    "median_calls_to_fire": 107.0
+   },
+   "W100_gap12_session_end": {
+    "fires_within_150": 0.19866666666666666,
+    "median_calls_to_fire": 112.0
+   },
+   "W120_gap8_every_call": {
+    "fires_within_150": 0.5436666666666666,
+    "median_calls_to_fire": 120
+   },
+   "W120_gap8_session_end": {
+    "fires_within_150": 0.47433333333333333,
+    "median_calls_to_fire": 126
+   },
+   "W120_gap10_every_call": {
+    "fires_within_150": 0.3273333333333333,
+    "median_calls_to_fire": 120.0
+   },
+   "W120_gap10_session_end": {
+    "fires_within_150": 0.27166666666666667,
+    "median_calls_to_fire": 126
+   },
+   "W120_gap12_every_call": {
+    "fires_within_150": 0.16166666666666665,
+    "median_calls_to_fire": 121
+   },
+   "W120_gap12_session_end": {
+    "fires_within_150": 0.12633333333333333,
+    "median_calls_to_fire": 126
+   }
+  },
+  "underconfident": {
+   "W60_gap8_every_call": {
+    "fires_within_150": 1.0,
+    "median_calls_to_fire": 60.0
+   },
+   "W60_gap8_session_end": {
+    "fires_within_150": 0.9976666666666667,
+    "median_calls_to_fire": 63
+   },
+   "W60_gap10_every_call": {
+    "fires_within_150": 0.9923333333333333,
+    "median_calls_to_fire": 60
+   },
+   "W60_gap10_session_end": {
+    "fires_within_150": 0.9876666666666667,
+    "median_calls_to_fire": 63
+   },
+   "W60_gap12_every_call": {
+    "fires_within_150": 0.975,
+    "median_calls_to_fire": 60
+   },
+   "W60_gap12_session_end": {
+    "fires_within_150": 0.958,
+    "median_calls_to_fire": 63.0
+   },
+   "W80_gap8_every_call": {
+    "fires_within_150": 0.995,
+    "median_calls_to_fire": 80
+   },
+   "W80_gap8_session_end": {
+    "fires_within_150": 0.9886666666666667,
+    "median_calls_to_fire": 84.0
+   },
+   "W80_gap10_every_call": {
+    "fires_within_150": 0.9796666666666667,
+    "median_calls_to_fire": 80
+   },
+   "W80_gap10_session_end": {
+    "fires_within_150": 0.964,
+    "median_calls_to_fire": 84.0
+   },
+   "W80_gap12_every_call": {
+    "fires_within_150": 0.934,
+    "median_calls_to_fire": 80.0
+   },
+   "W80_gap12_session_end": {
+    "fires_within_150": 0.8946666666666667,
+    "median_calls_to_fire": 84.0
+   },
+   "W100_gap8_every_call": {
+    "fires_within_150": 0.9846666666666667,
+    "median_calls_to_fire": 100.0
+   },
+   "W100_gap8_session_end": {
+    "fires_within_150": 0.976,
+    "median_calls_to_fire": 105.0
+   },
+   "W100_gap10_every_call": {
+    "fires_within_150": 0.9533333333333334,
+    "median_calls_to_fire": 100.0
+   },
+   "W100_gap10_session_end": {
+    "fires_within_150": 0.9313333333333333,
+    "median_calls_to_fire": 105.0
+   },
+   "W100_gap12_every_call": {
+    "fires_within_150": 0.8676666666666667,
+    "median_calls_to_fire": 100
+   },
+   "W100_gap12_session_end": {
+    "fires_within_150": 0.825,
+    "median_calls_to_fire": 105
+   },
+   "W120_gap8_every_call": {
+    "fires_within_150": 0.9773333333333334,
+    "median_calls_to_fire": 120.0
+   },
+   "W120_gap8_session_end": {
+    "fires_within_150": 0.967,
+    "median_calls_to_fire": 126
+   },
+   "W120_gap10_every_call": {
+    "fires_within_150": 0.9333333333333333,
+    "median_calls_to_fire": 120.0
+   },
+   "W120_gap10_session_end": {
+    "fires_within_150": 0.8953333333333333,
+    "median_calls_to_fire": 126.0
+   },
+   "W120_gap12_every_call": {
+    "fires_within_150": 0.811,
+    "median_calls_to_fire": 120
+   },
+   "W120_gap12_session_end": {
+    "fires_within_150": 0.763,
+    "median_calls_to_fire": 126
+   }
+  }
+ },
+ "band": [
+  0.6,
+  0.8
+ ],
+ "runs": 3000
+}

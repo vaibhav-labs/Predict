@@ -1,36 +1,56 @@
 #!/usr/bin/env python3
-"""Check the starter question bank before it ships.
+"""Check the question banks before they ship. Nothing here shares code with the builder (tools/make_questions.py and tools/qbank/):
+it reads the record tables in data/question_tables/ and the shipped question text, and works every answer out again.
 
   1. Shape: every question has the fields the app reads, valid labels, a source, and no builder's name in it.
-  2. Balance: half true and half false, and the designed difficulty mix.
-  3. Freshness: the file on disk is exactly what tools/make_questions.py builds from the tables.
-  4. Truth: every claim it can parse is worked out again here, from the tables or from arithmetic, in code that does
-     not share anything with the generators, and compared with the stored answer. A generator that swapped a true and
-     a false claim would be caught here.
+  2. Truth: every recorded question is rebuilt from its own text. The case it names (a day of weather, a flight, a country's
+     figures, a year of the stock market) is found in the records, and the answer, the chance it was given (`base`), the number
+     of other cases behind that chance, the percentages printed in the reveal and the difficulty are all recomputed and compared.
+     Every sourced question is matched to its documented fact in data/question_tables/base_rates.csv and its claim is worked out
+     from the documented number and the rounding the source used.
+  3. Fairness: cases were drawn without looking at how they turned out, so a player who knew every base rate would be calibrated on
+     the bank. A z-test on the recorded questions says whether the true and false claims came out as the base rates predict.
+  4. Balance: half true and half false, the designed difficulty mix, no subject above 35%, no case or fact used twice in a bank,
+     and nothing shared between the starter bank and the exam pool.
+  5. Freshness: the files on disk are exactly what tools/make_questions.py builds from the tables.
 
 Run by tools/check_data.py (and so by the deploy workflow), or by hand:  python3 tools/check_questions.py
 Python 3 standard library only.
 """
-import calendar
 import csv
-import datetime
+import datetime as dt
 import json
 import math
 import os
 import re
+import sqlite3
 import sys
-from collections import Counter
-from fractions import Fraction
+from collections import Counter, defaultdict
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BANK = os.path.join(ROOT, "app", "content", "questions", "starter.json")
+EXAM_BANK = os.path.join(ROOT, "app", "content", "questions", "exam-u1.json")
 TABLES = os.path.join(ROOT, "data", "question_tables")
-DOMAINS = {"numbers", "chance", "science", "geography", "economy", "world", "technology"}
-FIELDS = ("id", "claim", "answer", "fact", "why", "domain", "diff", "source", "src_name", "checked", "verified")
-MINUS = "−"
-ORD = {w: i + 1 for i, w in enumerate("first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth".split())}
-THE = re.compile(r"\b[Tt]he (?=Netherlands|United Kingdom|United States|Democratic Republic of the Congo|Central African Republic)")
+DOMAINS = {"weather", "travel", "money", "work", "world", "sport", "life"}
+FIELDS = ("id", "lead", "ask", "claim", "answer", "base", "n", "fact", "why", "domain", "diff", "verified", "source", "src_name", "checked")
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+SEASON = {12: "winter", 1: "winter", 2: "winter", 3: "spring", 4: "spring", 5: "spring", 6: "summer", 7: "summer", 8: "summer", 9: "autumn", 10: "autumn", 11: "autumn"}
+SEASON_SPAN = {"winter": "December to February", "spring": "March to May", "summer": "June to August", "autumn": "September to November"}
+EASY_AT, MEDIUM_AT = 0.85, 0.68        # a claim goes one way this often among cases like it: easy, medium (else hard)
+EASY_MARGIN, MEDIUM_MARGIN, MIN_MARGIN = 1.2, 0.5, 0.25   # the same idea for a sourced claim: how far its threshold sits from the documented value
+MIN_CASES = 30                         # a kind of case needs this many others before a base rate is quoted
+MIN_CASES_SMALL = 10                   # years that follow a fall or a boom are few: allowed down to this many, and the reveal prints the count
+MAX_Z = 3.0                            # the fairness test allows this many standard errors
+
+
+class Bad(Exception):
+    """A question's own text does not match the records."""
+
+
+def need(cond, message):
+    if not cond:
+        raise Bad(message)
 
 
 def table(name):
@@ -38,356 +58,700 @@ def table(name):
         return list(csv.DictReader(f))
 
 
+def pct(x):
+    return math.floor(x * 100 + 0.5)
+
+
 def num(text):
-    return float(text.replace(",", "").replace(MINUS, "-"))
+    return float(text.replace(",", ""))
 
 
-# ------------------------------------------------------------------ independent re-derivation
-def build_checkers():
-    P = {r["planet"]: {k: float(v) for k, v in r.items() if k != "planet"} for r in table("planets.csv")}
-    M = {r["mountain"]: float(r["elevation_m"]) for r in table("mountains.csv")}
-    CO = {r["country"]: int(r["area_km2"]) for r in table("countries.csv")}
-    ST = {r["state"]: r for r in table("india_states.csv")}
-    EL = {r["name"].lower(): r for r in table("elements.csv")}
-    EV = table("events.csv")
-    OL = {int(r["year"]): r["host_city"] for r in table("olympics.csv")}
-    WC = {int(r["year"]): r for r in table("worldcup.csv")}
-    SPEED = 299792.458
-    checks = []
+def diff_of(p):
+    q = max(p, 1 - p)
+    return "easy" if q >= EASY_AT - 1e-9 else "medium" if q >= MEDIUM_AT - 1e-9 else "hard"
 
-    def rule(pattern, fn):
-        checks.append((re.compile(pattern, re.S), fn))
 
-    def cmp_word(w):
-        return w in ("greater", "more", "above", "higher", "longer", "larger")
+def logit(p):
+    p = min(max(p, 0.005), 0.995)
+    return math.log(p / (1 - p))
 
-    # ---- arithmetic and number theory
-    rule(r"^(\d+) × (\d+) = ([\d,]+)\.$", lambda m: int(m[1]) * int(m[2]) == int(num(m[3])))
-    rule(r"^(\d+) × (\d+) is (greater|less) than ([\d,]+)\.$", lambda m: (int(m[1]) * int(m[2]) > num(m[4])) == (m[3] == "greater"))
-    rule(r"^(\d+)² = ([\d,]+)\.$", lambda m: int(m[1]) ** 2 == int(num(m[2])))
-    rule(r"^(\d+)³ = ([\d,]+)\.$", lambda m: int(m[1]) ** 3 == int(num(m[2])))
-    rule(r"^(\d+) is a prime number\.$", lambda m: int(m[1]) > 1 and all(int(m[1]) % d for d in range(2, math.isqrt(int(m[1])) + 1)))
-    rule(r"^(\d{4}) is a leap year\.$", lambda m: calendar.isleap(int(m[1])))
-    rule(r"^The whole numbers from 1 to 100 add up to ([\d,]+)\.$", lambda m: sum(range(1, 101)) == num(m[1]))
-    rule(r"^The first 10 odd numbers add up to (\d+)\.$", lambda m: sum(range(1, 20, 2)) == num(m[1]))
-    rule(r"^10! \(ten factorial\) is ([\d,]+)\.$", lambda m: math.factorial(10) == num(m[1]))
-    rule(r"^There are (\d+) prime numbers below ([\d,]+)\.$", lambda m: sum(all(n % d for d in range(2, math.isqrt(n) + 1)) and n > 1 for n in range(int(num(m[2])))) == int(m[1]))
-    rule(r"^The 12th Fibonacci number \(1, 1, 2, 3, 5, …\) is (\d+)\.$", lambda m: 144 == int(m[1]))
-    rule(r"^2\^100 has (\d+) digits\.$", lambda m: len(str(2 ** 100)) == int(m[1]))
-    rule(r"^1,001 equals 7 × 11 × (\d+)\.$", lambda m: 7 * 11 * int(m[1]) == 1001)
 
-    scale = {"million": 10 ** 6, "billion": 10 ** 9, "trillion": 10 ** 12, "quadrillion": 10 ** 15, "quintillion": 10 ** 18}
+def margin(scale, low, high, t):
+    if scale == "share":
+        return logit(low / 100) - logit(t / 100) if t < low else logit(t / 100) - logit(high / 100)
+    return math.log(low / t) if t < low else math.log(t / high)
 
-    def pow_threshold(m):
-        t = num(m[3]) * scale.get((m[4] or "").strip(), 1)
-        return (2 ** int(m[1]) > t) == (m[2] == "greater")
-    rule(r"^2\^(\d+) is (greater|less) than ([\d.,]+)( \w+)?\.$", pow_threshold)
-    rule(r"^2\^(\d+) (?:is exactly|equals) ([\d,]+)\.$", lambda m: 2 ** int(m[1]) == int(num(m[2])))
-    rule(r"^(\d{4}) has 53 (\w+)s\.$", lambda m: sum(1 for d in range(366 if calendar.isleap(int(m[1])) else 365)
-                                                   if (datetime.date(int(m[1]), 1, 1) + datetime.timedelta(days=d)).weekday() == WEEKDAYS.index(m[2])) == 53)
-    rule(r"^There are (\d+) days from (\d+ \w+ \d{4}) to (\d+ \w+ \d{4})\.$",
-         lambda m: (datetime.datetime.strptime(m[3], "%d %B %Y") - datetime.datetime.strptime(m[2], "%d %B %Y")).days == int(m[1]))
 
-    def thirteenth(m):
-        count = Counter(datetime.date(y, mo, 13).weekday() for y in range(1601, 2001) for mo in range(1, 13))
-        return count.most_common(1)[0][0] == WEEKDAYS.index(m[1])
-    rule(r"^Over a full 400-year Gregorian cycle, the 13th of the month falls on a (\w+) more often than on any other day of the week\.$", thirteenth)
+def diff_of_margin(m):
+    return "easy" if m >= EASY_MARGIN else "medium" if m >= MEDIUM_MARGIN else "hard"
 
-    # ---- growth and percentages
-    rule(r"^At (\d+)% growth a year, money more than doubles in (\d+) years\.$", lambda m: (1 + int(m[1]) / 100) ** int(m[2]) > 2)
-    rule(r"^Start with one cent and double the amount every day.*On day 30 you have more than (\d+) million dollars\.$", lambda m: 0.01 * 2 ** 29 > int(m[1]) * 10 ** 6)
-    rule(r"^A bacterium that divides in two every 20 minutes.*more than a billion bacteria after (\d+) hours\.$", lambda m: 2 ** (int(m[1]) * 3) > 10 ** 9)
-    pct = {
-        "A fall of 50% followed by a rise of 50% leaves you back where you started.": 0.5 * 1.5 == 1,
-        "A fall of 50% followed by a rise of 50% leaves you 25% below where you started.": abs(0.5 * 1.5 - 0.75) < 1e-9,
-        "A rise of 25% followed by a fall of 20% leaves you exactly where you started.": abs(1.25 * 0.8 - 1) < 1e-9,
-        "A rise of 25% followed by a fall of 20% leaves you 5% below where you started.": abs(1.25 * 0.8 - 0.95) < 1e-9,
-        "A rise of 20% followed by a fall of 20% leaves you 4% below where you started.": abs(1.2 * 0.8 - 0.96) < 1e-9,
-        "A rise of 20% followed by a fall of 20% leaves you ahead of where you started.": 1.2 * 0.8 > 1,
-        "If B is 25% more than A, then A is 20% less than B.": abs(1 / 1.25 - 0.8) < 1e-9,
-        "If B is 25% more than A, then A is 25% less than B.": abs(1 / 1.25 - 0.75) < 1e-9,
-        "A share price that falls 50% has to rise 100% to get back to where it was.": 0.5 * 2 == 1,
-        "A share price that falls 50% has to rise 50% to get back to where it was.": 0.5 * 1.5 == 1,
-        "Five years of 10% growth a year add up to growth of more than 60%.": 1.1 ** 5 > 1.6,
-        "Five years of 10% growth a year add up to growth of exactly 50%.": abs(1.1 ** 5 - 1.5) < 1e-9,
-        "A return of 1% every month compounds to more than 12% over a year.": 1.01 ** 12 > 1.12,
-        "A return of 1% every month compounds to more than 13% over a year.": 1.01 ** 12 > 1.13,
-        "A loan that charges 2% interest a month, compounded, costs more than 24% over a year.": 1.02 ** 12 > 1.24,
-        "A loan that charges 2% interest a month, compounded, costs exactly 24% over a year.": abs(1.02 ** 12 - 1.24) < 1e-9,
-        "Money growing at 10% a year more than doubles in 8 years but not in 7.": 1.1 ** 8 > 2 >= 1.1 ** 7,
-        "Money growing at 10% a year more than doubles in 7 years.": 1.1 ** 7 > 2,
-        "At 6% inflation a year, the buying power of money roughly halves in 12 years.": abs(1 / 1.06 ** 12 - 0.5) < 0.05,
-        "At 6% inflation a year, the buying power of money roughly halves in 6 years.": abs(1 / 1.06 ** 6 - 0.5) < 0.05,
-    }
-    rule(r"^(A fall|A rise|If B|A share|Five years|A return|A loan|Money growing|At 6% inflation)(.*)$", lambda m: pct[m[0]])
 
-    # ---- chance
-    ways = lambda s: sum(1 for i in range(1, 7) for j in range(1, 7) if i + j == s)
-    rule(r"^With two fair dice, a total of (\d+) is (more likely than|less likely than|exactly as likely as) a total of (\d+)\.$",
-         lambda m: {"more likely than": ways(int(m[1])) > ways(int(m[3])), "less likely than": ways(int(m[1])) < ways(int(m[3])), "exactly as likely as": ways(int(m[1])) == ways(int(m[3]))}[m[2]])
-    rule(r"^Rolling a fair die (\d) times, the chance of at least one six is (above|below) 50%\.$", lambda m: ((1 - (5 / 6) ** int(m[1])) > 0.5) == (m[2] == "above"))
+def shown_ok(text, value):
+    """Is a number printed in a question the table's value, rounded to the digits printed?"""
+    digits = len(text.split(".")[1]) if "." in text else 0
+    return abs(num(text) - value) <= 0.5 * 10 ** -digits + 1e-9
 
-    def birthday(m):
-        q = 1.0
-        for i in range(int(m[1])):
-            q *= (365 - i) / 365
-        return ((1 - q) > int(m[3]) / 100) == (m[2] == "above")
-    rule(r"^In a group of (\d+) people, the chance that at least two share a birthday is (above|below) (\d+)% \(assume 365 equally likely birthdays\)\.$", birthday)
-    p_pos = Fraction(99, 100) * Fraction(1, 1000) / (Fraction(99, 100) * Fraction(1, 1000) + Fraction(1, 100) * Fraction(999, 1000))
-    rule(r"^A disease affects 1 person in 1,000\..*has (more|less) than a (\d+)% chance of having the disease\.$", lambda m: (float(p_pos) > int(m[2]) / 100) == (m[1] == "more"))
-    rule(r"^Drawing two cards from a shuffled 52-card deck, the chance that both are aces is (below|above) 1%\.$", lambda m: (float(Fraction(4, 52) * Fraction(3, 51)) < 0.01) == (m[1] == "below"))
-    rule(r"^Flipping a fair coin 3 times, the chance of exactly two heads is (3/8|1/2)\.$", lambda m: Fraction(math.comb(3, 2), 8) == Fraction(m[1]))
-    rule(r"^Flipping a fair coin 100 times, getting exactly 50 heads is (more|less) likely than not\.$", lambda m: (math.comb(100, 50) / 2 ** 100 > 0.5) == (m[1] == "more"))
-    rule(r"^Flipping a fair coin 100 times, getting 60 or more heads happens (less|more) than 5% of the time\.$",
-         lambda m: (sum(math.comb(100, k) for k in range(60, 101)) / 2 ** 100 < 0.05) == (m[1] == "less"))
-    rule(r"^In three fair coin flips, the sequence (HTH is exactly as likely as HHH|HHH is less likely than HTH)\.$", lambda m: m[1].startswith("HTH"))
-    rule(r"^After five heads in a row, a fair coin is (exactly as likely to land tails as heads|more likely to land tails) on the next flip\.$", lambda m: m[1].startswith("exactly"))
-    rule(r"^Three doors hide one prize\..*(Switching to the last closed door wins 2 times in 3|Staying and switching are equally likely to win)\.$", lambda m: m[1].startswith("Switching"))
-    rule(r"^A family has two children and at least one is a boy\. The chance that both are boys is (1/3|1/2)\.$", lambda m: m[1] == "1/3")
-    rule(r"^The average roll of a fair six-sided die, over many rolls, settles at (3\.5|3)\.$", lambda m: float(m[1]) == sum(range(1, 7)) / 6)
 
-    # ---- exact definitions and conversions (typed again here, independently of the generator)
-    exact = {
-        "An inch is exactly 25.4 millimetres.": True, "An inch is exactly 25 millimetres.": False,
-        "A mile is exactly 1.609344 kilometres.": True, "A mile is exactly 1.6 kilometres.": False,
-        "A foot is exactly 30.48 centimetres.": True, "A foot is exactly 30 centimetres.": False,
-        "A nautical mile is longer than a statute mile.": 1852 > 1609.344, "A nautical mile is shorter than a statute mile.": 1852 < 1609.344,
-        "One knot is one nautical mile per hour.": True, "One knot is one statute mile per hour.": False,
-        "An imperial gallon is bigger than a US gallon.": 4.54609 > 3.785411784, "A US gallon is bigger than an imperial gallon.": 3.785411784 > 4.54609,
-        "A kilogram is more than 2.2 pounds.": 1 / 0.45359237 > 2.2, "A kilogram is more than 2.25 pounds.": 1 / 0.45359237 > 2.25,
-        "A hectare is bigger than an acre.": 10000 > 4046.8564224, "An acre is bigger than a hectare.": 4046.8564224 > 10000,
-        "−40 °C and −40 °F are the same temperature.": -40 * 9 / 5 + 32 == -40, "0 °C and 0 °F are the same temperature.": 0 * 9 / 5 + 32 == 0,
-        "A body temperature of 37 °C is below 100 °F.": 37 * 9 / 5 + 32 < 100, "A body temperature of 37 °C is above 100 °F.": 37 * 9 / 5 + 32 > 100,
-        "Water boils at 212 °F at standard pressure.": 100 * 9 / 5 + 32 == 212, "Water boils at 180 °F at standard pressure.": 100 * 9 / 5 + 32 == 180,
-        "Absolute zero is −273.15 °C.": True, "Absolute zero is −237.15 °C.": False,
-        "The speed of light in a vacuum is exactly 299,792,458 metres per second.": SPEED * 1000 == 299792458, "The speed of light in a vacuum is exactly 300,000,000 metres per second.": SPEED * 1000 == 300000000,
-        "A litre is 1,000 cubic centimetres.": 10 ** 3 == 1000, "A litre is 100 cubic centimetres.": 10 ** 3 == 100,
-        "A US (short) ton is 2,000 pounds.": True, "A US (short) ton is 2,240 pounds.": False,
-        "One lakh is 100,000.": 10 ** 5 == 100000, "One lakh is 1,000,000.": 10 ** 5 == 1000000,
-        "One crore is 10 million.": 10 ** 7 == 10 * 10 ** 6, "One crore is 1 million.": 10 ** 7 == 10 ** 6,
-        "One lakh crore is one trillion.": 10 ** 5 * 10 ** 7 == 10 ** 12, "One lakh crore is 100 billion.": 10 ** 5 * 10 ** 7 == 100 * 10 ** 9,
-        "A sum of 10,000 crore rupees is 100 billion rupees.": 10 ** 4 * 10 ** 7 == 100 * 10 ** 9, "A sum of 10,000 crore rupees is 10 billion rupees.": 10 ** 4 * 10 ** 7 == 10 * 10 ** 9,
-        "A sum of 50,000 crore rupees is 500 billion rupees.": 5 * 10 ** 4 * 10 ** 7 == 500 * 10 ** 9, "A sum of 50,000 crore rupees is 50 billion rupees.": 5 * 10 ** 4 * 10 ** 7 == 50 * 10 ** 9,
-        "A byte is 8 bits.": True, "A byte is 16 bits.": False,
-        "IPv4 has about 4.3 billion possible addresses.": round(2 ** 32 / 1e9, 1) == 4.3, "IPv4 has about 430 million possible addresses.": round(2 ** 32 / 1e6, -1) == 430,
-        "The largest value a 32-bit unsigned integer can hold is 4,294,967,295.": 2 ** 32 - 1 == 4294967295, "The largest value a 32-bit unsigned integer can hold is 4,294,967,296.": 2 ** 32 - 1 == 4294967296,
-        "A signed 8-bit integer ranges from −128 to 127.": (-2 ** 7, 2 ** 7 - 1) == (-128, 127), "A signed 8-bit integer ranges from −127 to 128.": (-2 ** 7, 2 ** 7 - 1) == (-127, 128),
-        "In standard floating-point arithmetic (IEEE 754 doubles), 0.1 + 0.2 does not equal exactly 0.3.": 0.1 + 0.2 != 0.3, "In standard floating-point arithmetic (IEEE 754 doubles), 0.1 + 0.2 equals exactly 0.3.": 0.1 + 0.2 == 0.3,
-        "The hexadecimal number FF equals 255.": int("FF", 16) == 255, "The hexadecimal number FF equals 256.": int("FF", 16) == 256,
-        "The binary number 101010 equals 42.": int("101010", 2) == 42, "The binary number 101010 equals 44.": int("101010", 2) == 44,
-        "A 3-bit number can take 8 different values.": 2 ** 3 == 8, "A 3-bit number can take 6 different values.": 2 ** 3 == 6,
-        "A 1920 × 1080 frame has more than 2 million pixels.": 1920 * 1080 > 2e6, "A 1920 × 1080 frame has more than 2.5 million pixels.": 1920 * 1080 > 2.5e6,
-        "A 3840 × 2160 frame has exactly four times as many pixels as a 1920 × 1080 frame.": 3840 * 2160 == 4 * 1920 * 1080,
-        "A 3840 × 2160 frame has exactly twice as many pixels as a 1920 × 1080 frame.": 3840 * 2160 == 2 * 1920 * 1080,
-        "Water boils at 212 °F.": True,
-    }
-    rule(r"^(.+)$", lambda m: exact[m[1]] if m[1] in exact else None)
+# ===================================================================================== the records, loaded for checking
+class Records:
+    def __init__(self):
+        self.weather = sorted(({"d": dt.date.fromisoformat(r["date"]), "p": float(r["precip_mm"]), "hi": float(r["temp_max_c"]), "lo": float(r["temp_min_c"])}
+                               for r in table("seattle_weather.csv")), key=lambda x: x["d"])
+        self.at = {x["d"]: i for i, x in enumerate(self.weather)}
+        self.wet = [x["p"] > 0 for x in self.weather]
+        self.db = sqlite3.connect(":memory:")
+        db = self.db
+        db.execute("CREATE TABLE fl (row INTEGER, day TEXT, hhmm TEXT, hour INTEGER, o TEXT, d TEXT, mi INTEGER, delay INTEGER)")
+        db.executemany("INSERT INTO fl VALUES (?,?,?,?,?,?,?,?)",
+                       [(int(r["row"]), r["departs"][:10], r["departs"][11:], int(r["departs"][11:13]), r["origin"], r["destination"], int(r["distance_mi"]), int(r["arrival_delay_min"]))
+                        for r in table("flights.csv")])
+        db.execute("CREATE TABLE ap (iata TEXT, city TEXT)")
+        db.executemany("INSERT INTO ap VALUES (?,?)", [(r["iata"], r["city"]) for r in table("airports.csv")])
+        db.execute("CREATE TABLE sp (month TEXT, price REAL, real REAL)")
+        db.executemany("INSERT INTO sp VALUES (?,?,?)", [(r["month"], float(r["price"]), float(r["real_price"])) for r in table("sp500_shiller.csv")])
+        self.owid = {"life": "owid_life_expectancy.csv", "child": "owid_child_mortality.csv", "co2": "owid_co2_per_person.csv",
+                     "gdp": "owid_gdp_per_person.csv", "renew": "owid_renewables_share.csv", "fert": "owid_fertility.csv"}
+        for ind, name in self.owid.items():
+            db.execute(f"CREATE TABLE ow_{ind} (code TEXT, country TEXT, year INTEGER, value REAL)")
+            db.executemany(f"INSERT INTO ow_{ind} VALUES (?,?,?,?)", [(r["code"], r["country"], int(r["year"]), float(r["value"])) for r in table(name)])
+            # a window: the value five years before, at the year, and five years on; the year before must have moved, and so must the year after
+            db.execute(f"""CREATE VIEW win_{ind} AS SELECT a.code AS code, a.country AS country, b.year AS t, a.value AS va, b.value AS vb, c.value AS vc
+                           FROM ow_{ind} a JOIN ow_{ind} b ON b.code = a.code AND b.year = a.year + 5 JOIN ow_{ind} c ON c.code = a.code AND c.year = a.year + 10
+                           WHERE b.year BETWEEN 1995 AND 2015 AND a.value <> 0 AND b.value <> 0
+                             AND ABS(b.value - a.value) / ABS(a.value) >= 0.01 AND ABS(c.value - b.value) / ABS(b.value) >= 0.005""")
+        self.dec = {int(m[:4]): (p, rp) for m, p, rp in db.execute("SELECT month, price, real FROM sp WHERE month LIKE '%-12'")}
+        self._weather_classes()
 
-    # ---- planets
-    diam = lambda m: P[m[1]]["diameter_km"] > P[m[2]]["diameter_km"]
-    rule(r"^(\w+) is wider than (\w+)\.$", diam)
-    rule(r"^(\w+) has more mass than (\w+)\.$", lambda m: P[m[1]]["mass_1e24kg"] > P[m[2]]["mass_1e24kg"])
-    rule(r"^(\w+) is denser than (\w+)\.$", lambda m: P[m[1]]["density_kgm3"] > P[m[2]]["density_kgm3"])
-    rule(r"^Surface gravity is stronger on (\w+) than on (\w+)\.$", lambda m: P[m[1]]["gravity_ms2"] > P[m[2]]["gravity_ms2"])
-    rule(r"^A day on (\w+) is longer than a day on (\w+)\.$", lambda m: P[m[1]]["day_hours"] > P[m[2]]["day_hours"])
-    rule(r"^(\w+) is hotter than (\w+), on average\.$", lambda m: P[m[1]]["mean_temp_c"] > P[m[2]]["mean_temp_c"])
-    E = P["Earth"]
-    rule(r"^(\w+) is (more|less) than (\d+) times as wide as Earth\.$", lambda m: (P[m[1]]["diameter_km"] / E["diameter_km"] > int(m[3])) == (m[2] == "more"))
-    rule(r"^Mars is (more|less) than half as wide as Earth\.$", lambda m: (P["Mars"]["diameter_km"] / E["diameter_km"] > 0.5) == (m[1] == "more"))
-    rule(r"^(\w+) has (more|less) than (\d+) times the mass of Earth\.$", lambda m: (P[m[1]]["mass_1e24kg"] / E["mass_1e24kg"] > int(m[3])) == (m[2] == "more"))
-    rule(r"^Mars has (more|less) than a tenth of the mass of Earth\.$", lambda m: (P["Mars"]["mass_1e24kg"] / E["mass_1e24kg"] > 0.1) == (m[1] == "more"))
-    rule(r"^Surface gravity on Jupiter is (more|less) than twice Earth's\.$", lambda m: (P["Jupiter"]["gravity_ms2"] / E["gravity_ms2"] > 2) == (m[1] == "more"))
-    rule(r"^Surface gravity on Mars is (more|less) than a third of Earth's\.$", lambda m: (P["Mars"]["gravity_ms2"] / E["gravity_ms2"] > 1 / 3) == (m[1] == "more"))
-    rule(r"^A day on Jupiter is (longer|shorter) than half an Earth day\.$", lambda m: (P["Jupiter"]["day_hours"] / E["day_hours"] > 0.5) == (m[1] == "longer"))
-    rule(r"^(\w+) is (more|less) than ([\d.]+) times as far from the Sun as Earth\.$", lambda m: (P[m[1]]["sun_dist_1e6km"] / E["sun_dist_1e6km"] > float(m[3])) == (m[2] == "more"))
-    rule(r"^One year on (\w+) lasts (longer|less) than (\d+) Earth years\.$", lambda m: (P[m[1]]["orbit_days"] / E["orbit_days"] > int(m[3])) == (m[2] == "longer"))
-    rule(r"^The mean temperature of (\w+) is (above|below) (−?\d+) °C\.$", lambda m: (P[m[1]]["mean_temp_c"] > num(m[3])) == (m[2] == "above"))
+    # ---------------------------------------------------------------------------------------------------- weather classes
+    def _weather_classes(self):
+        W, n = self.weather, len(self.weather)
+        assert all((W[i]["d"] - W[i - 1]["d"]).days == 1 for i in range(1, n)), "the weather table has a gap"
+        self.run = [1] * n
+        for i in range(1, n):
+            self.run[i] = self.run[i - 1] + 1 if self.wet[i] == self.wet[i - 1] else 1
+        by_month = defaultdict(list)
+        for x in W:
+            by_month[x["d"].month].append(x["hi"])
+        self.mean_hi = {m: sum(v) / len(v) for m, v in by_month.items()}
+        self.anom = [x["hi"] - self.mean_hi[x["d"].month] for x in W]
 
-    def sunlight(m):
-        minutes = P[m[4]]["sun_dist_1e6km"] * 1e6 / SPEED / 60
-        t = {"an": 1}.get(m[2], None)
-        t = float(m[2]) if t is None else t
-        t = t * 60 if m[3].startswith("hour") else t
-        return (minutes > t) == (m[1] == "more")
-    rule(r"^Sunlight takes (more|less) than (\d+|an) (minutes|hours|hour) to reach (\w+)\.$", sunlight)
-    rule(r"^Earth is the densest of the eight planets\.$", lambda m: max(P, key=lambda p: P[p]["density_kgm3"]) == "Earth")
-    rule(r"^Mercury is the densest of the eight planets\.$", lambda m: max(P, key=lambda p: P[p]["density_kgm3"]) == "Mercury")
-    rule(r"^Jupiter has the shortest day of the eight planets\.$", lambda m: min(P, key=lambda p: P[p]["day_hours"] if p not in ("Mercury", "Venus") else 1e9) == "Jupiter")
-    rule(r"^Saturn has the shortest day of the eight planets\.$", lambda m: min(P, key=lambda p: P[p]["day_hours"] if p not in ("Mercury", "Venus") else 1e9) == "Saturn")
-    rule(r"^Saturn's average density is (above|below) 1,000 kg/m³\.$", lambda m: (P["Saturn"]["density_kgm3"] > 1000) == (m[1] == "above"))
-    rule(r"^To the precision NASA lists, Mars and Mercury have (the same|different) surface gravity\.$", lambda m: (P["Mars"]["gravity_ms2"] == P["Mercury"]["gravity_ms2"]) == (m[1] == "the same"))
-    rule(r"^Fold a sheet of paper 0\.1 mm thick in half (\d+) times.*thicker than the distance from the Earth to the Sun\.$", lambda m: 1e-4 * 2 ** int(m[1]) > E["sun_dist_1e6km"] * 1e9)
+    def weather_day(self, day):
+        need(day in self.at, f"{day} is not in the weather record")
+        return self.at[day]
 
-    # ---- mountains
-    rule(r"^(.+) is higher than (.+)\.$", lambda m: M[m[1]] > M[m[2]] if m[1] in M and m[2] in M else None)
-    rule(r"^(.+) is (higher|lower) than ([\d,]+) metres\.$", lambda m: (M[m[1]] > num(m[3])) == (m[2] == "higher") if m[1] in M else None)
-    eight = sorted([n for n, v in M.items() if v >= 8000], key=lambda n: -M[n])
-    rule(r"^(.+) is the (\w+)-highest of the 14 mountains above 8,000 metres\.$", lambda m: eight.index(m[1]) + 1 == ORD[m[2]])
-    rule(r"^(Fourteen|Ten) mountains on Earth rise above 8,000 metres\.$", lambda m: len(eight) == {"Fourteen": 14, "Ten": 10}[m[1]])
-    rule(r"^Mount Everest is (more|less) than 200 metres higher than K2\.$", lambda m: (M["Mount Everest"] - M["K2"] > 200) == (m[1] == "more"))
-    outside = {"Aconcagua": M["Aconcagua"], "Denali": M["Denali"]}
-    others = max(M[n] for n in ("Kilimanjaro", "Mount Elbrus", "Vinson Massif", "Mount Kosciuszko", "Mont Blanc", "Matterhorn", "Ben Nevis"))
-    rule(r"^(Aconcagua|Denali) is the highest mountain outside Asia\.$", lambda m: M[m[1]] == max(outside.values()) and M[m[1]] > others)
 
-    # ---- countries
-    ca = lambda s: THE.sub("", s)
-    rule(r"^(.+) is larger than (.+) by total area\.$", lambda m: CO[ca(m[1])] > CO[ca(m[2])] if ca(m[1]) in CO and ca(m[2]) in CO else None)
-    rule(r"^(.+) has a total area of (more|less) than ([\d,]+) km²\.$", lambda m: (CO[ca(m[1])] > num(m[3])) == (m[2] == "more") if ca(m[1]) in CO else None)
-    by_area = sorted(CO, key=lambda c: -CO[c])
-    rule(r"^(\w+) is the (\w+)-largest country in the world by total area\.$", lambda m: by_area.index(m[1]) + 1 == ORD[m[2]])
+# ===================================================================================== one rule per kind of recorded question
+DATE = re.compile(r"^(\d{1,2}) (\w+) (\d{4}): ")
 
-    # ---- India's states
-    area = {s: int(r["area_km2"]) for s, r in ST.items()}
-    pop = {s: int(r["population_2011"]) for s, r in ST.items()}
-    year = {s: int(r["statehood_year"]) for s, r in ST.items() if r["statehood_year"]}
-    rule(r"^(.+) is larger than (.+) by area\.$", lambda m: area[m[1]] > area[m[2]] if m[1] in area and m[2] in area else None)
-    rule(r"^(.+) had more people than (.+) in the 2011 census\.$", lambda m: pop[m[1]] > pop[m[2]])
-    rule(r"^(.+) is the (largest|smallest) of India's 28 states by area\.$", lambda m: (max if m[2] == "largest" else min)(area, key=area.get) == m[1])
-    rule(r"^(.+) was the most populous of India's 28 states in the 2011 census\.$", lambda m: max(pop, key=pop.get) == m[1])
-    rule(r"^(.+) had the fewest people of India's 28 states in the 2011 census\.$", lambda m: min(pop, key=pop.get) == m[1])
-    rule(r"^(.+) had (more|fewer) than (\d+) million people in the 2011 census\.$", lambda m: (pop[m[1]] > int(m[3]) * 10 ** 6) == (m[2] == "more"))
-    rule(r"^(.+) is (larger|smaller) than ([\d,]+) km² in area\.$", lambda m: (area[m[1]] > num(m[3])) == (m[2] == "larger"))
-    rule(r"^(.+) became a state in (\d{4})\.$", lambda m: year[m[1]] == int(m[2]))
-    rule(r"^(.+) became a state before (.+)\.$", lambda m: year[m[1]] < year[m[2]])
-    rule(r"^(.+) is the capital of (.+)\.$", lambda m: ST[m[2]]["capital"] == m[1])
-    rule(r"^Chhattisgarh, Jharkhand and Uttarakhand were all created as states in (\d{4})\.$", lambda m: all(year[s] == int(m[1]) for s in ("Chhattisgarh", "Jharkhand", "Uttarakhand")))
-    rule(r"^Arunachal Pradesh and (\w+) became states on the same day\.$", lambda m: ST["Arunachal Pradesh"]["statehood_date"] == ST[m[1]]["statehood_date"])
 
-    # ---- elements
-    rule(r"^The chemical symbol for (\w+) is (\w+)\.$", lambda m: EL[m[1]]["symbol"] == m[2])
-    rule(r"^(\w+) has atomic number (\d+)\.$", lambda m: int(EL[m[1].lower()]["atomic_number"]) == int(m[2]))
-    wt = lambda n: float(EL[n.lower()]["atomic_weight"].strip("[]"))
-    rule(r"^(\w+) has a higher standard atomic weight than (\w+)\.$", lambda m: wt(m[1]) > wt(m[2]))
+def fact_date(fact):
+    m = DATE.match(fact)
+    need(m and m[2] in MONTHS, "the reveal does not open with the date")
+    return dt.date(int(m[3]), MONTHS.index(m[2]) + 1, int(m[1])), m
 
-    # ---- events, Olympics, the World Cup
-    month_of = {n: i + 1 for i, n in enumerate(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"])}
-    lc = lambda t: next((a.lower() + t[len(a):] for a in ("The ", "A ", "An ") if t.startswith(a)), t)
 
-    def event_claim(claim):
-        for r in sorted(EV, key=lambda r: -len(r["event"])):
-            e = r["event"]
-            m = re.match(re.escape(e) + r" in (\d{4})\.$", claim)
-            if m:
-                return int(r["year"]) == int(m[1])
-            m = re.match(re.escape(e) + r" in (\w+) (\d{4})\.$", claim)
-            if m and m[1] in month_of:
-                return r["month"] != "" and int(r["month"]) == month_of[m[1]] and int(r["year"]) == int(m[2])
-            m = re.match(re.escape(e) + r" on a (\w+)\.$", claim)
-            if m:
-                d = datetime.datetime.strptime(r["date_as_printed"], "%d %B %Y").date()
-                return WEEKDAYS[d.weekday()] == m[1]
-            m = re.match(re.escape(e) + r" before (.+)\.$", claim)
-            if m:
-                for b in EV:
-                    if lc(b["event"]) == m[1]:
-                        return int(r["year"]) < int(b["year"])
+def stamp_ok(lead_day, lead_month, day):
+    need(int(lead_day) == day.day and lead_month == MONTHS[day.month - 1], f"the lead names {lead_day} {lead_month} but the reveal is about {day}")
+
+
+def result(answer, p_event, n, ents, ask_yes):
+    """`ask_yes` is True when the shipped claim says the event happens; its base is the event's rate, otherwise one minus it."""
+    return {"answer": answer if ask_yes else not answer, "base": p_event if ask_yes else 1 - p_event, "n": n, "ents": ents}
+
+
+def rule_rain(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\. It (rained|stayed dry) yesterday\.$", q["lead"])
+    if not m or q["ask"] not in ("Measurable rain falls today.", "No measurable rain falls today."):
         return None
-    rule(r"^(.+)$", lambda m: event_claim(m[1]))
-    rule(r"^The (\d{4}) Summer Olympics were held in (.+)\.$", lambda m: OL[int(m[1])] == m[2])
-    rule(r"^The Tokyo Summer Olympics that carry the name 2020 were held in (\d{4})\.$", lambda m: int(m[1]) == 2021)
-    rule(r"^(London|Athens) hosted the Summer Olympics twice between 1948 and 2024\.$", lambda m: sum(1 for c in OL.values() if c == m[1]) == 2)
-    rule(r"^(\w+) won the (\d{4}) FIFA World Cup\.$", lambda m: WC[int(m[2])]["winner"] == m[1])
-    rule(r"^The (\d{4}) FIFA World Cup was hosted by (.+)\.$", lambda m: WC[int(m[1])]["host_country"] == ca(m[2]))
-    rule(r"^The (\d{4}) FIFA World Cup final was played between (\w+) and (\w+)\.$", lambda m: {WC[int(m[1])]["winner"], WC[int(m[1])]["runner_up"]} == {m[2], m[3]})
-    return checks
+    day, i = fact_date(q["fact"])[0], None
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    W, wet = R.weather, R.wet
+    need(i > 0 and wet[i - 1] == (m[3] == "rained"), "the lead's 'yesterday' does not match the record")
+    cases = [j for j in range(1, len(W)) if W[j]["d"].month == day.month and wet[j - 1] == wet[i - 1]]
+    k, nn = sum(wet[j] for j in cases), len(cases)
+    need(nn >= MIN_CASES, "too few cases for a base rate")
+    p = (k - wet[i]) / (nn - 1)
+    x = W[i]["p"]
+    rain = f"{x:g} mm of rain fell" if wet[i] else "no rain fell"
+    f = re.match(r"^\d+ \w+ \d{4}: (.+?)\. Of the other ([\d,]+) (\w+) days that followed (a wet|a dry) day in this four-year \(2012 to 2015\) record, (\d+)% had measurable rain\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    need(f[1] == rain and num(f[2]) == nn - 1 and f[3] == MONTHS[day.month - 1] and (f[4] == "a wet") == wet[i - 1] and int(f[5]) == pct(p), f"the reveal's numbers differ from the record: {f.groups()} against {rain}, {nn - 1}, {pct(p)}%")
+    return result(wet[i], p, nn - 1, [("wx", day), ("wx", day - dt.timedelta(1))], q["ask"] == "Measurable rain falls today.")
 
 
-def rederive(claim, checks):
-    """The first rule that recognises the claim decides. Returns True, False, or None when nothing recognises it."""
-    for pattern, fn in checks:
-        m = pattern.match(claim)
-        if not m:
-            continue
-        try:
-            got = fn(m)
-        except (KeyError, ValueError, IndexError):
-            got = None
-        if got is not None:
-            return bool(got)
+def rule_streak(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\. It has (rained|stayed dry) for (\d+) days in a row\.$", q["lead"])
+    if not m or q["ask"] not in ("It rains again today.", "It stays dry again today.", "The streak ends today."):
+        return None
+    day = fact_date(q["fact"])[0]
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    W, wet, run = R.weather, R.wet, R.run
+    state = m[3] == "rained"
+    need(wet[i - 1] == state and run[i - 1] == int(m[4]) and run[i - 1] >= 3, "the streak in the lead does not match the record")
+    season = SEASON[day.month]
+    cases = [j for j in range(1, len(W)) if run[j - 1] >= 3 and SEASON[W[j]["d"].month] == season and wet[j - 1] == state]
+    nn, k = len(cases), sum(wet[j] == state for j in cases)
+    need(nn >= MIN_CASES, "too few cases for a base rate")
+    cont = wet[i] == state
+    p = (k - cont) / (nn - 1)
+    f = re.match(r"^\d+ \w+ \d{4}: the streak (carried on|ended) \((.+?)\)\. After three or more (wet|dry) days in a row in (\w+) \((.+?)\), the streak went on for another day in (\d+)% of the other ([\d,]+) cases in this record\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    rain = f"{W[i]['p']:g} mm of rain fell" if wet[i] else "no rain fell"
+    need((f[1] == "carried on") == cont and f[2] == rain and (f[3] == "wet") == state and f[4] == season and f[5] == SEASON_SPAN[season]
+         and int(f[6]) == pct(p) and num(f[7]) == nn - 1, "the reveal's numbers differ from the record")
+    ents = [("wx", W[j]["d"]) for j in range(i - run[i - 1], i + 1)]
+    expected_ask = "It rains again today." if state else "It stays dry again today."
+    need(q["ask"] in (expected_ask, "The streak ends today."), "the claim does not match the streak")
+    return result(cont, p, nn - 1, ents, q["ask"] == expected_ask)
+
+
+def rule_high(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\.$", q["lead"])
+    a = re.match(r"^The day's high (reaches (-?\d+) °C or more|stays below (-?\d+) °C)\.$", q["ask"])
+    if not m or not a:
+        return None
+    day = fact_date(q["fact"])[0]
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    x = int(a[2] or a[3])
+    doy = day.timetuple().tm_yday
+    window = [y["hi"] for j, y in enumerate(R.weather) if j != i and min(abs(y["d"].timetuple().tm_yday - doy), 365 - abs(y["d"].timetuple().tm_yday - doy)) <= 7]
+    nn = len(window)
+    need(nn >= MIN_CASES, "too few cases for a base rate")
+    p = sum(h >= x for h in window) / nn
+    need(0.12 <= p <= 0.88, f"the threshold {x} °C is reached on {p:.0%} of comparable days, outside the 12% to 88% the design allows")
+    hi = R.weather[i]["hi"]
+    f = re.match(r"^\d+ \w+ \d{4}: the high was (-?[\d.]+) °C\. Across the ([\d,]+) other days within a week of (\d+) (\w+) in this record \(every year\), the high reached (-?\d+) °C on (\d+)% of them\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    need(num(f[1]) == hi and num(f[2]) == nn and int(f[3]) == day.day and f[4] == MONTHS[day.month - 1] and int(f[5]) == x and int(f[6]) == pct(p), "the reveal's numbers differ from the record")
+    return result(hi >= x, p, nn, [("wx", day)], a[2] is not None)
+
+
+def rule_freeze(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\.$", q["lead"])
+    if not m or q["ask"] not in ("The day's lowest temperature falls below 0 °C.", "The day's lowest temperature stays at or above 0 °C."):
+        return None
+    day = fact_date(q["fact"])[0]
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    need(day.month in (11, 12, 1, 2, 3), "freezing questions are asked for November to March only")
+    cases = [x["lo"] for x in R.weather if x["d"].month == day.month]
+    nn, k = len(cases), sum(v < 0 for v in cases)
+    frozen = R.weather[i]["lo"] < 0
+    p = (k - frozen) / (nn - 1)
+    f = re.match(r"^\d+ \w+ \d{4}: the lowest temperature was (-?[\d.]+) °C\. Of the other ([\d,]+) (\w+) days in this record, (\d+)% dipped below 0 °C\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    need(num(f[1]) == R.weather[i]["lo"] and num(f[2]) == nn - 1 and f[3] == MONTHS[day.month - 1] and int(f[4]) == pct(p), "the reveal's numbers differ from the record")
+    return result(frozen, p, nn - 1, [("wx", day)], q["ask"].startswith("The day's lowest temperature falls"))
+
+
+def rule_heavy(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\. Rain falls today\.$", q["lead"])
+    if not m or q["ask"] not in ("More than 10 mm falls.", "10 mm or less falls."):
+        return None
+    day = fact_date(q["fact"])[0]
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    need(R.wet[i], "the lead says rain falls, but the record shows none")
+    cases = [x["p"] for x in R.weather if x["d"].month == day.month and x["p"] > 0]
+    nn, k = len(cases), sum(v > 10 for v in cases)
+    need(nn >= MIN_CASES, "too few cases for a base rate")
+    heavy = R.weather[i]["p"] > 10
+    p = (k - heavy) / (nn - 1)
+    f = re.match(r"^\d+ \w+ \d{4}: ([\d.]+) mm fell\. Of the other ([\d,]+) wet (\w+) days in this record, (\d+)% brought more than 10 mm\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    need(num(f[1]) == R.weather[i]["p"] and num(f[2]) == nn - 1 and f[3] == MONTHS[day.month - 1] and int(f[4]) == pct(p), "the reveal's numbers differ from the record")
+    return result(heavy, p, nn - 1, [("wx", day)], q["ask"] == "More than 10 mm falls.")
+
+
+def rule_revert(R, q):
+    m = re.match(r"^Seattle, (\d+) (\w+)\. Yesterday's high was (-?[\d.]+) °C, (\d+) °C (above|below) the record's (\w+) average \(([\d.]+) °C\)\.$", q["lead"])
+    if not m:
+        return None
+    day = fact_date(q["fact"])[0]
+    i = R.weather_day(day)
+    stamp_ok(m[1], m[2], day)
+    W, A = R.weather, R.anom
+    above = m[5] == "above"
+    need(abs(A[i - 1]) >= 3 and (A[i - 1] > 0) == above, "yesterday was not 3 °C or more away from its month's average on that side")
+    ym = W[i - 1]["d"].month
+    need(num(m[3]) == W[i - 1]["hi"] and m[6] == MONTHS[ym - 1] and m[7] == f"{R.mean_hi[ym]:.1f}" and int(m[4]) == abs(round(A[i - 1])), "the lead's figures differ from the record")
+    back = lambda j: (W[j]["hi"] < W[j - 1]["hi"]) if above else (W[j]["hi"] > W[j - 1]["hi"])
+    cases = [j for j in range(1, len(W)) if abs(A[j - 1]) >= 3 and (A[j - 1] > 0) == above]
+    nn, k = len(cases), sum(back(j) for j in cases)
+    p = (k - back(i)) / (nn - 1)
+    f = re.match(r"^\d+ \w+ \d{4}: the high was (-?[\d.]+) °C\. After a day 3 °C or more (above|below) its month's average, the next day's high moved back toward the average in (\d+)% of the other ([\d,]+) cases in this record\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    need(num(f[1]) == W[i]["hi"] and (f[2] == "above") == above and int(f[3]) == pct(p) and num(f[4]) == nn - 1, "the reveal's numbers differ from the record")
+    yes, no = (("Today's high is lower than yesterday's.", "Today's high is the same or higher.") if above else ("Today's high is higher than yesterday's.", "Today's high is the same or lower."))
+    need(q["ask"] in (yes, no), "the claim does not match the direction")
+    return result(back(i), p, nn - 1, [("wx", day - dt.timedelta(1)), ("wx", day)], q["ask"] == yes)
+
+
+# ----------------------------------------------------------------------------------------------------------------- flights
+HOUR_BUCKETS = [(0, 9, "before 9 am"), (9, 12, "between 9 am and noon"), (12, 15, "between noon and 3 pm"), (15, 18, "between 3 pm and 6 pm"), (18, 21, "between 6 pm and 9 pm"), (21, 24, "at 9 pm or later")]
+DIST_BUCKETS = [(0, 300, "under 300 miles"), (300, 700, "300 to 699 miles"), (700, 1200, "700 to 1,199 miles"), (1200, 10 ** 6, "1,200 miles or more")]
+PLACE = r"(.+?) \(([A-Z]{3})\)"
+CLOCK = r"(\d{1,2}):(\d{2}) (am|pm)"
+
+
+def bucket(value, buckets):
+    return next((lo, hi, label) for lo, hi, label in buckets if lo <= value < hi)
+
+
+def rule_flight(R, q):
+    lead, ask = q["lead"], q["ask"]
+    m1 = re.match(rf"^A flight from {PLACE} to {PLACE} is due to leave at {CLOCK} on a (\w+) in (\w+)\.$", lead)
+    m2 = re.match(rf"^A ([\d,]+)-mile flight from {PLACE} to {PLACE} is due to leave at {CLOCK} on a (\w+) in (\w+)\.$", lead)
+    m3 = re.match(rf"^A flight leaves {PLACE} for {PLACE} in (\w+)\.$", lead)
+    if not (m1 or m2 or m3):
+        return None
+    if m1:
+        city_o, o, city_d, d, h, mi_, ap, wkday, month = m1.groups()
+        miles = None
+    elif m2:
+        miles, city_o, o, city_d, d, h, mi_, ap, wkday, month = m2.groups()
+        miles = int(num(miles))
+    else:
+        city_o, o, city_d, d, month = m3.groups()
+        h = mi_ = ap = wkday = None
+        miles = None
+    f = re.match(r"^The flight left on (\d+) (\w+) (\d{4}) and landed (right on schedule|(\d+) minutes (late|early))\. Of the other ([\d,]+) flights (.+?) in this record, (\d+)% landed (.+)\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    day = dt.date(int(f[3]), MONTHS.index(f[2]) + 1, int(f[1]))
+    delay = 0 if f[4] == "right on schedule" else int(f[5]) * (1 if f[6] == "late" else -1)
+    need(MONTHS[day.month - 1] == month, "the lead's month is not the flight's month")
+    hhmm = None
+    if h:
+        hour24 = int(h) % 12 + (12 if ap == "pm" else 0)
+        hhmm = f"{hour24:02d}:{mi_}"
+        need(WEEKDAYS[day.weekday()] == wkday, "the lead's weekday is not the flight's weekday")
+    rows = R.db.execute("SELECT row, hour, mi, delay FROM fl WHERE o = ? AND d = ? AND day = ? AND delay = ? AND (? IS NULL OR hhmm = ?) AND (? IS NULL OR mi = ?)",
+                        (o, d, day.isoformat(), delay, hhmm, hhmm, miles, miles)).fetchall()
+    need(rows, "no flight in the record matches this question")
+    row, hour, mi, _ = rows[0]
+    for code, city in ((o, city_o), (d, city_d)):
+        got = R.db.execute("SELECT city FROM ap WHERE iata = ?", (code,)).fetchone()
+        need(got and got[0] == city, f"{code} is not {city}")
+    n_other, shown_pct, tail = num(f[7]), int(f[9]), f[10]
+    ents = [("fl", o, d, day.isoformat(), delay)]   # flights alike in route, date and delay look the same to a player: one case
+    if m1:
+        lo, hi_, label = bucket(hour, HOUR_BUCKETS)
+        cls = "hour = ?" if False else "hour >= ? AND hour < ?"
+        total, k15, k60 = R.db.execute(f"SELECT COUNT(*), SUM(delay > 15), SUM(delay > 60) FROM fl WHERE {cls}", (lo, hi_)).fetchone()
+        need(f[8] == f"scheduled to leave {label}", f"the reveal names the wrong time of day: {f[8]}")
+        need(ask in ("It lands more than 15 minutes late.", "It lands no more than 15 minutes late.", "It lands more than an hour late.", "It lands no more than an hour late."), "the claim is not one this lead supports")
+        hour_claim = "hour" in ask
+        k, own, label_tail = (k60, delay > 60, "more than an hour late") if "hour" in ask else (k15, delay > 15, "more than 15 minutes late")
+        need(tail == label_tail, "the reveal measures something other than the claim")
+        p = (k - own) / (total - 1)
+        need(total - 1 == n_other and shown_pct == pct(p), "the reveal's numbers differ from the record")
+        return result(own, p, total - 1, ents, ask.startswith("It lands more than"))
+    if m2:
+        lo, hi_, label = bucket(mi, DIST_BUCKETS)
+        total, k = R.db.execute("SELECT COUNT(*), SUM(delay < 0) FROM fl WHERE mi >= ? AND mi < ?", (lo, hi_)).fetchone()
+        need(f[8] == f"of {label}" and tail == "ahead of schedule", "the reveal describes a different class of flight")
+        need(ask in ("It lands ahead of schedule.", "It lands on time or late."), "the claim is not one this lead supports")
+        own = delay < 0
+        p = (k - own) / (total - 1)
+        need(total - 1 == n_other and shown_pct == pct(p), "the reveal's numbers differ from the record")
+        return result(own, p, total - 1, ents, ask == "It lands ahead of schedule.")
+    total, k = R.db.execute("SELECT COUNT(*), SUM(delay > 15) FROM fl WHERE o = ?", (o,)).fetchone()
+    need(total >= 400, "too few departures from this airport")
+    need(f[8] == f"out of {o}" and tail == "more than 15 minutes late", "the reveal describes a different class of flight")
+    need(ask in ("It lands more than 15 minutes late.", "It lands no more than 15 minutes late."), "the claim is not one this lead supports")
+    own = delay > 15
+    p = (k - own) / (total - 1)
+    need(total - 1 == n_other and shown_pct == pct(p), "the reveal's numbers differ from the record")
+    return result(own, p, total - 1, ents, ask.startswith("It lands more than"))
+
+
+# --------------------------------------------------------------------------------------------------------------- world trends
+TREND_LEADS = {
+    "life": r"life expectancy at birth went from ([\d.]+) to ([\d.]+) years",
+    "child": r"the death rate for children under five went from ([\d.]+)% to ([\d.]+)% of live births",
+    "co2": r"CO₂ emissions per person went from ([\d.]+) to ([\d.]+) tonnes a year",
+    "gdp": r"income per person \(GDP per capita, in 2021 prices and adjusted for living costs\) went from \$([\d,]+) to \$([\d,]+)",
+    "renew": r"renewables' share of electricity went from ([\d.]+)% to ([\d.]+)%",
+    "fert": r"the average number of births per woman went from ([\d.]+) to ([\d.]+)",
+}
+TREND_SHORT = {"life": "life expectancy", "child": "the under-five death rate", "co2": "CO₂ emissions per person", "gdp": "income per person",
+               "renew": "the renewable share of electricity", "fert": "births per woman"}
+TREND_VALUE = {"life": r"([\d.]+) years", "child": r"([\d.]+)%", "co2": r"([\d.]+) tonnes", "gdp": r"\$([\d,]+)", "renew": r"([\d.]+)%", "fert": r"([\d.]+) births per woman"}
+
+
+def rule_trend(R, q):
+    m = re.match(r"^(.+?), (\d{4}) to (\d{4}): (.+)\.$", q["lead"])
+    if not m:
+        return None
+    ind = next((k for k, pat in TREND_LEADS.items() if re.fullmatch(pat, m[4])), None)
+    a = re.match(r"^By (\d{4}) it is (higher|lower) than in (\d{4})\.$", q["ask"])
+    if not ind or not a:
+        return None
+    country, y0, t = m[1], int(m[2]), int(m[3])
+    need(t - y0 == 5 and int(a[1]) == t + 5 and int(a[3]) == t, "the years in the lead and the claim do not line up")
+    nums = re.fullmatch(TREND_LEADS[ind], m[4])
+    row = R.db.execute(f"SELECT code, va, vb, vc FROM win_{ind} WHERE country = ? AND t = ?", (country, t)).fetchone()
+    need(row, f"{country} has no qualifying window ending in {t}")
+    code, va, vb, vc = row
+    need(shown_ok(nums[1], va) and shown_ok(nums[2], vb), "the figures in the lead differ from the record")
+    need(nums[1] != nums[2], "the lead's two figures look identical, so the direction is not visible")
+    f = re.match(rf"^By {t + 5} it was (.+?)\. Across the ([\d,]+) other country-windows in this record where (.+?) had (risen|fallen) over the previous five years, it rose over the next five in (\d+)% of them\.$", q["fact"])
+    need(f, "the reveal is not worded as expected")
+    value = re.fullmatch(TREND_VALUE[ind], f[1])
+    need(value and shown_ok(value[1].replace(",", ""), vc), "the figure in the reveal differs from the record")
+    need((num(value[1]) > num(nums[2])) == (vc > vb) and num(value[1]) != num(nums[2]), "the reveal's figure does not show the direction it took")
+    up = vb > va
+    total, k = R.db.execute(f"SELECT COUNT(*), SUM(vc > vb) FROM win_{ind} WHERE (vb > va) = ?", (up,)).fetchone()
+    rose = vc > vb
+    p = (k - rose) / (total - 1)
+    need(f[3] == TREND_SHORT[ind] and (f[4] == "risen") == up and num(f[2]) == total - 1 and int(f[5]) == pct(p), "the reveal's numbers differ from the record")
+    return result(rose, p, total - 1, [("tr", ind, code)], a[2] == "higher")
+
+
+# ---------------------------------------------------------------------------------------------------------------------- markets
+NOTE = r"\(price only; dividends are not counted\)"
+BETWEEN = r"from the December (\d{4}) average to the December (\d{4}) average"
+
+
+def rule_market(R, q):
+    lead, ask = q["lead"], q["ask"]
+    D = R.dec
+    years = range(1950, 2023)
+    ret = {y: D[y][0] / D[y - 1][0] - 1 for y in years}
+    if lead == "A calendar year is drawn at random from 1950 to 2022. We won't say which.":
+        kinds = {("The S&P 500 ended the year higher than it began.", "The S&P 500 ended the year lower than it began."): (lambda r: r > 0, "it ended higher"),
+                 ("The S&P 500 fell 10% or more over the year.", "The S&P 500 did not fall 10% over the year."): (lambda r: r <= -0.10, "it fell 10% or more"),
+                 ("The S&P 500 rose 20% or more over the year.", "The S&P 500 did not rise 20% over the year."): (lambda r: r >= 0.20, "it rose 20% or more")}
+        kind = next((v for k, v in kinds.items() if ask in k), None)
+        need(kind, "the claim is not one a drawn year supports")
+        yes_ask = next(k[0] for k in kinds if ask in k)
+        event, said = kind
+        f = re.match(rf"^It was (\d{{4}}): the S&P 500 (rose|fell) ([\d.]+)% {BETWEEN} {NOTE}\. Across the other ([\d,]+) years from 1950 to 2022, (.+?) in (\d+)%\.$", q["fact"])
+        need(f, "the reveal is not worded as expected")
+        y = int(f[1])
+        need(y in ret and int(f[4]) == y - 1 and int(f[5]) == y, "the year in the reveal is not in the record")
+        need(abs(num(f[3]) - abs(ret[y]) * 100) <= 0.05 + 1e-9 and (f[2] == "rose") == (ret[y] > 0), "the return in the reveal differs from the record")
+        k = sum(event(r) for r in ret.values())
+        p = (k - event(ret[y])) / (len(ret) - 1)
+        need(f[7] == said and num(f[6]) == len(ret) - 1 and int(f[8]) == pct(p), "the reveal's numbers differ from the record")
+        return result(event(ret[y]), p, len(ret) - 1, [("mk", y)], ask == yes_ask)
+    m = re.match(r"^A year is drawn at random from those that came right after (a falling year|a gain of 20% or more) \((\d{4}) to (\d{4})\)\.$", lead)
+    if m:
+        cond = (lambda y: ret[y - 1] < 0) if m[1] == "a falling year" else (lambda y: ret[y - 1] >= 0.20)
+        pool = [y for y in range(1951, 2023) if cond(y)]
+        need(m[2] == "1951" and m[3] == "2022" and ask in ("The S&P 500 rose that year.", "The S&P 500 fell that year."), "the claim is not one this lead supports")
+        f = re.match(rf"^It was (\d{{4}}), after (a fall|a gain) of ([\d.]+)% in (\d{{4}}): the S&P 500 (rose|fell) ([\d.]+)% {BETWEEN} {NOTE}\. Of the other ([\d,]+) years that came right after (.+?), it rose in (\d+)%\.$", q["fact"])
+        need(f, "the reveal is not worded as expected")
+        y = int(f[1])
+        need(y in pool and int(f[4]) == y - 1 and int(f[7]) == y - 1 and int(f[8]) == y, "the year is not in the class the lead describes")
+        need(abs(num(f[3]) - abs(ret[y - 1]) * 100) <= 0.05 + 1e-9 and (f[2] == "a fall") == (ret[y - 1] < 0), "the earlier year's return differs from the record")
+        need(abs(num(f[6]) - abs(ret[y]) * 100) <= 0.05 + 1e-9 and (f[5] == "rose") == (ret[y] > 0), "the return in the reveal differs from the record")
+        k = sum(ret[v] > 0 for v in pool)
+        p = (k - (ret[y] > 0)) / (len(pool) - 1)
+        need(len(pool) - 1 >= MIN_CASES_SMALL, f"only {len(pool) - 1} other years in this class")
+        need(f[10] == m[1] and num(f[9]) == len(pool) - 1 and int(f[11]) == pct(p), "the reveal's numbers differ from the record")
+        return result(ret[y] > 0, p, len(pool) - 1, [("mk", y - 1), ("mk", y)], ask == "The S&P 500 rose that year.")
+    m = re.match(r"^A (\d+)-year stretch is drawn at random, starting in a year from (\d{4}) to (\d{4})\. We won't say which\.$", lead)
+    if m:
+        span = int(m[1])
+        need(m[2] == "1950" and int(m[3]) == 2022 - span, "the range of starting years is wrong")
+        real = ask in ("Even after inflation, the S&P 500 ended the stretch higher than it began.", "After inflation, the S&P 500 ended the stretch lower than it began.")
+        need(real or ask in ("The S&P 500 ended the stretch higher than it began.", "The S&P 500 ended the stretch lower than it began."), "the claim is not one a drawn stretch supports")
+        idx = 1 if real else 0
+        gain = {s: D[s + span][idx] / D[s][idx] - 1 for s in range(1950, 2022 - span + 1)}
+        f = re.match(rf"^It was (\d{{4}}) to (\d{{4}}): the S&P 500 (rose|fell) (\d+)%( after inflation)? {BETWEEN} {NOTE}\. Across the other ([\d,]+) stretches of (\d+) years from 1950 on, it ended higher in (\d+)%\. Neighbouring stretches overlap, so there are fewer independent cases than that\.$", q["fact"])
+        need(f, "the reveal is not worded as expected")
+        s = int(f[1])
+        need(s in gain and int(f[2]) == s + span and int(f[5 + 1]) == s and int(f[7]) == s + span and int(f[9]) == span, "the stretch in the reveal does not match the lead")
+        need(bool(f[5]) == real and abs(num(f[4]) - abs(gain[s]) * 100) <= 0.5 + 1e-9 and (f[3] == "rose") == (gain[s] > 0), "the return in the reveal differs from the record")
+        k = sum(g > 0 for g in gain.values())
+        p = (k - (gain[s] > 0)) / (len(gain) - 1)
+        need(num(f[8]) == len(gain) - 1 and int(f[10]) == pct(p), "the reveal's numbers differ from the record")
+        return result(gain[s] > 0, p, len(gain) - 1, [("mk", y) for y in range(s, s + span + 1)], ask.endswith("higher than it began."))
     return None
 
 
-# ------------------------------------------------------------------ the checks
-def check():
-    errors, notes = [], []
-    try:
-        with open(BANK, encoding="utf-8") as f:
-            bank = json.load(f)
-    except FileNotFoundError:
-        return ["app/content/questions/starter.json is missing: run python3 tools/make_questions.py"], notes
-    except ValueError as e:
-        return [f"starter.json does not parse: {e}"], notes
-    qs = bank.get("questions", [])
-    if not 200 <= len(qs) <= 400:
-        errors.append(f"expected between 200 and 400 questions, found {len(qs)}")
+RECORDED_RULES = [rule_rain, rule_streak, rule_high, rule_freeze, rule_heavy, rule_revert, rule_flight, rule_trend, rule_market]
 
-    ids = Counter(q.get("id") for q in qs)
-    claims = Counter(q.get("claim") for q in qs)
+
+# ------------------------------------------------------------------------------------------------------------ documented facts
+def read_base_rates():
+    """The documented facts, audited for what the table itself promises. Returns (rows, errors)."""
+    rows, errors, seen = table("base_rates.csv"), [], set()
+    for r in rows:
+        where = f"base_rates.csv {r['id']}"
+        if r["id"] in seen:
+            errors.append(f"{where}: duplicate id")
+        seen.add(r["id"])
+        try:
+            low, high, pad = float(r["doc_low"]), float(r["doc_high"]), float(r["pad"])
+            ts = [float(t) for t in r["thresholds"].split(";")]
+        except ValueError:
+            errors.append(f"{where}: a number does not parse")
+            continue
+        if not (low <= high and pad >= 0):
+            errors.append(f"{where}: the documented range is not low <= high with a rounding allowance of 0 or more")
+        if r["scale"] not in ("share", "ratio"):
+            errors.append(f"{where}: scale must be share or ratio")
+        if r["domain"] not in DOMAINS:
+            errors.append(f"{where}: unknown domain {r['domain']}")
+        if not re.match(r"^https://", r["source_url"]) or not r["source_name"]:
+            errors.append(f"{where}: needs an https source link and a source name")
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", r["checked"]):
+            errors.append(f"{where}: needs the date the source was read")
+        if "{t}" not in r["stem_more"] or "{t}" not in r["stem_fewer"]:
+            errors.append(f"{where}: both stems need {{t}} for the threshold")
+        seen_numbers = {float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*\.?\d*", r["evidence"])}
+        for label, value in (("low", low), ("high", high)):
+            if value not in seen_numbers:
+                errors.append(f"{where}: the documented {label} {value:g} does not appear in the evidence text")
+        if len(ts) < 3:
+            errors.append(f"{where}: lists fewer than three thresholds")
+        for t in ts:
+            lo, hi = low - pad, high + pad
+            if lo <= t <= hi:
+                errors.append(f"{where}: the threshold {t:g} sits inside the documented range {lo:g} to {hi:g}")
+            elif margin(r["scale"], lo, hi, t) < MIN_MARGIN:
+                errors.append(f"{where}: the threshold {t:g} is too close to the documented range {lo:g} to {hi:g}")
+    return rows, errors
+
+
+def rule_sourced(facts, q):
+    """Match a sourced question to its fact and work its claim out from the documented number."""
+    for r in facts:
+        if r["lead"] != q["lead"]:
+            continue
+        for stem, kind in ((r["stem_more"], "more"), (r["stem_fewer"], "fewer")):
+            m = re.fullmatch(re.escape(stem).replace(re.escape("{t}"), r"(-?\d+(?:\.\d+)?)"), q["ask"])
+            if not m:
+                continue
+            t = float(m[1])
+            low, high = float(r["doc_low"]) - float(r["pad"]), float(r["doc_high"]) + float(r["pad"])
+            need(not (low <= t <= high), f"the threshold {m[1]} sits inside the documented range")
+            need(f"{t:g}" in r["thresholds"].replace(";", " ").split() or t in [float(x) for x in r["thresholds"].split(";")], "the threshold is not one the fact lists")
+            truth = (t < low) if kind == "more" else (t > high)
+            need(q["fact"] == r["fact"] and q["why"] == r["why"] and q["domain"] == r["domain"], "the reveal or the label differs from the documented fact")
+            need(q["source"] == r["source_url"] and q["src_name"] == r["source_name"] and q["checked"] == r["checked"], "the source differs from the documented fact")
+            need(q["n"] == (int(r["n"]) if r["n"] else 0), "the number of cases differs from the documented fact")
+            need(q["diff"] == diff_of_margin(margin(r["scale"], low, high, t)), "the difficulty does not follow from how far the threshold is from the documented value")
+            return {"answer": truth, "ents": [("cur", r["id"])], "fact_id": r["id"]}
+    raise Bad("no documented fact has this lead and claim")
+
+
+# ===================================================================================================================== checks
+def check_shape(qs, label, errors):
+    ids, claims = Counter(q.get("id") for q in qs), Counter(q.get("claim") for q in qs)
     for q in qs:
         where = q.get("id", "?")
         missing = [f for f in FIELDS if f not in q]
         if missing:
             errors.append(f"{where}: missing fields {missing}")
             continue
-        if ids[q["id"]] > 1: errors.append(f"{where}: duplicate id")
-        if claims[q["claim"]] > 1: errors.append(f"{where}: duplicate claim text")
-        if not isinstance(q["answer"], bool): errors.append(f"{where}: answer must be true or false")
-        if q["domain"] not in DOMAINS: errors.append(f"{where}: unknown domain {q['domain']}")
-        if q["diff"] not in ("easy", "medium", "hard"): errors.append(f"{where}: unknown difficulty {q['diff']}")
-        if q["verified"] not in ("computed", "definition", "sourced"): errors.append(f"{where}: unknown verified {q['verified']}")
-        if not (6 <= len(q["claim"]) <= 260): errors.append(f"{where}: claim length {len(q['claim'])}")
-        if not q["fact"]: errors.append(f"{where}: no fact line")
-        if q["verified"] == "sourced":
-            if not re.match(r"^https://", q["source"]): errors.append(f"{where}: sourced but no https link")
-            if not q["src_name"]: errors.append(f"{where}: sourced but no source name")
-            if not re.match(r"^\d{4}-\d{2}-\d{2}$", q["checked"]): errors.append(f"{where}: sourced but no check date")
-        elif q["source"] != "computed":
-            errors.append(f"{where}: {q['verified']} questions use source 'computed'")
+        if ids[q["id"]] > 1:
+            errors.append(f"{where}: duplicate id")
+        if claims[q["claim"]] > 1:
+            errors.append(f"{where}: duplicate claim text")
+        if q["claim"] != (q["lead"] + " " + q["ask"] if q["lead"] else q["ask"]):
+            errors.append(f"{where}: the claim is not the lead followed by the ask")
+        for field in ("lead", "ask", "fact", "why"):
+            if q[field] != q[field].strip() or "  " in q[field] or not q[field]:
+                errors.append(f"{where}: {field} has stray spaces or is empty")
+        if not isinstance(q["answer"], bool):
+            errors.append(f"{where}: answer must be true or false")
+        if q["domain"] not in DOMAINS:
+            errors.append(f"{where}: unknown domain {q['domain']}")
+        if q["diff"] not in ("easy", "medium", "hard"):
+            errors.append(f"{where}: unknown difficulty {q['diff']}")
+        if q["verified"] not in ("recorded", "sourced"):
+            errors.append(f"{where}: unknown verified {q['verified']}")
+        if not 10 <= len(q["claim"]) <= 420:
+            errors.append(f"{where}: claim length {len(q['claim'])}")
+        if not re.match(r"^https://", q["source"]) or not q["src_name"]:
+            errors.append(f"{where}: needs an https source link and a source name")
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", q["checked"]):
+            errors.append(f"{where}: needs the date the records were read")
+        if q["verified"] == "recorded":
+            if not (isinstance(q["base"], float) and 0 < q["base"] < 1 and q["n"] >= MIN_CASES_SMALL):
+                errors.append(f"{where}: a recorded question needs a base rate between 0 and 1 and at least {MIN_CASES_SMALL} other cases")
+        elif q["base"] is not None:
+            errors.append(f"{where}: a sourced question has no base rate")
         if re.search(r"claude|anthropic", json.dumps(q, ensure_ascii=False), re.I):
             errors.append(f"{where}: the builder's name must not appear in the app")
+    return ids
 
+
+def check_truth(qs, label, R, facts, errors, notes):
+    """Work every answer out again. Returns {id: derived} for the fairness test and the checks across banks."""
+    derived, done = {}, Counter()
+    sources = {(r["source_url"], r["source_name"]) for r in table("sources.csv")}
+    for q in qs:
+        if any(f not in q for f in FIELDS):
+            continue
+        try:
+            if q["verified"] == "sourced":
+                d = rule_sourced(facts, q)
+            else:
+                d = None
+                for rule in RECORDED_RULES:
+                    d = rule(R, q)
+                    if d:
+                        break
+                need(d, "no rule recognises this question")
+                need(q["answer"] == d["answer"], f"stored answer is {q['answer']} but the record gives {d['answer']}")
+                need(abs(q["base"] - d["base"]) <= 6e-5 and q["n"] == d["n"], f"stored base {q['base']} over {q['n']} cases, the record gives {d['base']:.4f} over {d['n']}")
+                need(q["diff"] == diff_of(d["base"]), f"stored difficulty {q['diff']} but a base rate of {d['base']:.2f} is {diff_of(d['base'])}")
+                need((q["source"], q["src_name"]) in sources, "the source is not one listed in data/question_tables/sources.csv")
+            if q["verified"] == "sourced":
+                need(q["answer"] == d["answer"], f"stored answer is {q['answer']} but the documented number gives {d['answer']}")
+        except Bad as e:
+            errors.append(f"{q['id']}: {e}: {q['claim']}")
+            continue
+        except (TypeError, ValueError, KeyError, AttributeError, IndexError) as e:
+            errors.append(f"{q['id']}: could not be checked ({type(e).__name__}: {e}): {q['claim']}")
+            continue
+        d["q"] = q
+        derived[q["id"]] = d
+        done[q["verified"]] += 1
+    notes.append(f"{label}: {done['recorded']} recorded and {done['sourced']} sourced questions worked out again from the records, and they agree" if not errors else f"{label}: {sum(done.values())} of {len(qs)} questions worked out again")
+    return derived
+
+
+def check_fairness(derived, label, errors, notes):
+    """A player who knew every base rate: is the bank calibrated for them? For each recorded question, q is the share of ALL cases in its
+    class (this one included) for which its claim holds. If cases were drawn blind to how they turned out, the claims that came out true
+    are as many as the q's add up to, within chance."""
+    out = []
+    for name, keep in (("all", lambda q: True), ("easy", lambda q: q["diff"] == "easy"), ("medium", lambda q: q["diff"] == "medium"), ("hard", lambda q: q["diff"] == "hard")):
+        xs = [d for d in derived.values() if d["q"]["verified"] == "recorded" and keep(d["q"])]
+        if len(xs) < 20:
+            continue
+        qs = [(d["base"] * d["n"] + d["q"]["answer"]) / (d["n"] + 1) for d in xs]
+        z = sum(d["q"]["answer"] - c for d, c in zip(xs, qs)) / math.sqrt(sum(c * (1 - c) for c in qs))
+        hit = sum(max(c, 1 - c) for c in qs) / len(qs)
+        out.append(f"{name} z={z:+.2f} (n={len(xs)}, a player who knows the base rates would hit {hit:.0%})")
+        if abs(z) > MAX_Z:
+            errors.append(f"{label}: the {name} questions are not fair to a player who knows the base rates: z={z:+.2f}, allowed ±{MAX_Z:g}")
+    notes.append(f"{label} fairness: " + "; ".join(out))
+
+
+def check_balance(qs, label, mix, errors):
     n = len(qs) or 1
     t = sum(1 for q in qs if q.get("answer") is True)
-    if not 0.45 <= t / n <= 0.55: errors.append(f"true claims are {t / n:.0%} of the bank; the design is half and half")
+    if not 0.45 <= t / n <= 0.55:
+        errors.append(f"{label}: true claims are {t / n:.0%}; the design is half and half")
     by_diff = Counter(q.get("diff") for q in qs)
-    for d, want in (("easy", 0.40), ("medium", 0.35), ("hard", 0.25)):
-        if abs(by_diff[d] / n - want) > 0.05: errors.append(f"{d} is {by_diff[d] / n:.0%} of the bank, designed for {want:.0%}")
+    for d, want in (mix or {}).items():
+        if abs(by_diff[d] / n - want) > 0.05:
+            errors.append(f"{label}: {d} is {by_diff[d] / n:.0%}, designed for {want:.0%}")
     for d in ("easy", "medium", "hard"):
         sub = [q for q in qs if q.get("diff") == d]
-        if sub and not 0.40 <= sum(q["answer"] for q in sub) / len(sub) <= 0.60:
-            errors.append(f"{d} questions are not balanced between true and false")
-    by_domain = Counter(q.get("domain") for q in qs)
-    for d, c in by_domain.items():
-        if c / n > 0.35: errors.append(f"domain {d} is {c / n:.0%} of the bank")
+        if len(sub) >= 20 and not 0.40 <= sum(q["answer"] for q in sub) / len(sub) <= 0.60:
+            errors.append(f"{label}: {d} questions are not balanced between true and false")
+    for d, c in Counter(q.get("domain") for q in qs).items():
+        if c / n > 0.35:
+            errors.append(f"{label}: subject {d} is {c / n:.0%}, above the 35% limit")
 
-    # Freshness: rebuild in memory and compare with the file.
+
+def entities_of(derived):
+    ents = defaultdict(list)
+    for qid, d in derived.items():
+        for e in d["ents"]:
+            ents[e].append(qid)
+    return ents
+
+
+def load_bank(path, errors):
+    name = os.path.relpath(path, ROOT)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("questions", [])
+    except FileNotFoundError:
+        errors.append(f"{name} is missing: run python3 tools/make_questions.py")
+    except ValueError as e:
+        errors.append(f"{name} does not parse: {e}")
+    return None
+
+
+def check_sources(errors):
+    rows = table("sources.csv")
+    listed = {r["table"] for r in rows}
+    for name in sorted(os.listdir(TABLES)):
+        if name.endswith(".csv") and name != "sources.csv" and name not in listed:
+            errors.append(f"data/question_tables/{name} has no row in sources.csv")
+    for r in rows:
+        if r["table"] not in os.listdir(TABLES):
+            errors.append(f"sources.csv lists {r['table']}, which is not in data/question_tables/")
+        if not re.match(r"^https://", r["source_url"]) or not r["source_name"] or not r["how_read"] or not r["note"]:
+            errors.append(f"sources.csv {r['table']}: needs a name, an https link, how it was read and a note")
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", r["checked"]):
+            errors.append(f"sources.csv {r['table']}: needs the date it was read")
+
+
+def check():
+    errors, notes = [], []
+    with open(os.path.join(ROOT, "data", "scoring.json"), encoding="utf-8") as f:
+        gym = json.load(f)["gym"]
+    check_sources(errors)
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     try:
         import make_questions
-        questions, _ = make_questions.build_bank()
-        if make_questions.render(questions) != open(BANK, encoding="utf-8").read():
-            errors.append("starter.json is not what the tables produce: run python3 tools/make_questions.py and commit the result")
-    except SystemExit as e:
-        errors.append(f"the generator could not rebuild the bank: {e}")
+    except SystemExit as e:  # the builder reads sources.csv as it loads; a row missing there stops it
+        errors.append(f"the question builder could not start: {e}")
+        make_questions = None
+    facts, fact_errors = read_base_rates()
+    errors += fact_errors
+    R = Records()
+    cache = {}
 
-    # Truth, worked out again.
-    checks = build_checkers()
-    done, skipped = 0, []
-    for q in qs:
-        if "claim" not in q or "answer" not in q:
+    def built():
+        if make_questions is None:
+            raise SystemExit("the question builder is not available")
+        if not cache:
+            cache["banks"] = make_questions.build_banks()
+        return cache["banks"]
+
+    def rendered(which):
+        questions, _, exam, _ = built()
+        return make_questions.render(questions) if which == "starter" else make_questions.render(exam, pool="exam-u1")
+
+    banks = {}
+    for path, label, mix, render in ((BANK, "starter bank", gym.get("difficulty_mix"), lambda: rendered("starter")),
+                                     (EXAM_BANK, "exam pool", gym.get("exam_mix"), lambda: rendered("exam"))):
+        qs = load_bank(path, errors)
+        if qs is None:
             continue
-        got = rederive(q["claim"], checks)
-        if got is None:
-            skipped.append(q["claim"])
-            continue
-        done += 1
-        if got != q["answer"]:
-            errors.append(f"{q['id']}: stored answer is {q['answer']} but the claim works out as {got}: {q['claim']}")
-    notes.append(f"{done} of {len(qs)} claims re-derived independently and agree" if not errors else f"{done} of {len(qs)} claims re-derived")
-    if len(qs) and done / len(qs) < 0.95:
-        errors.append(f"only {done} of {len(qs)} claims could be re-derived; the rest need a rule here: {skipped[:5]}")
-    if skipped:
-        notes.append(f"not re-derived: {len(skipped)}")
+        before = len(errors)
+        if not 200 <= len(qs) <= 400:
+            errors.append(f"{label}: expected between 200 and 400 questions, found {len(qs)}")
+        check_shape(qs, label, errors)
+        derived = check_truth(qs, label, R, facts, errors, notes)
+        check_fairness(derived, label, errors, notes)
+        check_balance(qs, label, mix, errors)
+        for e, ids in entities_of(derived).items():
+            if len(ids) > 1:
+                errors.append(f"{label}: the same case is used by more than one question ({e[0]}:{e[-1]}): {ids[:3]}")
+        try:
+            if render() != open(path, encoding="utf-8").read():
+                errors.append(f"{os.path.relpath(path, ROOT)} is not what the tables produce: run python3 tools/make_questions.py and commit the result")
+        except SystemExit as e:
+            errors.append(f"the builder could not rebuild {os.path.relpath(path, ROOT)}: {e}")
+        banks[label] = (qs, derived)
+        if len(errors) == before:
+            notes.append(f"{label}: {len(qs)} questions, shape, balance and freshness pass")
+    if len(banks) == 2:
+        (s_qs, s_d), (e_qs, e_d) = banks["starter bank"], banks["exam pool"]
+        shared_ids = {q["id"] for q in s_qs} & {q["id"] for q in e_qs}
+        shared_claims = {q["claim"] for q in s_qs} & {q["claim"] for q in e_qs}
+        shared_cases = set(entities_of(s_d)) & set(entities_of(e_d))
+        if shared_ids:
+            errors.append(f"the starter bank and the exam pool share ids: {sorted(shared_ids)[:3]}")
+        if shared_claims:
+            errors.append(f"the starter bank and the exam pool share claims: {sorted(shared_claims)[:2]}")
+        if shared_cases:
+            errors.append(f"the starter bank and the exam pool both use the same case, so a practice reveal could give an exam answer away: {sorted(map(str, shared_cases))[:3]}")
     return errors, notes
 
 

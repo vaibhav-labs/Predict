@@ -86,6 +86,7 @@
   "gates": {
     "calibration_index_tolerance": 0.05,
     "calibration_exam_calls": 200,
+    "repair_drill_calls": 20,
     "band_z_max": 2.5,
     "band_min_items": 15,
     "recert_index_tolerance": 0.03,
@@ -97,7 +98,14 @@
     ],
     "top_band_trigger_window": 40,
     "top_band_trigger_gap": 0.1,
-    "note": "A gate is a fixed exam of fresh calls, judged once at the end, never a rolling window: repeated looks at a rolling window let luck pass a miscalibrated player. Values chosen from sim/scoring_sim.py part D and G; see design/balance-report.md."
+    "note": "A gate is a fixed exam of fresh calls, judged once at the end, never a rolling window: repeated looks at a rolling window let luck pass a miscalibrated player. Values chosen from sim/scoring_sim.py part D and G; see design/balance-report.md. Unit 1 (Block 4): judged on the exam's 200 calls only (mode exam), sealed until the last call. Failing sends the player to a repair drill on the worst band, then a new exam. A passed gate shows Rust when one of rust_triggers fires on later practice calls.",
+    "rust_triggers": {
+      "U1": [
+        "L01",
+        "L02",
+        "L03"
+      ]
+    }
   },
   "sim": {
     "seed": 20261114,
@@ -232,7 +240,16 @@
       "medium": 0.3,
       "hard": 0.1
     },
-    "note": "Gym session settings. Calls per session and total baseline calls come from data/units.csv (U0 and U1). The baseline is planned up front (half true, half false, spread across difficulty) and gives no feedback until the session ends; practice picks each question as you go and shifts the difficulty mix to hold the recent hit rate inside target_hit_rate. A question with no answer after timeout_seconds goes back to the pool unscored. A tap on Lock in, Next call or a summary button within tap_guard_ms of that screen appearing is ignored, so a double tap can never answer the next question or skip a reveal. OPEN: the mixes and the window are first guesses until real hit rates arrive in Block 1."
+    "note": "Gym session settings. Calls per session and total baseline calls come from data/units.csv (U0 and U1). The baseline is planned up front (half true, half false, spread across difficulty) and gives no feedback until the session ends; practice picks each question as you go and shifts the difficulty mix to hold the recent hit rate inside target_hit_rate. A question with no answer after timeout_seconds goes back to the pool unscored. A tap on Lock in, Next call or a summary button within tap_guard_ms of that screen appearing is ignored, so a double tap can never answer the next question or skip a reveal. OPEN: the mixes and the window are first guesses until real hit rates arrive in Block 1. Block 4: an exam sitting is exam_session_size calls drawn up front from the exam pool (questions practice never serves, so an exam call is always fresh), in exam_mix, with no feedback until the exam is judged. A question is not served again within reseen_days; of the practice calls review_share come from questions last seen review_min_days or more ago, when there are any (before day 90 there are none, so all come from the current unit's pool).",
+    "exam_session_size": 20,
+    "exam_mix": {
+      "easy": 0.07,
+      "medium": 0.38,
+      "hard": 0.55
+    },
+    "reseen_days": 90,
+    "review_share": 0.3,
+    "review_min_days": 90
   },
   "mirror": {
     "band_edges": [
@@ -252,5 +269,111 @@
     "export_nudge_days": 7,
     "export_nudge_min_calls": 10,
     "note": "The app nudges an Export when the last one is older than export_nudge_days and the record holds at least export_nudge_min_calls calls."
+  },
+  "lessons": {
+    "_doc": "The lesson engine (design/mechanics.md 4.4). Every threshold of every pattern trigger lives here; data/lesson_triggers.csv says them in words and tools/check_data.py checks the two agree on the sample size.",
+    "natural_modes": [
+      "baseline",
+      "practice",
+      "exam"
+    ],
+    "max_new_per_day": 1,
+    "max_in_repair": 2,
+    "retest_after_days": [
+      3,
+      10
+    ],
+    "escalate_after_fires": 3,
+    "luck_rare_below": 0.2,
+    "autopsy": {
+      "min_confidence": 0.85,
+      "hit_sample_every": 5,
+      "rule_card_cards": 5,
+      "recheck_days": [
+        3,
+        10
+      ],
+      "min_chars": 3
+    },
+    "triggers": {
+      "L01": {
+        "kind": "band_over",
+        "band": [
+          0.9,
+          0.99
+        ],
+        "window": 40,
+        "gap": 0.1,
+        "clear_window": 40,
+        "clear_gap": 0.07,
+        "drill": {
+          "kind": "wheel",
+          "calls": 15
+        }
+      },
+      "L02": {
+        "kind": "band_under",
+        "band": [
+          0.6,
+          0.8
+        ],
+        "window": 60,
+        "gap": 0.12,
+        "clear_window": 60,
+        "clear_gap": 0.07,
+        "drill": {
+          "kind": "forced",
+          "calls": 20,
+          "steps": [
+            0.5,
+            0.8,
+            0.85,
+            0.9,
+            0.95,
+            0.99
+          ]
+        }
+      },
+      "L03": {
+        "kind": "fence",
+        "zone": [
+          0.5,
+          0.55
+        ],
+        "window": 60,
+        "share": 0.3,
+        "hit_rate": 0.65,
+        "clear_window": 60,
+        "clear_share": 0.2,
+        "drill": {
+          "kind": "zone_locked",
+          "calls": 15,
+          "min": 0.6
+        }
+      },
+      "L04": {
+        "kind": "soft",
+        "window": 10,
+        "rejects": 3,
+        "clear_window": 10,
+        "clear_rejects": 0,
+        "drill": {
+          "kind": "rewrite",
+          "items": 5
+        }
+      },
+      "L15": {
+        "kind": "missed_days",
+        "window_days": 7,
+        "missed": 2,
+        "clear_days": 5,
+        "minimum": {
+          "gym_calls": 5,
+          "reveals": 1,
+          "predictions": 1
+        }
+      }
+    },
+    "note": "A trigger is read from the player's natural calls (modes baseline, practice and exam; a drill's forced calls never count) after the last time that trigger's flag was cleared, so old calls cannot fire it twice. L01 and L02 look at the last window calls stated inside their band, L03 at the last window calls of any kind, L04 at the last window journal predictions (rejected = the checker flagged the draft or the final wording), L15 at the last window_days days. A pattern flag needs the lesson read, then the drill, then two re-tests (the next clear_window observations after retest_after_days days from the drill) before it clears. L02's gap is 12 points, not the plan's 10: sim/trigger_sim.py found 10 fired falsely on a calibrated player 20% of the time at session-end looks; 12 brings that to 9.6% and still catches typical underconfidence 95.8% of the time in a median of 63 calls."
   }
 }

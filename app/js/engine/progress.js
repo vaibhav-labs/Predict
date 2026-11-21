@@ -1,7 +1,7 @@
 // Feedback, never play: the daily ledger, the streak, habit points, career points, the level and the seven-day score.
 // Pure functions of the event log and the clock, like the rest of app/js/engine/. Every number comes from data/scoring.json
 // ("habit" and "levels") and data/belts.csv, so a balance pass is a data edit.
-import { addDays, daysBetween } from './record.js';
+import { addDays, daysBetween, judgedExams, isSealed } from './record.js';
 import { roundHalfEven } from './scoring.js';
 
 // A day is played when the player did something that scores or counts: a call, a locked prediction, a resolved one.
@@ -16,11 +16,13 @@ const MAX_SPAN_DAYS = 5000; // a record with an absurd date (a phone clock gone 
 //   career points are a high-water mark: the best running total so far, so a bad day can never lower a level
 export function ledger(events, today, habit) {
   const per = new Map();
+  const judged = judgedExams(events);
   for (const e of events) {
     if (!PLAYED.has(e.type) || typeof e.d !== 'string') continue;
     let row = per.get(e.d);
     if (!row) { row = { d: e.d, calls: 0, callPoints: 0, edgePoints: 0 }; per.set(e.d, row); }
-    if (e.type === 'call') { row.calls += 1; row.callPoints += e.points; }
+    // A call of an exam not yet judged keeps the day played but pays nothing yet (its score is sealed).
+    if (e.type === 'call') { row.calls += 1; if (!isSealed(e, judged)) row.callPoints += e.points; }
     else if (e.type === 'resolve' && typeof e.edge === 'number') row.edgePoints += e.edge;
   }
   const empty = { rows: [], byDay: new Map(), streak: 0, todayPlayed: false, total: 0, career: 0, habitTotal: 0, skillTotal: 0 };
