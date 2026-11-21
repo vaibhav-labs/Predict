@@ -47,6 +47,8 @@ jobs:
           python3 -m playwright install --with-deps chromium
       - name: Install, offline and update tests
         run: python3 tools/test_pwa.py
+      - name: Resume an unfinished session from an older bank
+        run: python3 tools/test_stale.py
       - name: Play-through tests
         run: python3 tools/test_flow.py
       - name: Block tests (each later block against an independent recomputation)
