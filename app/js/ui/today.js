@@ -13,6 +13,8 @@ import { recheckCard } from './autopsy.js';
 import { rangesTodayCard } from './ranges.js';
 import { problemsTodayCards } from './problems.js';
 import { rangeGateState, problemGateState } from '../flags.js';
+import { decideTodayCard, dueDecisionRows } from './decide.js';
+import { recallTodayCard } from './recall.js';
 
 // What needs the player before anything else: an autopsy that is due, the patterns in repair, the exam.
 function needsCard(ctx, ls, gate) {
@@ -40,10 +42,11 @@ function needsCard(ctx, ls, gate) {
       h('span', { class: 't' }, h('b', null, 'Unit 3 exam'), h('em', null, text)),
       h('span', { class: 'cap' }, rg.running ? 'Continue' : rg.needsRepair ? 'Repair' : 'Ready')));
   }
-  for (const unit of ['U4', 'U5', 'U6']) {
+  rows.push(...dueDecisionRows(ctx));
+  for (const unit of ['U4', 'U5', 'U6', 'U7', 'U8', 'U9']) {
     const pg = problemGateState(ctx, unit);
     if (pg.running || pg.needsRepair || pg.eligible) {
-      const noun = unit === 'U4' ? 'problems' : unit === 'U6' ? 'steps' : 'answers';
+      const noun = unit === 'U4' ? 'problems' : unit === 'U6' ? 'steps' : unit === 'U7' || unit === 'U9' ? 'problems' : unit === 'U8' ? 'cases' : 'answers';
       const text = pg.running ? `${pg.done} of ${pg.total} ${noun} done` : pg.needsRepair ? 'Repair drill first' : `${pg.total} fresh problems, judged once`;
       rows.push(h('a', { class: 'lesson-link', href: '#/path', id: `need-pexam-${unit}` },
         h('span', { class: 'tick', 'aria-hidden': 'true' }),
@@ -114,6 +117,8 @@ export function todayScreen(ctx) {
     needsCard(ctx, ls, gate),
     rangesTodayCard(ctx),
     ...problemsTodayCards(ctx),
+    recallTodayCard(ctx),
+    decideTodayCard(ctx),
     ...ls.rechecks.slice(0, 2).map((r) => recheckCard(ctx, r, () => ctx.refresh())),
     h('section', { class: 'card' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, `Block ${BLOCKS_BUILT} of 10 built`)),

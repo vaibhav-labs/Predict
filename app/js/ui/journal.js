@@ -6,12 +6,14 @@ import * as J from '../engine/journal.js';
 import * as LE from '../engine/lessons.js';
 import { signed, pct } from '../engine/scoring.js';
 import { tabFrame, focusFrame, picker } from './common.js';
-import { caseFile, chainCard, baselineCaption } from './casefile.js';
+import { caseFile, chainCard, baselineCaption, caseNote } from './casefile.js';
 import { pendingAutopsies } from './autopsy.js';
-import { lessonState, problemGateState } from '../flags.js';
+import { lessonState, problemGateState, autopsyDueOf } from '../flags.js';
 import { stepsOf, chainProductOf, outsideGrade } from '../engine/reasoning.js';
 import { promptsFor } from '../engine/coach.js';
 import * as UP from '../engine/update.js';
+import * as KN from '../engine/know.js';
+import { memoryCard, memoryNote } from './recall.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
 const DUE_OPTIONS = [['tomorrow', 'Tomorrow'], ['week', 'This week'], ['month', 'This month'], ['longer', 'Longer']];
@@ -108,10 +110,12 @@ function composeScreen(ctx) {
   const jcfg = ctx.cfg.journal;
   const startedAt = Date.now();
   let step = 0;
-  const draft = { domain: null, due: null, text: '', flaggedEver: false, outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5, steps: [], own: false };
+  const draft = { domain: null, due: null, text: '', flaggedEver: false, outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5, first: null, steps: [], own: false };
   // The reasoning tools show up as their units open: a chain multiplier from Unit 4, an own-task tag and the outside-view grade from Unit 5.
   const chainOpen = problemGateState(ctx, 'U4').open;
   const gradeOpen = problemGateState(ctx, 'U5').open;
+  // From Unit 7 a card is written in two numbers: a gut number first, and the final one after the chain.
+  const secondOpen = problemGateState(ctx, 'U7').open;
 
   const title = h('span', { class: 'tt' }, 'Write a prediction');
   const count = h('span', { class: 'cnt num' });
@@ -176,12 +180,19 @@ function composeScreen(ctx) {
     const duePicker = picker(DUE_OPTIONS, draft.due, (v) => { draft.due = v; });
 
     const ownPicker = gradeOpen ? picker([['no', 'No'], ['yes', 'Yes']], draft.own ? 'yes' : 'no', (v) => { draft.own = v === 'yes'; }) : null;
+    const firstField = secondOpen ? numberField('Your gut number: the chance it happens, before you think it through (%)', draft.first === null ? '' : Math.round(draft.first * 100), 1, 99) : null;
+    if (firstField) firstField.input.id = 'first-number';
     const nextBtn = h('button', { class: 'btn', type: 'button' }, 'Next: the chain');
     const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
     nextBtn.addEventListener('click', () => {
       if (Date.now() < armedAt) return;
       draft.text = claimField.value.trim();
       if (!draft.text || !draft.domain || !draft.due) { ctx.toast('Write the claim, and pick a domain and a due date.'); return; }
+      if (firstField) {
+        const v = Number(firstField.input.value);
+        if (firstField.input.value.trim() === '' || !Number.isInteger(v) || v < 1 || v > 99) { ctx.toast('Give your gut number first: a whole percent from 1 to 99.'); return; }
+        draft.first = v / 100;
+      }
       step = 1; render();
     });
     runChecker();
@@ -192,6 +203,7 @@ function composeScreen(ctx) {
       claimField, flagsBox, askBtn, fallback,
       h('div', { class: 'eyebrow' }, 'Domain'), domainPicker,
       h('div', { class: 'eyebrow' }, 'Due'), duePicker,
+      firstField ? h('div', { class: 'stack', id: 'first-box' }, h('div', { class: 'eyebrow' }, 'Your gut number'), h('p', { class: 'cap' }, 'Say it now, before the outside view, the evidence and the case against. It is kept: when the card resolves, the Mirror shows which number was closer.'), firstField.el) : null,
       ownPicker ? h('div', { class: 'stack', id: 'own-task' }, h('div', { class: 'eyebrow' }, 'Your own task?'), h('p', { class: 'cap' }, 'Yes if this is about something you plan to finish or deliver yourself. Plans usually run late; the lessons watch for it.'), ownPicker) : null,
       h('div', { class: 'foot' }, nextBtn));
   }
@@ -296,6 +308,11 @@ function composeScreen(ctx) {
       const g = outsideGrade({ chain: { outsideView: draft.outsideView }, b, bSource: source }, ctx.cfg);
       if (g) notes.push(h('p', { class: 'note', id: 'outside-grade' }, `Your outside-view rate is ${pct(g.stated)}; the baseline for ${draft.domain}, ${horizon} is ${pct(g.reference)}. ${g.accepted ? 'That is within ' + Math.round(g.within * 100) + ' points: accepted.' : 'That is more than ' + Math.round(g.within * 100) + ' points away. Is there a reason this case is unlike the usual ones?'}`));
     }
+    if (draft.first !== null) {
+      const firstNote = h('p', { class: 'note', id: 'first-note' }, '');
+      const paintFirst = () => { const d = Math.round((draft.c - draft.first) * 100); firstNote.textContent = d === 0 ? `Your gut number was ${pct(draft.first)}, and the chain left it where it was.` : `Your gut number was ${pct(draft.first)}. The chain moved it ${Math.abs(d)} point${Math.abs(d) === 1 ? '' : 's'} ${d > 0 ? 'up' : 'down'}.`; };
+      notes.push(firstNote); paintFirst(); input.addEventListener('input', paintFirst);
+    }
     const lockBtn = h('button', { class: 'btn', type: 'button', id: 'lock' }, 'Lock in');
     const armedAt = Date.now() + (ctx.cfg.gym.tap_guard_ms ?? 400);
     lockBtn.addEventListener('click', async () => {
@@ -346,6 +363,7 @@ async function lockPrediction(ctx, draft, ms) {
     // The reasoning tools: a chain's steps (two or more) and the own-task tag. Absent unless used, so older cards read as before.
     ...(Array.isArray(draft.steps) && draft.steps.length >= 2 ? { steps: draft.steps } : {}),
     ...(draft.own ? { own: true } : {}),
+    ...(typeof draft.first === 'number' ? { first: draft.first } : {}),
   });
   await store.append(ev);
   ctx.nav(`#/journal/${ev.id}`);
@@ -379,11 +397,17 @@ function detailBody(ctx, p, today, paint, predictions) {
 
   if (p.state === 'open') {
     return focusFrame({ title: 'Prediction', closeTo: '#/journal' },
-      header, baselineLine, chainCard(p), updateHistory(p), problemGateState(ctx, 'U6').open ? updateCard(ctx, p, paint) : null);
+      header, baselineLine, chainCard(p, { caseNote: caseNote(ctx, p) }), updateHistory(p), problemGateState(ctx, 'U6').open ? updateCard(ctx, p, paint) : null);
   }
   if (p.state === 'due') {
+    // From Unit 8 the record stays hidden until the player says what they remember locking.
+    if (KN.memoryRequired(p, ctx.store.events, problemGateState(ctx, 'U8').open)) {
+      return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
+        h('section', null, h('div', { class: 'tags' }, h('span', { class: 'tag' }, domainLabel(p.domain)), h('span', { class: 'tag' }, 'Due')), h('p', { class: 'claim', id: 'claim' }, p.text), h('p', { class: 'cap' }, `Due ${p.due}`)),
+        memoryCard(ctx, p, () => paint()));
+    }
     return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
-      header, baselineLine, chainCard(p), resolveCard(ctx, p, paint));
+      header, memoryNote(ctx, p), baselineLine, chainCard(p, { caseNote: caseNote(ctx, p) }), resolveCard(ctx, p, paint));
   }
   return caseFile(ctx, p, header, predictions, paint);
 }
@@ -420,7 +444,7 @@ function resolveCard(ctx, p, paint) {
     // A card that needs an autopsy goes to it at once; the case file waits behind it.
     const now = R.predictionsOf(ctx.store.events, R.localDay());
     const mine = now.find((x) => x.id === p.id);
-    if (mine && LE.needsAutopsy(mine, LE.autopsyDue(now, ctx.store.events, ctx.cfg))) { ctx.replace(`#/autopsy/${p.id}`); return; }
+    if (mine && LE.needsAutopsy(mine, autopsyDueOf(ctx, now, ctx.store.events))) { ctx.replace(`#/autopsy/${p.id}`); return; }
     paint();
   });
   return h('section', { class: 'card stack' },

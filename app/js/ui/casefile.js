@@ -9,10 +9,20 @@ import { signed, pct, gapPts } from '../engine/scoring.js';
 import { focusFrame, DOMAIN_NAMES, HORIZON_NAMES } from './common.js';
 import { stepsOf, chainProductOf, outsideGrade, isOwnTask } from '../engine/reasoning.js';
 import { markLabel, luckRead, recheckCard, USED } from './autopsy.js';
+import * as KN from '../engine/know.js';
+import { memoryNote } from './recall.js';
 
-import { problemGateState } from '../flags.js';
+import { problemGateState, autopsyDueOf } from '../flags.js';
 const problemUnlocked = (ctx) => problemGateState(ctx, 'U5').open;
 const OUTCOME_LABEL = { yes: 'Happened', no: "Didn't happen", void: 'Void' };
+
+// What the weekly review made of the case against, once the player is in Unit 7.
+export function caseNote(ctx, p) {
+  if (!problemGateState(ctx, 'U7').open) return null;
+  const g = KN.gradeOf(ctx.coach, p);
+  if (!g) return 'Weekly review: not graded yet.';
+  return `Weekly review: ${g.grade}.${g.note ? ` ${g.note}` : ''}`;
+}
 
 export function baselineCaption(p) {
   if (p.bSource === 'predict') return `Predict's outside view${p.bRef ? `: ${p.bRef}` : ''}`;
@@ -28,7 +38,7 @@ function chainLine(label, text, mark, note) {
 
 // The six-link chain exactly as it was locked. Open and due cards show it too. With an `audit` (filed at the autopsy) each link
 // carries its mark; with `tests`, each signal says how it did on its own test: would it also have held in the cases that missed?
-export function chainCard(p, { id, title = 'Your chain', audit = null, tests = false, after = [], cfg = null } = {}) {
+export function chainCard(p, { id, title = 'Your chain', audit = null, tests = false, after = [], cfg = null, caseNote = null } = {}) {
   const a = audit || {};
   const test = (ev) => (tests ? (ev.test ? 'Its own test: it would also have held in the cases that missed.' : 'Its own test: it would not have held in the cases that missed.') : null);
   return h('section', { class: 'card stack', id },
@@ -38,7 +48,7 @@ export function chainCard(p, { id, title = 'Your chain', audit = null, tests = f
     ...(stepsOf(p).length >= 2 ? [chainLine('Chain steps', stepsOf(p).map((x) => `${x.text} (${Math.round(x.p * 100)}%)`).join(' · '), null, `Together: ${Math.round(chainProductOf(stepsOf(p)) * 1000) / 10}%. You said ${Math.round(p.c * 100)}%.`)] : []),
     ...(cfg && outsideGrade(p, cfg) ? [chainLine('Outside-view grade', outsideGrade(p, cfg).accepted ? 'Accepted: within the baseline.' : 'Not accepted: far from the baseline.', null, `You said ${Math.round(outsideGrade(p, cfg).stated * 100)}%; the baseline was ${Math.round(outsideGrade(p, cfg).reference * 100)}%.`)] : []),
     ...(isOwnTask(p) ? [chainLine('Your own task', 'You tagged this as something you were doing yourself.')] : []),
-    chainLine('Case against', `${p.chain.caseAgainst.text} (${p.chain.caseAgainst.number})`, a.caseAgainst),
+    chainLine('Case against', `${p.chain.caseAgainst.text} (${p.chain.caseAgainst.number})`, a.caseAgainst, caseNote),
     chainLine('Tripwire', `${p.chain.tripwire.text} (to ${p.chain.tripwire.number})`, a.tripwire),
     ...after);
 }
@@ -46,12 +56,23 @@ export function chainCard(p, { id, title = 'Your chain', audit = null, tests = f
 const lensHead = (n, title, right) => h('div', { class: 'shead' },
   h('span', { class: 'eyebrow' }, `${n} · ${title}`), right ? h('span', { class: 'cap' }, right) : null);
 
+// Your gut number against your final number, once the card has resolved: which was closer to what happened.
+function secondLine(ctx, p) {
+  if (p.outcome === 'void') return `Gut number ${pct(p.first)}, final number ${pct(p.c)}.`;
+  const yes = p.outcome === 'yes';
+  const g = ctx.S.score(p.first, yes), f = ctx.S.score(p.c, yes);
+  const verdict = Math.abs(f - g) < 1e-9 ? 'They scored the same.' : f > g ? `The final number scored ${Math.round(f - g)} points more.` : `The gut number scored ${Math.round(g - f)} points more.`;
+  return `Gut number ${pct(p.first)}, final number ${pct(p.c)}. ${verdict}`;
+}
+
 // 1. What happened: the dates, the outcome, your note.
 function lensWhat(ctx, p) {
   return h('section', { class: 'card stack', id: 'lens-what' },
     lensHead(1, 'What happened', OUTCOME_LABEL[p.outcome]),
     h('p', null, `Locked ${p.d}, due ${p.due}, resolved ${p.resolvedAt ? R.localDay(new Date(p.resolvedAt)) : p.due}. You said ${pct(p.c)}.`),
     p.note ? h('p', null, p.note) : null,
+    memoryNote(ctx, p),
+    typeof p.first === 'number' ? h('p', { class: 'cap', id: 'what-first' }, secondLine(ctx, p)) : null,
     p.updates && p.updates.length ? h('div', { class: 'stack', id: 'what-updates' }, h('span', { class: 'eyebrow' }, 'Your updates'),
       h('ul', { class: 'rows' }, p.updates.map((u) => h('li', null, h('div', { class: 't' }, h('span', null, u.reason), h('em', null, `${u.d} · ${pct(u.prev)} to ${pct(u.c)}`)), h('span', { class: 'm num' }, `${u.c >= u.prev ? '+' : ''}${Math.round((u.c - u.prev) * 100)}`)))),
       h('p', { class: 'cap' }, `Locked at ${pct(p.c)}, ended at ${pct(p.cNow)}.`)) : null,
@@ -143,12 +164,12 @@ function lensNext(ctx, p, env) {
 export function caseFile(ctx, p, header, predictions, repaint) {
   const events = ctx.store.events;
   const autopsy = events.find((e) => e.type === 'autopsy' && e.prediction === p.id) || null;
-  const due = LE.autopsyDue(predictions, events, ctx.cfg);
+  const due = autopsyDueOf(ctx, predictions, events);
   const need = autopsy ? null : LE.needsAutopsy(p, due);
   const env = { predictions, autopsy, repaint };
   const banner = need ? h('section', { class: 'card nudge stack', id: 'autopsy-banner' },
     h('span', { class: 'eyebrow' }, 'Autopsy due'),
-    h('p', null, need.kind === 'miss' ? 'This card missed at 85% or more. Its autopsy comes before your next journal step.' : 'This confident hit was picked for review. Its autopsy comes before your next journal step.'),
+    h('p', null, need.kind === 'miss' ? 'This card missed at 85% or more. Its autopsy comes before your next journal step.' : need.kind === 'case' ? 'From Unit 8 every case that resolves gets an autopsy, the hits too. Yours comes before your next journal step.' : 'This confident hit was picked for review. Its autopsy comes before your next journal step.'),
     h('a', { class: 'btn', href: `#/autopsy/${p.id}`, id: 'autopsy-open' }, 'Start the autopsy')) : null;
   const read = autopsy ? [
     h('div', null, h('div', { class: 'eyebrow' }, 'What I knew'), h('p', { id: 'reasoning-knew' }, autopsy.knew)),
@@ -158,7 +179,7 @@ export function caseFile(ctx, p, header, predictions, repaint) {
     header,
     banner,
     lensWhat(ctx, p, env),
-    chainCard(p, { id: 'lens-reasoning', title: '2 · Your reasoning', audit: autopsy ? autopsy.audit : null, tests: true, after: read, cfg: problemUnlocked(ctx) ? ctx.cfg : null }),
+    chainCard(p, { id: 'lens-reasoning', title: '2 · Your reasoning', audit: autopsy ? autopsy.audit : null, tests: true, after: read, cfg: problemUnlocked(ctx) ? ctx.cfg : null, caseNote: caseNote(ctx, p) }),
     lensLuck(ctx, p, env),
     lensPattern(ctx, p, env),
     lensNext(ctx, p, env));

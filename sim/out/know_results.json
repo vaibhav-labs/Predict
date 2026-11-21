@@ -1,0 +1,175 @@
+{
+ "choice": {
+  "guesser (s 0)": {
+   "U7": {
+    "pass": 0.0,
+    "mean_right": 6.99,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.0,
+    "mean_right": 7.48535,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.0,
+    "mean_right": 10.00415,
+    "of": 30,
+    "need": 24
+   }
+  },
+  "hunch (s 0.3)": {
+   "U7": {
+    "pass": 0.00055,
+    "mean_right": 13.2851,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.00035,
+    "mean_right": 14.21095,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.00245,
+    "mean_right": 16.0082,
+    "of": 30,
+    "need": 24
+   }
+  },
+  "half knows (s 0.5)": {
+   "U7": {
+    "pass": 0.05335,
+    "mean_right": 17.48355,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.0375,
+    "mean_right": 18.7788,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.0843,
+    "mean_right": 20.0123,
+    "of": 30,
+    "need": 24
+   }
+  },
+  "mostly knows (s 0.7)": {
+   "U7": {
+    "pass": 0.55505,
+    "mean_right": 21.71635,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.4723,
+    "mean_right": 23.26725,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.60715,
+    "mean_right": 24.01195,
+    "of": 30,
+    "need": 24
+   }
+  },
+  "sharp (s 0.85)": {
+   "U7": {
+    "pass": 0.9676,
+    "mean_right": 24.8633,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.95615,
+    "mean_right": 26.6501,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.9769,
+    "mean_right": 27.01725,
+    "of": 30,
+    "need": 24
+   }
+  },
+  "expert (s 0.95)": {
+   "U7": {
+    "pass": 0.99995,
+    "mean_right": 26.95245,
+    "of": 28,
+    "need": 22
+   },
+   "U8": {
+    "pass": 0.99985,
+    "mean_right": 28.89455,
+    "of": 30,
+    "need": 24
+   },
+   "U9": {
+    "pass": 0.99995,
+    "mean_right": 29.00655,
+    "of": 30,
+    "need": 24
+   }
+  }
+ },
+ "memory": {
+  "honest recall (b 0, sd 4)": {
+   "b": 0.0,
+   "sd": 4.0,
+   "gate_pass": 1.0,
+   "l12_fires": 0.0,
+   "retest_clears": 1.0
+  },
+  "slight rewrite (b 2, sd 4)": {
+   "b": 2.0,
+   "sd": 4.0,
+   "gate_pass": 0.99995,
+   "l12_fires": 0.0,
+   "retest_clears": 0.98915
+  },
+  "rewrites a bit (b 4, sd 4)": {
+   "b": 4.0,
+   "sd": 4.0,
+   "gate_pass": 0.91265,
+   "l12_fires": 0.0,
+   "retest_clears": 0.7856
+  },
+  "rewrites often (b 8, sd 4)": {
+   "b": 8.0,
+   "sd": 4.0,
+   "gate_pass": 0.0,
+   "l12_fires": 0.05615,
+   "retest_clears": 0.00965
+  },
+  "heavy rewrite (b 12, sd 4)": {
+   "b": 12.0,
+   "sd": 4.0,
+   "gate_pass": 0.0,
+   "l12_fires": 0.9434,
+   "retest_clears": 0.0
+  },
+  "honest but noisy (b 0, sd 12)": {
+   "b": 0.0,
+   "sd": 12.0,
+   "gate_pass": 0.9757,
+   "l12_fires": 0.00435,
+   "retest_clears": 0.8123
+  },
+  "honest, very noisy (b 0, sd 20)": {
+   "b": 0.0,
+   "sd": 20.0,
+   "gate_pass": 0.8267,
+   "l12_fires": 0.05945,
+   "retest_clears": 0.57295
+  }
+ }
+}

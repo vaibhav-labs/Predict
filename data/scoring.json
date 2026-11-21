@@ -90,6 +90,38 @@
         "reverse_share": 0.5,
         "cards_needed": 12
       }
+    },
+    "choice": {
+      "_doc": "Units 7 to 9 (Block 9): a choice problem has a few options and one right one. A right pick pays right_points and a wrong one wrong_points (the same table as a reference-class problem). Unit 7 asks which counter-argument is the strongest (practice also asks how far a counter-argument should move a number); Unit 8 asks whether a result was luck or judgment; Unit 9 asks whether to act, where the break-even sits and what a choice is worth. The right answer is always computed from the numbers on the item (see tools/ref_know.py).",
+      "right_points": 60,
+      "wrong_points": -30,
+      "reseen_days": 90,
+      "session_size": 6,
+      "drill_size": 8,
+      "U7": {
+        "families": [
+          "counter",
+          "second"
+        ],
+        "exam_family": "counter",
+        "exam_session_size": 14
+      },
+      "U8": {
+        "families": [
+          "luck"
+        ],
+        "exam_family": "luck",
+        "exam_session_size": 15
+      },
+      "U9": {
+        "families": [
+          "act",
+          "threshold",
+          "value"
+        ],
+        "exam_family": null,
+        "exam_session_size": 15
+      }
     }
   },
   "journal": {
@@ -175,6 +207,9 @@
       "U6": [
         "L10",
         "L11"
+      ],
+      "U8": [
+        "L12"
       ]
     },
     "range_repair_calls": 10,
@@ -188,12 +223,27 @@
     "opens_after": {
       "U4": "U3",
       "U5": "U4",
-      "U6": "U5"
+      "U6": "U5",
+      "U7": "U6",
+      "U8": "U7",
+      "U9": "U8"
     },
     "update_exam_calls": 40,
     "update_pass_within": 32,
     "update_gain_min": 0,
-    "update_repair_calls": 10
+    "update_repair_calls": 10,
+    "counter_exam_calls": 28,
+    "counter_pass_right": 22,
+    "counter_repair_calls": 8,
+    "luck_exam_calls": 30,
+    "luck_pass_right": 24,
+    "luck_repair_calls": 8,
+    "decision_exam_calls": 30,
+    "decision_pass_right": 24,
+    "decision_repair_calls": 8,
+    "memory_window": 30,
+    "memory_min_checks": 30,
+    "memory_drift_max": 0.05
   },
   "sim": {
     "seed": 20261114,
@@ -381,7 +431,8 @@
         3,
         10
       ],
-      "min_chars": 3
+      "min_chars": 3,
+      "all_from_unit": "U8"
     },
     "triggers": {
       "L01": {
@@ -554,8 +605,35 @@
           "kind": "move",
           "calls": 8
         }
+      },
+      "L12": {
+        "kind": "memory_drift",
+        "window": 10,
+        "min_shift": 0.1,
+        "clear_window": 10,
+        "clear_within": 0.05,
+        "drill": {
+          "kind": "recall",
+          "calls": 10
+        }
       }
     },
     "note": "A trigger is read from the player's natural calls (modes baseline, practice and exam; a drill's forced calls never count) after the last time that trigger's flag was cleared, so old calls cannot fire it twice. L01 and L02 look at the last window calls stated inside their band, L03 at the last window calls of any kind, L04 at the last window journal predictions (rejected = the checker flagged the draft or the final wording), L15 at the last window_days days. A pattern flag needs the lesson read, then the drill, then two re-tests (the next clear_window observations after retest_after_days days from the drill) before it clears. L02's gap is 12 points, not the plan's 10: sim/trigger_sim.py found 10 fired falsely on a calibrated player 20% of the time at session-end looks; 12 brings that to 9.6% and still catches typical underconfidence 95.8% of the time in a median of 63 calls."
+  },
+  "memory": {
+    "_doc": "The memory check (Unit 8). Before the record of a due card is shown, the player types the number they remember locking; a practice check does the same for a gym call at least min_age_days days old. Drift is the recalled number minus the recorded one, counted positive when it moved toward what actually happened (a hit, or a yes outcome), so recall that was rewritten by the outcome shows up as positive drift. The gate reads the last `window` checks; the exam opens once min_checks are in.",
+    "min_age_days": 2,
+    "recall_min": 0.01,
+    "recall_max": 0.99,
+    "call_recall_min": 0.5,
+    "session_size": 10
+  },
+  "decision": {
+    "_doc": "The decision card (Unit 9): what you will do, your forecast that it works out, what you stand to gain if you act and are right and to lose if you act and are wrong, and a review date. Break-even = loss / (gain + loss): act when the forecast is above it. At the review the player says what happened and whether they would decide the same again.",
+    "min_review_days": 7,
+    "max_review_days": 365,
+    "min_stake": 1,
+    "max_stake": 1000000,
+    "cards_needed": 10
   }
 }

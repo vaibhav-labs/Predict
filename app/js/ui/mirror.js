@@ -5,6 +5,8 @@ import { gateState, rangeGateState, problemGateState } from '../flags.js';
 import * as PB from '../engine/problem.js';
 import * as RS from '../engine/reasoning.js';
 import * as UP from '../engine/update.js';
+import * as KN from '../engine/know.js';
+import { decisionsNow } from './decide.js';
 import * as RG from '../engine/range.js';
 import { KIND_NAMES } from './ranges.js';
 import { KIND_NAMES as PROB_KINDS } from './problems.js';
@@ -216,10 +218,40 @@ export function mirrorScreen(ctx) {
       row('Journal cards with an accepted base rate', String(accepted), `of 15 the unit asks for`))),
     h('p', { class: 'cap' }, 'Drills do not count here. A group with fewer than ' + cfg.thin_below + ' problems is a hint, not a result.')) : null;
 
+  // ---- know yourself (Units 7 to 9): second opinions, the memory check, autopsies, decisions; drills do not count ----
+  const choiceOf = (...fams) => probs.filter((p) => fams.includes(p.family));
+  const ctr = KN.describeChoices(choiceOf('counter'), { thinBelow: cfg.thin_below });
+  const sec = KN.describeChoices(choiceOf('second'), { thinBelow: cfg.thin_below });
+  const lk = KN.describeChoices(choiceOf('luck'), { thinBelow: cfg.thin_below });
+  const dc = KN.describeChoices(choiceOf('act', 'threshold', 'value'), { thinBelow: cfg.thin_below });
+  const mobs = KN.memoryObs(events, predictions);
+  const mst = KN.memoryStats(mobs, ctx.cfg.gates.memory_window);
+  const gr = KN.describeGrades(predictions, ctx.coach);
+  const sv = KN.secondValue(ctx.S, predictions);
+  const dsum = KN.describeDecisions(decisionsNow(ctx));
+  const autopsies = events.filter((e) => e.type === 'autopsy');
+  const signedPts = (x, d = 1) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(d)}`;
+  const knowCard = ctr.n || sec.n || lk.n || dc.n || mobs.length || gr.n || sv.n || dsum.n ? h('section', { class: 'card stack', id: 'know-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Knowing yourself'), h('span', { class: 'cap num', id: 'know-n' }, `n=${ctr.n + sec.n + lk.n + dc.n + mobs.length}`)),
+    h('table', { class: 'tbl', id: 'know-table' }, h('tbody', null,
+      ctr.n ? row('Strongest counter-argument picked', `${ctr.right} of ${ctr.n} (${pct(ctr.rate)})`, ctr.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      sec.n ? row('Second number moved the right way', `${sec.right} of ${sec.n} (${pct(sec.rate)})`, sec.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      lk.n ? row('Luck or judgment called right', `${lk.right} of ${lk.n} (${pct(lk.rate)})`, lk.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      dc.n ? row('Decision problems right', `${dc.right} of ${dc.n} (${pct(dc.rate)})`, dc.thin ? `under ${cfg.thin_below}: a hint` : '') : null,
+      gr.n ? row('Cases against graded sound', `${gr.sound} of ${gr.n}`, `${gr.weak} weak · ${gr.waiting} waiting for the review`) : null,
+      sv.n ? row('Final number over gut number', `${signedPts(sv.mean)} pts a card`, `n=${sv.n} resolved cards${sv.n < cfg.thin_below ? ': a hint' : ''} · the final was better ${sv.better} times`) : null,
+      mobs.length ? row('Memory drift', `${signedPts(mst.drift * 100)} pts`, `last ${mst.n} checks · ${mst.drift > 0 ? 'toward what happened' : mst.drift < 0 ? 'away from what happened' : 'none'}${mst.n < ctx.cfg.gates.memory_min_checks ? ' · a hint' : ''}`) : null,
+      mobs.length ? row('Average memory error', `${(mst.meanAbs * 100).toFixed(1)} pts`, 'either way') : null,
+      autopsies.length ? row('Autopsies filed', String(autopsies.length), `from Unit 8 every case gets one`) : null,
+      dsum.n ? row('Decisions reviewed', `${dsum.reviewed} of ${dsum.n}`, `of ${ctx.cfg.decision.cards_needed} the unit asks for`) : null,
+      dsum.reviewed ? row('Followed your own line', `${Math.round((dsum.followedShare || 0) * 100)}%`, '') : null,
+      dsum.scoredN ? row('Value of your choices vs the line', `${signedPts(dsum.value, 0)} vs ${signedPts(dsum.ruleValue, 0)}`, `n=${dsum.scoredN}`) : null)),
+    h('p', { class: 'cap' }, 'Drills do not count here. Memory drift is how far what you remember sits toward what happened, compared with what you wrote.')) : null;
+
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
-  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : []), ...(problemGateState(ctx, 'U4').passed ? ['U4'] : []), ...(problemGateState(ctx, 'U5').passed ? ['U5'] : []), ...(problemGateState(ctx, 'U6').passed ? ['U6'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
+  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : []), ...(problemGateState(ctx, 'U4').passed ? ['U4'] : []), ...(problemGateState(ctx, 'U5').passed ? ['U5'] : []), ...(problemGateState(ctx, 'U6').passed ? ['U6'] : []), ...(problemGateState(ctx, 'U7').passed ? ['U7'] : []), ...(problemGateState(ctx, 'U8').passed ? ['U8'] : []), ...(problemGateState(ctx, 'U9').passed ? ['U9'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null, memoryDriftPts: mst.n >= ctx.cfg.gates.memory_min_checks ? mst.drift * 100 : null };
   const belts = P.beltRows(ctx.belts, beltFacts);
   const beltCard = h('section', { class: 'card stack', id: 'belts' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Belts'), h('span', { class: 'cap' }, 'feedback, not play')),
@@ -240,7 +272,7 @@ export function mirrorScreen(ctx) {
         row('Points', sum.n ? signed(sum.points) : '–', sum.n ? `${signed(Math.round(sum.avgPoints))} a call` : ''))));
 
   return tabFrame('mirror', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Mirror'), h('span', { class: 'date' }, base.complete ? 'Baseline done' : `Baseline ${base.done} of ${base.total}`)),
-    standingCard, curveCard, biasCard, rangeCard, reasonCard, jcard, beltCard, stats);
+    standingCard, curveCard, biasCard, rangeCard, reasonCard, knowCard, jcard, beltCard, stats);
 }
 
 function row(label, value, note) {

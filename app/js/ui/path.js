@@ -1,6 +1,7 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS } from '../lessons.js';
+import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS } from '../lessons.js';
+import * as KN from '../engine/know.js';
 import { tabFrame, unitRow } from './common.js';
 import { lessonState, gateState, rangeGateState, problemGateState } from '../flags.js';
 import { patternRow } from './patterns.js';
@@ -10,6 +11,7 @@ import { problemExamCard } from './problems.js';
 
 export function pathScreen(ctx) {
   const events = ctx.store.events;
+  const cfg = ctx.cfg;
   const read = R.lessonsRead(events);
   const base = R.baselineProgress(events, Number(unitRow(ctx, 'U0').practice_calls));
   const practice = R.callsOf(events).filter((c) => c.mode === 'practice').length;
@@ -20,7 +22,10 @@ export function pathScreen(ctx) {
   const g4 = problemGateState(ctx, 'U4');
   const g5 = problemGateState(ctx, 'U5');
   const g6 = problemGateState(ctx, 'U6');
-  const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (unit === 'U4' ? p.family === 'fermi' : unit === 'U6' ? p.family === 'update' : p.family === 'rate' || p.family === 'class')).length;
+  const g7 = problemGateState(ctx, 'U7');
+  const g8 = problemGateState(ctx, 'U8');
+  const g9 = problemGateState(ctx, 'U9');
+  const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (KN.isChoiceUnit(unit) ? cfg.problems.choice[unit].families.includes(p.family) : unit === 'U4' ? p.family === 'fermi' : unit === 'U6' ? p.family === 'update' : p.family === 'rate' || p.family === 'class')).length;
   const ls = lessonState(ctx);
   const status = (u) => {
     if (u.id === 'U0') return base.complete ? { text: 'Done', on: true } : { text: `${base.done} of ${base.total}`, on: true };
@@ -29,6 +34,7 @@ export function pathScreen(ctx) {
     if (u.id === 'U4') return g4.passed ? { text: 'Passed', on: true } : g4.open ? { text: probsDone('U4') ? `${probsDone('U4')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     if (u.id === 'U5') return g5.passed ? { text: 'Passed', on: true } : g5.open ? { text: probsDone('U5') ? `${probsDone('U5')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     if (u.id === 'U6') return g6.passed ? { text: 'Passed', on: true } : g6.open ? { text: probsDone('U6') ? `${probsDone('U6')} steps` : 'Open', on: true } : { text: 'Locked', on: false };
+    for (const [id, g] of [['U7', g7], ['U8', g8], ['U9', g9]]) if (u.id === id) return g.passed ? { text: 'Passed', on: true } : g.open ? { text: probsDone(id) ? `${probsDone(id)} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     return { text: 'Locked', on: false };
   };
   const lessonCard = (id, unitName, list, open) => open ? h('section', { class: 'card', id }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `${unitName} lessons`), h('span', { class: 'cap' }, 'under a minute each')),
@@ -72,6 +78,20 @@ export function pathScreen(ctx) {
     g6.open ? practiceCard('update-practice-card', 'Unit 6', 'Six steps a session: the rate before the news, a piece of news, and your new number. Some news is worth a big move and some is worth none. Updates on your real journal cards, with a reason, count toward this unit.', [
       h('a', { class: 'ghost', href: '#/prob/update', id: 'update-practice' }, 'Start updating')], probsDone('U6')) : null,
     problemExamCard(ctx, 'U6'),
+    lessonCard('second-lessons-card', 'Unit 7', SECOND_LESSONS, g7.open),
+    g7.open ? practiceCard('second-practice-card', 'Unit 7', 'Six problems a session: which counter-argument is the strongest, and how far a counter-argument should move a number. Your real journal cards count too: a gut number first, then the final one, and the weekly review grades your case against.', [
+      h('a', { class: 'ghost', href: '#/prob/counter', id: 'counter-practice' }, 'Start second opinions')], probsDone('U7')) : null,
+    problemExamCard(ctx, 'U7'),
+    lessonCard('autopsy-lessons-card', 'Unit 8', AUTOPSY_LESSONS, g8.open),
+    g8.open ? practiceCard('autopsy-practice-card', 'Unit 8', 'Six cases a session: was the result luck or judgment? And the memory check: what did you say, before you look. Every case that resolves now gets an autopsy.', [
+      h('a', { class: 'ghost', href: '#/prob/luck', id: 'luck-practice' }, 'Start luck or judgment'),
+      h('a', { class: 'ghost', href: '#/recall/practice', id: 'recall-practice' }, 'Memory check: recall old calls')], probsDone('U8')) : null,
+    problemExamCard(ctx, 'U8'),
+    lessonCard('decision-lessons-card', 'Unit 9', DECISION_LESSONS, g9.open),
+    g9.open ? practiceCard('decision-practice-card', 'Unit 9', 'Six problems a session: act or hold off, where acting breaks even, and what a choice is worth on average. Then decision cards of your own, with a review date.', [
+      h('a', { class: 'ghost', href: '#/prob/decisions', id: 'decision-practice' }, 'Start decisions'),
+      h('a', { class: 'ghost', href: '#/decide', id: 'decision-cards' }, 'Decision cards')], probsDone('U9')) : null,
+    problemExamCard(ctx, 'U9'),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,

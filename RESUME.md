@@ -44,16 +44,17 @@ Branches (`/home/claude/predict-build` in the cloud workspace; also in the bundl
 | `block-6` | Block 6, Ranges (Unit 3): range questions, interval points, the sealed 60-range exam, L05/L06 and their drills. **Done, all suites green** |
 | `block-7` | Block 7, Reasoning tools (Units 4 and 5): Fermi worksheet, base rates, ladders, chains, two sealed exams, L07/L08/L09/L13, journal chain steps / own-task tag / outside-view grade. **Done, suites green** |
 | `block-8` | Block 8, Updating (Unit 6): update action with a reason on open cards, time-weighted scoring, evidence streams (144 from flights and weather), the Unit 6 gate, L10/L11 and their drills, Mirror rows. **Done, all suites green** |
+| `block-9` | Block 9, Know yourself (Units 7 to 9): choice problems and the 424-item `know.json` bank, gut number and second estimate, case-against grades, the memory check and L12, decision cards, the autopsy on every case. **Done, all suites green** |
 
-Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (165), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
-`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (all phases incl. b6, b7 and b8; b7 alone is 66 checks, b8 49). Run the b-phases in separate copies, two at a time at most (three in parallel gave a load flake in b6). Run the three browser suites in separate copies of the repo (tar without .git, site,
+Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (190), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
+`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (all phases incl. b6, b7, b8 and b9; b7 alone is 66 checks, b8 49). Run the b-phases in separate copies, two at a time at most (three in parallel gave a load flake in b6). Run the three browser suites in separate copies of the repo (tar without .git, site,
 node_modules) with different `PREDICT_PORT` values; they rebuild `site/`.
 
-Docs written for Blocks 4 to 8 (STATE.md reports and assumptions, mechanics 4.2/4.4/4.5/4.7/4.9/4.12 and the change log, balance report 4c, 5b and 5d, `design/coach.md`).
+Docs written for Blocks 4 to 8 (STATE.md reports and assumptions, mechanics 4.2/4.4/4.5/4.7/4.9/4.12 and the change log, balance report 4c, 5b, 5d and 5e (run `sim/know_sim.py`), `design/coach.md`).
 Note: `sim/make_balance_report.py` regenerates the report but drops the hand-written 4c section; after running it, restore 4c from git (insert it before section 5) and keep the generated 5b, 5c and 5d.
 Open risks: a half-hearted mover (takes 60% of each deserved move) passes the Unit 6 gate 92% of the time (5d); Unit 4's gate does not stop padded ranges (5c); L02's re-test fails a calibrated player about a third of the time (4c); the unattended weekly run is untested (needs the player's repo).
 
-Next: Block 9 (Know yourself) on `block-9` chained on `block-8`, then 10. NOTE: since Block 8 the cloud session has no link to the Mac: the bundle is at /mnt/user-data/outputs/predict-all.bundle and is delivered with SendUserFile.
+Next: Block 10 (Compete) on `block-10` chained on `block-9`. Block 9 open risk: L12 (10 points over 10 checks) vs the Unit 8 drift gate (5 over 30), balance report 5e. NOTE: since Block 8 the cloud session has no link to the Mac: the bundle is at /mnt/user-data/outputs/predict-all.bundle and is delivered with SendUserFile.
 
 ### Blocks 6 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
 

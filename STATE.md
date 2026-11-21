@@ -1,10 +1,33 @@
 # Predict: build state
 
-Last updated: 2026-11-17 · Stage (Block 8 built on `block-8`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+Last updated: 2026-11-17 · Stage (Block 9 built on `block-9`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
 branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 9, Know yourself, 2026-11-17)
+
+Units 7 to 9 are built and tested: second opinions, luck or judgment, and decisions. Unit 7 opens when you pass Unit 6, Unit 8 after Unit 7, Unit 9 after Unit 8.
+
+**Two numbers on every card.** From Unit 7 a new journal card first asks for a gut number, before the outside view, the evidence and the case against; the final number comes after the chain. Both are kept, and the Mirror
+shows how many points the second number added. The weekly review also grades each case against (sound, weak or missing) and the grade shows on the card and the Mirror.
+
+**Unit 7, second opinions.** Choose the strongest honest argument against a claim: the one backed by a base rate or a fact, not the loudest. Exam: 28 problems in two sittings of 14, 22 right. Practice sessions are six problems.
+
+**Unit 8, luck or judgment, and the memory check.** Was a result luck or judgment, given the odds on the table? Exam: 30 problems, 24 right, and your memory of your own numbers must be honest: before a due card shows its record
+you type the number you remember locking, and the app compares. The mean drift of your last 30 checks must be within 5 points either way, and the exam opens after 30 checks. From here every resolved card gets an autopsy,
+the hits too. Recall practice on old gym calls gives more checks. Pattern L12 (rewritten memory) fires when the last 10 checks drifted 10 points or more toward what happened; its drill is 10 recall checks.
+
+**Unit 9, decisions.** A decision card pairs a forecast with a stake: what you gain if you act and it works, what you lose if you act and it does not. The break-even is loss / (gain + loss); the line says act above it. You
+choose, set a review date (7 to 365 days), and on that date say what happened and whether you would decide the same. The Mirror shows what your choices paid and what following the line would have paid. Exam: 30 problems, 24 right.
+
+**Tests:** engine 190 (the choice gates, memory drift, L12 and its retest, decision values and the second estimate against `tools/ref_know.py`), bank check `tools/check_know.py` (424 items, answers re-derived), browser phase b9
+(33 checks: the record is absent from the page until the memory answer is in, the decision review comes due on its date, six choice problems save with one right option each, no overflow at 390 px, the word never shown).
+Simulation (balance report 5e): a guesser never passes any exam; a player who knows 7 items in 10 passes about half the time. **Open risk:** L12 needs 10 points of drift over 10 checks while the exam asks 5 over 30, so a
+player drifting 5 to 10 points fails Unit 8 with no pattern lesson attached; I did not lower L12 without real data on how noisy recall is.
+
+**Assumptions I made (see Block 9 assumptions below).**
 
 ## Report for the player (Block 8, Updating, 2026-11-17)
 
@@ -514,6 +537,18 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **L11 whiplash:** a large update is 25 points or more; it is reversed when a later update within 14 days crosses back past the middle of the move; judged once reversed, after 14 days or when the card resolves.
 - **Drill steps never count** toward a gate, a trigger or the Mirror; exam steps are sealed until the verdict.
 - **Display:** time-weighted edges are fractions; `signed()` rounds them for display (events keep the exact numbers).
+
+## Block 9 assumptions
+
+- **Gate chain:** U7 opens after U6, U8 after U7, U9 after U8 (`gates.opens_after`). Decision cards, the recall practice and the case autopsy wait for U9, U8 and U8 (after U7 was passed) respectively.
+- **The gut number is required from Unit 7 on** for every new prediction (1 to 99, whole percent); older cards have none and are left out of "what the second number added".
+- **Memory check on a card** asks for the number in force (`cNow`): the locked number, or the latest update. The answer is mandatory before a due card shows its record, once Unit 8 is open; a card with an answer already saved is not asked again.
+- **Recall practice** uses gym calls from baseline, practice or exam mode at least 2 days old and not asked before, claim present; drill, repair and sealed-in-progress calls are excluded. Accepted recall for calls is 50 to 99, for cards 1 to 99.
+- **Drift counts toward what happened:** a yes outcome (card) or a hit (call) with a higher recalled number is positive. The Unit 8 gate takes the last 30 checks with a known outcome; the exam opens after 30.
+- **L12:** the last 10 checks, mean shift 0.10 or more fires; the drill is 10 recall checks; the re-test clears at |drift| of 0.05 or less over the next 10 checks.
+- **Counter-argument items are written so the right option is computed from numbers on the item** (a base rate or count against the claim); distractors are the loud, the vague and the irrelevant. The bank is deliberately not "pick the longest".
+- **Decision card:** p 1 to 99, stakes whole numbers 1 to 1,000,000, review 7 to 365 days out. A review of "void" scores nothing; the line's value is computed the same way as the player's value. Ten reviewed cards make the Unit 9 journal row.
+- **The weekly review writes `grades`** into `coach/latest.json`; a card without a grade shows as waiting. The unattended weekly run that would write them is still untested, as with `news` in Block 8.
 
 ## Decisions
 
