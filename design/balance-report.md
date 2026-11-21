@@ -258,6 +258,36 @@ Section 5 is the closed form. This is the same game on the real range bank (`app
 - **The within-7 half does the work.** A calibrated player with typical noise passes 82.5%, a rough one 1.2%; an over-reactor (k 1.6) passes 33.2% and a whiplash player (k 2.5) never. The gain half is nearly always met by anyone who moves the right way (70.2% even for the rough player), so it mostly catches whiplash and chasing noise.
 - **Open risk: a half-hearted mover passes.** A player who takes only 60% of every deserved move (k 0.6, noise 3) passes 91.5%: with a tolerance of 7 and streams that are mostly small moves, under-reaction is forgiven. If real players do this, tighten `update_pass_within` or add a floor on the share of a big move taken (the Mirror already shows that share).
 
+## 5e. Knowing yourself: choice gates and memory drift (Block 9)
+
+`sim/know_sim.py` plays the Units 7 to 9 exams on the real exam pool (`know.json`). A player knows an item with probability s and picks the right option; otherwise they guess among the item's options (2 for act or hold, 4 for the rest). U7 is 28 counter-argument items (22 right), U8 30 luck-or-judgment items (24 right, plus the memory half below) and U9 30 decision items, ten each of act, break-even and value (24 right).
+
+| Player | U7 pass | U8 right-half pass | U9 pass |
+|---|---|---|---|
+| guesser (s 0) | 0.0% | 0.0% | 0.0% |
+| hunch (s 0.3) | 0.1% | 0.0% | 0.2% |
+| half knows (s 0.5) | 5.3% | 3.8% | 8.4% |
+| mostly knows (s 0.7) | 55.5% | 47.2% | 60.7% |
+| sharp (s 0.85) | 96.8% | 95.6% | 97.7% |
+| expert (s 0.95) | 100.0% | 100.0% | 100.0% |
+
+- **A guesser never passes, a player who knows 7 items in 10 passes about half the time, one who knows 85% passes 96 to 98%.** The bar sits where a real skill gap shows and a lucky streak cannot carry a guesser: a pure guesser needs 22 of 28 at one chance in four per item.
+- **The second half of the Unit 8 gate is the memory check.** The exam also needs the mean drift of the last 30 checks to be within 5 points of zero either way. Each check gives a shift (recalled minus recorded, positive when it moved toward what happened); a player's bias is the average of that shift and sd is the noise around it.
+
+| Memory player | Drift gate passes | L12 fires (last 10 at 10+) | Re-test clears (next 10 within 5) |
+|---|---|---|---|
+| honest recall (b 0, sd 4) | 100.0% | 0.0% | 100.0% |
+| slight rewrite (b 2, sd 4) | 100.0% | 0.0% | 98.9% |
+| rewrites a bit (b 4, sd 4) | 91.3% | 0.0% | 78.6% |
+| rewrites often (b 8, sd 4) | 0.0% | 5.6% | 1.0% |
+| heavy rewrite (b 12, sd 4) | 0.0% | 94.3% | 0.0% |
+| honest but noisy (b 0, sd 12) | 97.6% | 0.4% | 81.2% |
+| honest, very noisy (b 0, sd 20) | 82.7% | 5.9% | 57.3% |
+
+- **Noise alone rarely fails the gate.** An honest player with an sd of 12 points still passes 97.6% (the mean of 30 checks has a standard error of 12/sqrt(30) = 2.2 points), and with an sd of 20 it is 82.7%.
+- **A rewrite of 8 points fails the gate every time, yet L12 fires on it only 5.6% of the time.** The pattern waits for a mean shift of 10 points over the last 10 checks, the gate for 5 over 30. A player in between fails the exam with no lesson attached: they keep taking memory checks, and the window moves on as the old checks leave it. The heavy rewriter (12 points) triggers it 94.3%.
+- **Open risk: the gap between L12 (10 points) and the gate (5 points).** If real players sit in the 5 to 10 band, lower `min_shift` to 0.07: at an sd of 20 points that would also fire on about 13% of honest but very noisy players, so it needs real data on how noisy recall is before it moves.
+
 ## 6. Real predictions: raw points against edge
 
 - **Intent:** logging sure things must not pay.

@@ -140,6 +140,13 @@ export function helpScreen(ctx) {
       p('On a journal card', 'while a card is open you can change its number with a reason of a line or two. The locked number stays on the record, and each day the card was open is scored at the number in force that day. One update a day: a second replaces the first. The Mirror adds up what your updates were worth.'),
       p('Patterns', 'open predictions that had news waiting and no update for a week, and big moves you reverse within two weeks, each get a lesson, a drill and re-tests.')),
 
+    section('Knowing yourself (Units 7 to 9)',
+      p('Counter-arguments (Unit 7)', 'a claim, your side, and a list of replies: pick the one that is the strongest honest case against you, not the loudest. It opens when you have passed Unit 6. The exam is 14 problems in a sitting; 22 of 28 counter-argument problems must be right. At the weekly review the coach also grades the case against on each of your cards: sound, weak or missing.'),
+      p('The second estimate', 'with Unit 7 open, a journal card first asks for a gut number, then your reasoning, then the final number. Both are kept, and the Mirror shows whether the reasoning moved you the right way.'),
+      p('Luck or judgment (Unit 8)', 'a result and the odds that were on the table: was it luck or judgment? It opens when you have passed Unit 7. From here every resolved card gets an autopsy, the hits too, and a memory check comes first: before you see your record, you type the number you recall locking. Your recall drifts toward what happened; the exam opens after 30 checks and needs drift within 5 points either way.'),
+      p('Decisions (Unit 9)', 'a decision card pairs a prediction with a stake: what you gain if you act and it works, what you lose if you act and it does not. The break-even is loss divided by gain plus loss; act only when your number is above it. You choose to act or hold, set a review date 7 to 365 days out, and when it comes due you say what happened. Ten reviewed cards make a journal row for the unit.'),
+      p('Memory drift pattern', 'if your recall of your own numbers moves 10 points or more toward the outcome across ten checks, you get a lesson, a recall drill of ten checks, and a re-test.')),
+
     section('The autopsy and the case file',
       p('Autopsy', 'a real prediction that missed at 85% or more, and one in five confident hits, gets a short autopsy before your next journal step: mark each link of your chain held up, weak or missed it, then say what you knew, what you missed, whether it was luck or judgment, and one rule for next time.'),
       p('The rule', 'sits above your next five journal cards and is checked at 3 and 10 days: did you use it?'),
@@ -174,5 +181,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts are listed on Mirror with your real progress; the exams for Units 1, 3, 4 and 5 count toward the first ones, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress; the exams for Units 1 and 3 to 9 count toward them, and the later units come with their own exams. Predict answering inside the app arrives later: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

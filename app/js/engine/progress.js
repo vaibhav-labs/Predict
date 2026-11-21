@@ -6,7 +6,7 @@ import { roundHalfEven } from './scoring.js';
 
 // A day is played when the player did something that scores or counts: a call, a locked prediction, a resolved one.
 // Reading a lesson or opening the app does not count, so a streak can only be kept by doing the work.
-const PLAYED = new Set(['call', 'range', 'prob', 'prediction', 'resolve', 'update']);
+const PLAYED = new Set(['call', 'range', 'prob', 'prediction', 'resolve', 'update', 'memory', 'decision', 'decision_review']);
 const MAX_SPAN_DAYS = 5000; // a record with an absurd date (a phone clock gone wrong) must not hang the screen
 
 // One row per calendar day from the first played day to today, with the streak after that day, the habit points
@@ -102,6 +102,7 @@ export function beltRows(belts, facts) {
       checks.push({ label: 'Month-horizon results', have: facts.monthResolved, need: 20 });
     }
     if (b.id === 'B3') checks.push({ label: 'Calibration gap within 5 points', have: facts.gapPts === null ? null : Math.abs(facts.gapPts), need: 5, kind: 'within', ok: facts.gapPts !== null && Math.abs(facts.gapPts) <= 5 });
+    if (b.id === 'B3' && facts.memoryDriftPts !== undefined) checks.push({ label: 'Memory drift within 5 points', have: facts.memoryDriftPts === null || facts.memoryDriftPts === undefined ? null : Math.abs(facts.memoryDriftPts), need: 5, kind: 'within', ok: facts.memoryDriftPts !== null && facts.memoryDriftPts !== undefined && Math.abs(facts.memoryDriftPts) <= 5 });
     const done = checks.length > 0 && checks.every((c) => (c.ok !== undefined ? c.ok : c.have >= c.need));
     return { id: b.id, belt: b.belt, title: b.title, text: b.requirements, checks, done, external: need === 0 && !units.length };
   });

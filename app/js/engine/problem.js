@@ -9,6 +9,7 @@ import { ACTIVE, flagsOf } from './lessons.js';
 import { shuffle, availablePool } from './draw.js';
 import { scoreRange, checkInput } from './range.js';
 import { gateU6, streamOf, stepsOf } from './update.js';
+import { CHOICE_UNITS, isChoiceUnit, choiceGateOf } from './know.js';
 
 // ---- the worksheet: combine the parts' ranges into a range for the whole -------------------------------------------------
 // Each part is a (low, high) the player would bet 19 to 1 on. In log space a product is a sum: the centres add, and the
@@ -107,12 +108,12 @@ export function gateU5(probs, gates) {
   if (n > 0 && within < gates.rate_pass_within) reasons.push('within');
   return { n, hits: within, within, meanMiss: n ? probs.reduce((s, p) => s + p.miss, 0) / n : null, bias, points: probs.reduce((s, p) => s + p.points, 0), pass: n > 0 && reasons.length === 0, reasons, dir: reasons.length ? (bias > 0 ? 'too high' : 'too low') : null, need: gates.rate_pass_within };
 }
-export const gateOf = (unit) => (unit === 'U4' ? gateU4 : unit === 'U6' ? gateU6 : gateU5);
-export const examTotal = (unit, gates) => (unit === 'U4' ? gates.fermi_exam_calls : unit === 'U6' ? gates.update_exam_calls : gates.rate_exam_calls);
-export const examSitting = (unit, cfg) => (unit === 'U4' ? cfg.problems.fermi.exam_session_size : unit === 'U6' ? cfg.problems.update.exam_session_size : cfg.problems.rate.exam_session_size);
+export const gateOf = (unit) => (isChoiceUnit(unit) ? choiceGateOf(unit) : unit === 'U4' ? gateU4 : unit === 'U6' ? gateU6 : gateU5);
+export const examTotal = (unit, gates) => (isChoiceUnit(unit) ? gates[`${CHOICE_UNITS[unit]}_exam_calls`] : unit === 'U4' ? gates.fermi_exam_calls : unit === 'U6' ? gates.update_exam_calls : gates.rate_exam_calls);
+export const examSitting = (unit, cfg) => (isChoiceUnit(unit) ? cfg.problems.choice[unit].exam_session_size : unit === 'U4' ? cfg.problems.fermi.exam_session_size : unit === 'U6' ? cfg.problems.update.exam_session_size : cfg.problems.rate.exam_session_size);
 
 // Where the player stands on a Unit 4 or 5 gate. `open` says the unit before it is passed.
-export function problemGateStatus(events, cfg, unit, { open = false, practice = 0, practiceRequired = 0 } = {}) {
+export function problemGateStatus(events, cfg, unit, { open = false, practice = 0, practiceRequired = 0, extraReady = true } = {}) {
   const g = cfg.gates;
   const attempts = examsOf(events, cfg, unit);
   const running = attempts.find((a) => !a.result) || null;
@@ -124,13 +125,14 @@ export function problemGateStatus(events, cfg, unit, { open = false, practice = 
     const watch = new Set((g.rust_triggers && g.rust_triggers[unit]) || []);
     rust = flagsOf(events, cfg).find((c) => watch.has(c.trigger) && c.openedAt > passedAttempt.result.t && ACTIVE.has(c.state)) || null;
   }
-  const eligible = open && practice >= practiceRequired && !passedAttempt && !running && !needsRepair;
-  return { unit, open, attempts, running, passed: !!passedAttempt, passedAt: passedAttempt ? passedAttempt.result.t : null, lastFailed, needsRepair, rust, eligible, total: examTotal(unit, g), done: running ? running.calls.length : 0, practice, practiceRequired };
+  const eligible = open && extraReady && practice >= practiceRequired && !passedAttempt && !running && !needsRepair;
+  return { unit, open, extraReady, attempts, running, passed: !!passedAttempt, passedAt: passedAttempt ? passedAttempt.result.t : null, lastFailed, needsRepair, rust, eligible, total: examTotal(unit, g), done: running ? running.calls.length : 0, practice, practiceRequired };
 }
 export const sittingSize = (status, cfg) => Math.min(examSitting(status.unit, cfg), status.total - status.done);
 
 // The repair drill after a failed exam: more Fermi problems when the worksheet ranges were off; more base-rate problems otherwise.
 export function problemRepairOf(unit, cfg) {
+  if (isChoiceUnit(unit)) return { kind: 'choice', calls: cfg.gates[`${CHOICE_UNITS[unit]}_repair_calls`] };
   return unit === 'U4' ? { kind: 'fermi', calls: cfg.gates.fermi_repair_calls } : unit === 'U6' ? { kind: 'update', calls: cfg.gates.update_repair_calls } : { kind: 'rate', calls: cfg.gates.rate_repair_calls };
 }
 

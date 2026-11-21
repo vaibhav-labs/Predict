@@ -46,7 +46,9 @@ Nothing personal goes to the public repository. `tools/check_data.py` refuses a 
   "prompts": [{ "day": "2026-11-16", "items": [{ "text": "By ..., ...", "domain": "world", "due": "month" }] }],
   "baselines": { "<prediction id>": { "p": 0.35, "written": "2026-11-15", "ref": "the reference class and span" } },
   "outcomes": { "<prediction id>": { "result": "yes", "source": "https://...", "checked": "2026-11-15", "note": "..." } },
-  "reads": { "<prediction id>": { "text": "...", "written": "2026-11-15" } }
+  "reads": { "<prediction id>": { "text": "...", "written": "2026-11-15" } },
+  "news": { "<prediction id>": { "text": "...", "written": "2026-11-15", "source": "https://..." } },
+  "grades": { "<prediction id>": { "grade": "sound", "written": "2026-11-15", "note": "..." } }
 }
 ```
 
@@ -69,6 +71,10 @@ a baseline between 1% and 99%.
   Only a result the player used goes into the record, with its source.
 - **Reads.** After a card resolves: what the chain got right and what the outcome says about it, in plain words, tied to the
   player's own marks if there is an autopsy. Under 900 characters.
+- **Grades (Block 9, Unit 7).** For each card locked since Unit 7 opened that has a case against, grade the case against: `sound` when it names a specific
+  reason the claim could be false that the card's own evidence does not already answer; `weak` when it is vague, generic or already answered; `missing` when it was left blank or
+  restates the claim. `weak` and `missing` need a one-line `note` saying what a sound one would look like; `sound` may leave the note out. The app shows the grade on the card and counts them on the Mirror. A grade for
+  an unknown or malformed id is dropped.
 - **Top-ups.** Write proposed questions to `coach/topups-proposed.json` (shape in `tools/merge_topups.py`). They are documented
   facts about the world with their source page read on the date given, never anything from the player's record. The builder
   merges them into the public repo with `tools/merge_topups.py`; `tools/check_data.py` rejects any that break a rule.
