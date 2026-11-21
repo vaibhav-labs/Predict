@@ -1,6 +1,8 @@
 // The Mirror: where the numbers live. A first calibration curve with an error bar on every band, the bias map split by
 // topic, domain and horizon, the journal-only record, level, streak, the seven-day score and the belts.
 // Every statistic shows its sample size, and a group too small to say anything says "too few".
+import { worldMirrorRows } from './world.js';
+import { arenaMirrorRows } from './arena.js';
 import { gateState, rangeGateState, problemGateState } from '../flags.js';
 import * as PB from '../engine/problem.js';
 import * as RS from '../engine/reasoning.js';
@@ -248,6 +250,26 @@ export function mirrorScreen(ctx) {
       dsum.scoredN ? row('Value of your choices vs the line', `${signedPts(dsum.value, 0)} vs ${signedPts(dsum.ruleValue, 0)}`, `n=${dsum.scoredN}`) : null)),
     h('p', { class: 'cap' }, 'Drills do not count here. Memory drift is how far what you remember sits toward what happened, compared with what you wrote.')) : null;
 
+  // ---- with the machine (Unit 11): first, final and Predict's number over the settled world questions ----
+  const wg = worldMirrorRows(ctx);
+  const worldCard = wg ? h('section', { class: 'card stack', id: 'world-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'With the machine'), h('span', { class: 'cap num', id: 'wr-n' }, `n=${wg.n}`)),
+    h('table', { class: 'tbl', id: 'wr-table' }, h('tbody', null,
+      row('Your first numbers', `${signedPts(wg.first, 0)} a question`, ''),
+      row('Your final numbers', `${signedPts(wg.final, 0)} a question`, wg.final >= wg.first ? 'at least as good as the first' : 'below the first'),
+      row('Predict alone', `${signedPts(wg.machine, 0)} a question`, wg.final >= wg.machine ? 'your final is at least as good' : 'Predict alone is ahead'))),
+    h('p', { class: 'cap' }, `The sharp rule on every number. ${wg.n < ctx.cfg.gates.world_resolved ? `A hint until ${ctx.cfg.gates.world_resolved} are settled.` : ''}`)) : null;
+
+  // ---- Arena (Unit 12): your points against the crowd's on settled public questions (self-reported numbers) ----
+  const ag = arenaMirrorRows(ctx);
+  const arenaCard = ag ? h('section', { class: 'card stack', id: 'arena-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Arena'), h('span', { class: 'cap num', id: 'ar-n' }, `n=${ag.n}`)),
+    h('table', { class: 'tbl', id: 'ar-table' }, h('tbody', null,
+      row('Your points', `${signedPts(ag.mine, 0)} a question`, ''),
+      row('The crowd\'s points', `${signedPts(ag.crowd, 0)} a question`, ''),
+      row('Edge over the crowd', `${signedPts(ag.edge, 0)} a question`, `ahead on ${ag.ahead} of ${ag.n}`))),
+    h('p', { class: 'cap' }, `Numbers you copied from the sites yourself. ${ag.n < ctx.cfg.gates.arena_resolved ? `A hint until ${ctx.cfg.gates.arena_resolved} are settled.` : ''}`)) : null;
+
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
@@ -272,7 +294,7 @@ export function mirrorScreen(ctx) {
         row('Points', sum.n ? signed(sum.points) : '–', sum.n ? `${signed(Math.round(sum.avgPoints))} a call` : ''))));
 
   return tabFrame('mirror', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Mirror'), h('span', { class: 'date' }, base.complete ? 'Baseline done' : `Baseline ${base.done} of ${base.total}`)),
-    standingCard, curveCard, biasCard, rangeCard, reasonCard, knowCard, jcard, beltCard, stats);
+    standingCard, curveCard, biasCard, rangeCard, reasonCard, knowCard, worldCard, arenaCard, jcard, beltCard, stats);
 }
 
 function row(label, value, note) {

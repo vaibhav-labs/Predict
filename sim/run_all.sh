@@ -54,5 +54,8 @@ python3 sim/update_sim.py --runs 4000 --json sim/out/update_results.json > sim/o
 echo "know-yourself gates and memory drift on the real bank (under a minute)"
 python3 sim/know_sim.py --runs 20000 --json sim/out/know_results.json > sim/out/know_report.txt
 
+echo "fine-grain gate and round-number pattern on the real tail bank (under a minute)"
+python3 sim/fine_sim.py --runs 4000 --json sim/out/fine_results.json > sim/out/fine_report.txt
+
 echo "6/6 balance report"
 python3 sim/make_balance_report.py

@@ -251,6 +251,28 @@ const memoryDrift = {
   },
 };
 
+// L14 round-number habit (Block 10): over the last `window` calls on the 1% dial (Unit 10 practice and exam, never a drill), more than `min_share` sat on a multiple of `round_to`.
+// It clears when fewer than `clear_below` of the next `clear_window` fine calls (after the drill, from the ready day on) do.
+const fineNatural = (calls) => calls.filter((c) => c.fine === true);
+const roundShareOf = (list, to) => list.filter((c) => Math.round(c.c * 100) % to === 0).length / list.length;
+const roundHabit = {
+  fire({ calls, t }, since) {
+    const obs = after(fineNatural(calls), since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const share = roundShareOf(w, t.round_to);
+    if (share <= t.min_share + EPS) return null;
+    return { evidence: { n: w.length, share, from: w[0].t, to: w[w.length - 1].t }, strength: share / t.min_share };
+  },
+  retest({ calls, t }, since, readyDay) {
+    const obs = after(fineNatural(calls), since).filter((c) => !readyDay || c.d >= readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const share = roundShareOf(w, t.round_to);
+    return { pass: share < t.clear_below - EPS, evidence: { n: w.length, share } };
+  },
+};
+
 // Missed days (L15) is a habit flag: no lesson, no re-test. It fires on missed days in the last window_days, and clears
 // after clear_days played days in a row that each hold the minimum session.
 function missedDays(ctx, sinceDay) {
@@ -305,6 +327,7 @@ export const TRIGGERS = {
   L11: whiplash,
   L12: memoryDrift,
   L13: domainBlind,
+  L14: roundHabit,
   L15: { habit: true },
 };
 export const PATTERN_IDS = Object.keys(TRIGGERS).filter((id) => !TRIGGERS[id].habit);
@@ -373,6 +396,10 @@ export function retestProgress(chain, events, { cfg, predictions, today, news = 
   if (chain.trigger === 'L11') {
     const have11 = UP.whiplashObs(predictions || [], today, t, sinceT, wait.readyDay).length;
     return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have11, t.clear_window), ready: today >= wait.readyDay };
+  }
+  if (chain.trigger === 'L14') {
+    const have14 = calls.filter((c) => c.fine === true).length;
+    return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have14, t.clear_window), ready: today >= wait.readyDay };
   }
   const have = predObs ? predObs().length : chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length
     : chain.trigger === 'L05' || chain.trigger === 'L06' ? ranges.length : calls.filter((c) => inBand(c, t.band)).length;

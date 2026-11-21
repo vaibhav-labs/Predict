@@ -15,7 +15,7 @@ const DOMAINS = new Set(['work', 'life', 'world']);
 const DUES = new Set(['tomorrow', 'week', 'month', 'longer']);
 const RESULTS = new Set(['yes', 'no', 'void']);
 const GRADES = new Set(['sound', 'weak', 'missing']);
-const LIMITS = { title: 120, paragraph: 700, paragraphs: 12, drills: 6, drillText: 400, prompt: 220, perDay: 3, days: 14, read: 900, note: 300, ref: 160, ids: 400 };
+const LIMITS = { title: 120, paragraph: 700, paragraphs: 12, drills: 6, drillText: 400, prompt: 220, perDay: 3, days: 14, read: 900, note: 300, ref: 160, ids: 400, forecasts: 40, forecastText: 220, forecastSpanDays: 120 };
 
 const text = (v, max) => (typeof v === 'string' && v.trim() && v.length <= max && !BANNED.test(v) ? v.trim() : null);
 const day = (v) => (typeof v === 'string' && DAY.test(v) ? v : null);
@@ -27,7 +27,7 @@ const httpsUrl = (v) => {
 };
 
 export function emptyCoach() {
-  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, news: {}, grades: {}, dropped: 0 };
+  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, news: {}, grades: {}, forecasts: {}, dropped: 0 };
 }
 
 // Cut `raw` (parsed JSON of coach/latest.json, or anything) down to what is valid. `dropped` counts what was refused.
@@ -94,6 +94,23 @@ export function parseCoach(raw) {
     const grade = g && GRADES.has(g.grade) ? g.grade : null, written = dayOf(g && g.written);
     const note = g && g.note !== undefined ? text(g.note, LIMITS.note) : null;
     if (grade && written && /^[\w-]+$/.test(id) && (note || grade === 'sound')) out.grades[id] = { grade, written, note }; else drop();
+  }
+  // Predict's own forecasts on world questions (Block 10, Unit 11), written before the question opens for the player. `p` is the chance of yes in whole
+  // percents; `written` must be on or before `opens`, and `due` after it, so a forecast written after the fact can never be shown as an independent one.
+  // A checked result (result, source, checked) is kept only whole; without its source link the forecast stays and the result is dropped.
+  const idOk = (id) => /^[a-z0-9][\w-]{2,39}$/.test(id);
+  for (const [id, f] of entries(raw.forecasts).slice(0, LIMITS.forecasts)) {
+    const t = text(f && f.text, LIMITS.forecastText), written = dayOf(f && f.written), opens = day(f && f.opens), due = day(f && f.due), ref = text(f && f.ref, LIMITS.ref);
+    const num = f && f.p;
+    const okP = typeof num === 'number' && num >= 0.01 && num <= 0.99;
+    const span = opens && due ? (Date.parse(due) - Date.parse(opens)) / 86400000 : -1;
+    if (!(t && written && opens && due && ref && okP && idOk(id) && written <= opens && span >= 1 && span <= LIMITS.forecastSpanDays)) { drop(); continue; }
+    const entry = { text: t, p: Math.round(num * 100) / 100, written, opens, due, ref, result: null, source: null, checked: null };
+    if (f.result !== undefined || f.source !== undefined || f.checked !== undefined) {
+      const url = httpsUrl(f.source), checked = dayOf(f.checked);
+      if (RESULTS.has(f.result) && url && checked) { entry.result = f.result; entry.source = url; entry.checked = checked; } else drop();
+    }
+    out.forecasts[id] = entry;
   }
   return out;
 }

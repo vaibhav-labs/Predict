@@ -20,7 +20,8 @@ DOMAINS = {"work", "life", "world"}
 DUES = {"tomorrow", "week", "month", "longer"}
 RESULTS = {"yes", "no", "void"}
 ID = re.compile(r"^[\w-]+$")
-L = dict(title=120, paragraph=700, paragraphs=12, drills=6, drill_text=400, prompt=220, per_day=3, days=14, read=900, note=300, ref=160, ids=400, sources=10, label=120)
+FID = re.compile(r"^[a-z0-9][\w-]{2,39}$")
+L = dict(title=120, paragraph=700, paragraphs=12, drills=6, drill_text=400, prompt=220, per_day=3, days=14, read=900, note=300, ref=160, ids=400, sources=10, label=120, forecasts=40, forecast_text=220, forecast_span=120)
 
 
 def text(v, mx):
@@ -50,7 +51,7 @@ def isobj(v):
 
 def parse(raw):
     """Returns (kept, dropped): kept counts what the app would keep of each kind."""
-    kept = dict(letter=0, sources=0, drills=0, prompt_days=0, prompt_items=0, baselines=0, outcomes=0, reads=0)
+    kept = dict(letter=0, sources=0, drills=0, prompt_days=0, prompt_items=0, baselines=0, outcomes=0, reads=0, forecasts=0)
     dropped = 0
     if not isobj(raw) or raw.get("version") != VERSION:
         return kept, (1 if raw else 0)
@@ -106,6 +107,20 @@ def parse(raw):
         if isobj(r) and text(r.get("text"), L["read"]) and day_of(r.get("written")) and ID.match(i):
             kept["reads"] += 1
         else:
+            dropped += 1
+    for i, f in entries(raw.get("forecasts"))[: L["forecasts"]]:
+        ok = False
+        if isobj(f):
+            p = f.get("p")
+            written, opens, due = day_of(f.get("written")), (f.get("opens") if isinstance(f.get("opens"), str) and DAY.match(f["opens"]) and day_of(f["opens"]) else None), (f.get("due") if isinstance(f.get("due"), str) and DAY.match(f["due"]) and day_of(f["due"]) else None)
+            span = (date.fromisoformat(due) - date.fromisoformat(opens)).days if opens and due else -1
+            ok = bool(text(f.get("text"), L["forecast_text"]) and written and opens and due and text(f.get("ref"), L["ref"]) and isinstance(p, (int, float)) and not isinstance(p, bool)
+                      and 0.01 <= p <= 0.99 and FID.match(i) and written <= opens and 1 <= span <= L["forecast_span"])
+        if not ok:
+            dropped += 1
+            continue
+        kept["forecasts"] += 1
+        if any(k in f for k in ("result", "source", "checked")) and not (f.get("result") in RESULTS and https(f.get("source")) and day_of(f.get("checked"))):
             dropped += 1
     return kept, dropped
 

@@ -203,7 +203,7 @@ export const RATE_LESSONS = [
 ];
 
 // The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), one more card for soft questions, and a Unit 3 card for each range pattern.
-export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L10: 'steps', L11: 'worth', L12: 'memory', L13: 'blind' };
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L10: 'steps', L11: 'worth', L12: 'memory', L13: 'blind', L14: 'tens' };
 export const STRANGER = {
   id: 'stranger',
   title: 'Could a stranger score this?',
@@ -323,8 +323,40 @@ export const DECISION_LESSONS = [
     ],
   },
 ];
-const ALL_LISTS = [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS];
+export const FINE_LESSONS = [
+  {
+    id: 'sharp',
+    title: 'The sharp rule',
+    blurb: 'Points that punish a sure miss without mercy',
+    blocks: (S, cfg) => [
+      { p: ['Unit 10 swaps the dial for a finer one, in steps of 1% from 50 to 99, and the calls are scored by the ', { b: 'sharp rule' }, ': 100 × (1 + log₂ p), where p is the chance you gave to what happened. A flat 50% scores 0; 99% right pays ', String(S.points('log_points', 0.99)), '.'] },
+      { p: ['The price of being wrong is steep: at 99% a miss costs ', String(-S.points('log_points', 0.01)), '. At 95% it costs ', String(-S.points('log_points', 0.05)), '; at 90%, ', String(-S.points('log_points', 0.1)), '. That is why 100% is not on the dial. Saying exactly what you believe is still the best policy, but the sharp rule makes the gap between 96% and 99% worth real points.'] },
+      { p: ['These calls are scored on this scale only in Unit 10. In the ledger they count at the core rule, so your level never swings on one 1% call.'] },
+    ],
+  },
+  {
+    id: 'tails',
+    title: 'The tails are where the points are',
+    blurb: 'Rare events, and the figure the record gives',
+    blocks: (S, cfg) => [
+      { p: ['Unit 10 questions are all in the tails: a flight at least three hours late, a month when the market falls 8%, a day with 20 mm of rain. The record says how often. Most of the time the answer is "no, at 96% or 98%".'] },
+      { p: ['Two mistakes cost the most. The first is rounding to 99% because it feels sure: a claim that holds 97 times in 100 is wrong three times in a hundred, and the sharp rule charges ', String(-S.points('log_points', 0.01)), ' for each of them. The second is saying 90% because the true figure feels too small to type.'] },
+      { p: [`The exam is ${cfg.gates.fine_exam_calls} fresh calls in sittings of ${cfg.gates.fine_sitting}. Your average confidence must be within ${Math.round(cfg.gates.fine_index_tolerance * 1000) / 10} points of the share you got right. After each practice call the reveal shows what the base rate alone would have scored.`] },
+    ],
+  },
+  {
+    id: 'tens',
+    title: 'Sixty or sixty-five',
+    blurb: 'Round numbers hide real differences',
+    blocks: (S, cfg) => [
+      { p: ['A number ending in zero is easy to say and easy to defend. It is also a way of not deciding: 90 could mean 87 or 93, and over many calls that coarseness costs about as much as a small bias.'] },
+      { p: [`If more than ${cfg.lessons.triggers.L14.min_share * 100}% of your last ${cfg.lessons.triggers.L14.window} fine calls sit on a multiple of ten, the pattern opens. The drill locks the multiples of ten for ${cfg.lessons.triggers.L14.drill.calls} calls: say 63 or 67, whichever you mean.`] },
+      { p: ['The rule is not "avoid zeros". It is "give the number you actually believe". Two re-tests clear it: fewer than ', String(cfg.lessons.triggers.L14.clear_below * 100), '% round on the next ', String(cfg.lessons.triggers.L14.clear_window), '.'] },
+    ],
+  },
+];
+const ALL_LISTS = [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS, SECOND_LESSONS, AUTOPSY_LESSONS, DECISION_LESSONS, FINE_LESSONS];
 export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : ALL_LISTS.flat().find((l) => l.id === FLAG_CARD[trigger]) || null);
 // Every card the Path can open, with the list it belongs to.
 export const cardList = (id) => ALL_LISTS.find((list) => list.some((l) => l.id === id)) || null;
-export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : RATE_LESSONS.some((l) => l.id === id) ? 'Unit 5 · Outside view' : UPDATE_LESSONS.some((l) => l.id === id) ? 'Unit 6 · Updating' : SECOND_LESSONS.some((l) => l.id === id) ? 'Unit 7 · Second opinions' : AUTOPSY_LESSONS.some((l) => l.id === id) ? 'Unit 8 · Autopsy' : 'Unit 9 · Decisions');
+export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : RATE_LESSONS.some((l) => l.id === id) ? 'Unit 5 · Outside view' : UPDATE_LESSONS.some((l) => l.id === id) ? 'Unit 6 · Updating' : SECOND_LESSONS.some((l) => l.id === id) ? 'Unit 7 · Second opinions' : AUTOPSY_LESSONS.some((l) => l.id === id) ? 'Unit 8 · Autopsy' : FINE_LESSONS.some((l) => l.id === id) ? 'Unit 10 · Fine grain' : 'Unit 9 · Decisions');
