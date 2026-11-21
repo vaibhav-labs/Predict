@@ -298,6 +298,50 @@ knew, what I missed, luck or judgment, one rule). It takes about 90 seconds, and
 - **Time:** the chain fits the 4-minute journal slot. The autopsy adds about 2 minutes on the days it
   is due, so those days run slightly over 15 minutes.
 
+### 4.10 The Mirror (Block 3)
+
+Nothing the Mirror shows is stored. Every number is worked out again from the event log each time a screen
+opens, so an Import, an Erase or a new day changes it at once, and an independent recomputation
+(`tools/ref_mirror.py`) can be held against it from the same raw events.
+
+- **A played day** is a local day with at least one call, one locked prediction or one resolved prediction.
+  A session that was opened and closed with no call does not count, and neither does opening the app.
+- **Streak.** A played day adds one. A missed day keeps `floor(streak * streak_cool_fraction)` (one half) of
+  the streak. Today is never a miss while it is still going, so the screens say "play today to keep it"
+  until it is played and "played today" after.
+- **Habit points** are paid once per played day, however many sessions it holds: `session_points` plus
+  `streak_bonus_per_day` for each streak day up to `streak_bonus_cap_days` (at most 120 a day).
+- **Career points** are a high-water mark of the running total of call points, journal edge points and
+  habit points. The level comes from career points alone (cost `140 * L^1.2`, rounded half to even, so
+  `data/levels.csv` is reproduced exactly); a bad day can lower the running total but never the level.
+- **Seven-day score** is the average skill points (call points plus edge points, never habit points) over the
+  days played in the last seven, with the number of played days and calls under it. "Today beats the
+  seven days before" compares today's skill points with the same average over the seven days before today.
+  Habit points are left out so that showing up can never raise it.
+- **Error bars.** Every point on a calibration curve carries a 95% Wilson interval for its hit rate
+  (`mirror.error_bar_z`, 1.96), and the number of calls is printed under it. A band with fewer than
+  `mirror.thin_below` (10) calls is hollow and dashed, never hidden.
+- **Verdicts.** A group's gap is its average stated confidence minus its hit rate. The verdict is read from
+  the Wilson interval, not from the gap alone: "too sure" when even the best hit rate the sample allows is
+  below the average confidence, "too shy" when even the worst is above it, otherwise "no clear bias", and
+  "too few" under `thin_below`. A group that is too few to read shows its numbers and claims nothing.
+- **Bias map.** The gym's calls are split by topic. The journal's are split by domain and by horizon, and
+  by both in a grid that shows the number of cards and the average edge in each cell.
+- **Journal-only record.** Counts resolved cards that are not void, are scored (the one a day), are not
+  trivial (baseline outside `journal.trivial_band`) and are not self-controlled (the checker flagged
+  `self_controlled` at lock). A card is written like a gym call: confidence on the side it leaned to (50%
+  leans Yes), a hit when that side was right, and its edge as its points. The card that is kept out of
+  the record is still scored and still listed, and its case file says in one sentence why it is kept out.
+- **Belts** show real progress from facts the app can count (gates passed, resolved real predictions, total
+  edge, month-horizon results, calibration gap). A belt is never shown as earned in Block 3: no gate
+  can be passed before Block 4 builds the exams, and the fifth belt is external.
+- **Case file, lens 4 (your pattern).** For a resolved card: the journal-only record for its domain, for its
+  horizon, for the cell where the two meet, and for the whole journal, each with its n; "too few" under
+  `thin_below`. One card is a story, not a pattern: nothing here becomes a lesson (Block 4).
+- **Table of other numbers (fix in Block 3).** The rows are the gym's eleven steps on the side the card
+  leaned to (a forecast under 50% runs 50, 45 ... 1), plus a row for the number actually said when it falls
+  between two steps, so that number is always in the table, once, marked.
+
 ---
 
 ## 5. Data model (the player's record)
@@ -319,6 +363,13 @@ question, claim text, domain, difficulty, side, confidence, truth, hit, points, 
 (a question dropped after 60 seconds), `dispute` (a question flagged), `lesson` (a card read) and `export`
 (a backup made). Events of a type the app does not know are kept and ignored, so a newer record never
 breaks an older app. An Export file is a header line followed by the events, one JSON object per line.
+
+**As built in Blocks 2 and 3.** Two more event types. `prediction` (text, domain, due option and date,
+horizon, the chain, probability `c`, baseline `b` and where it came from, `scored`, milliseconds taken,
+`flags` the checker raised on the final wording, and `flagged`, whether it raised any while the card was
+being written) and `resolve` (prediction id, outcome yes, no or void, an optional note, the raw points and
+the edge, which is null for an extra card). A prediction is never edited after it is locked; the store
+refuses a second event under its id.
 
 Two homes. `questions` is content: the builder commits it to the public repo and the app caches it. Every
 other collection is the player's record and is personal, including `letters`. The record is an
@@ -377,3 +428,4 @@ the public `Predict` repo (`design/platform.md`, sections 2 and 6).
 | 2026-11-15 | 2, 4.3, 4.8, build blocks 2, 5, 9 and 10 | Without a live model in the app, the checker became in-app rules plus an Ask Predict hand-off; the baseline is the player's own base rate until Block 5, then Predict's number if it arrives before the due date; the case-against grade is written at the weekly review; Predict's own forecast on a world question is committed to the private repo before the question opens | Consequence of the PWA decision: the app has no key and no server, so nothing can call a model while the player plays. Effects: scoring and pacing numbers are unchanged; early edge scores rest on weaker baselines, so open value 2 now settles on the first 20 baselines by hand |
 | 2026-11-15 | 4.3, build block 2 | Block 2 built: the prediction card and its six-link chain, the rule-based checker (`data/checker_rules.csv`), Ask Predict as a copied clipboard message, lock, the due list, resolve, edge against the baseline, three horizon buckets (`data/journal_baselines.csv`, `data/scoring.json` journal section), and the outcome card's table of other numbers. The two worked edge examples (4.3, 4.9) pin the scoring exactly | Build note, not a design change: scoring, the chain and the baseline rule are unchanged from the plan. Assumptions taken where the docs left a choice (due-date day counts, the three horizon buckets, a flat 50% starter table, a five-resolved own-rate threshold) are listed under "Block 2 assumptions" in STATE.md, not here, since none of them change a number already fixed by this file |
 | 2026-11-15 | 4.1, 4.8, 5, `data/scoring.json` | Block 1 built. Gym draws, baseline and practice rules written down as built (section 4.1); the record's six event types written down (section 5); `gym.tap_guard_ms` (400) added so a double tap cannot answer the next question or skip a reveal; the baseline curve shows from 20 calls, with bands under 10 calls drawn hollow. Version 0.2 | Block 1 build. Effects: scoring and pacing numbers are unchanged (`sh sim/run_all.sh` reproduced every output exactly); the 70/30 unit-pool and 90-day rules wait for Block 4 because there is one bank; the mixes, the window and `thin_below` stay first guesses until real hit rates arrive |
+| 2026-11-15 | 4.10, 4.9, build block 3 | Block 3 built: the Mirror. Streak, habit points, career points and level, the seven-day score, error bars and sample sizes on the curve, the bias map by topic, domain and horizon, the journal-only record, the belt rows with real progress, and the case file's your-pattern lens. Every number is held against an independent Python recomputation (`tools/ref_mirror.py`) from the same raw events. One fix on the way: the table of other numbers now always holds the number actually said, and runs on the side the card leaned to | Build note, not a design change: nothing in a rule or a number changed. The played-day definition, the seven-day score excluding habit points, and the verdict being read from the interval are the readings taken where the docs left a choice (STATE.md, "Block 3 assumptions") |

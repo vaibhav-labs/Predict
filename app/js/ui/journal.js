@@ -4,7 +4,8 @@ import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
 import * as J from '../engine/journal.js';
 import { signed, pct } from '../engine/scoring.js';
-import { tabFrame, focusFrame } from './common.js';
+import { tabFrame, focusFrame, picker } from './common.js';
+import { caseFile, chainCard, baselineCaption } from './casefile.js';
 
 const DOMAINS = [['work', 'Work'], ['life', 'Life'], ['world', 'World']];
 const DUE_OPTIONS = [['tomorrow', 'Tomorrow'], ['week', 'This week'], ['month', 'This month'], ['longer', 'Longer']];
@@ -88,7 +89,7 @@ function composeScreen(ctx) {
   const jcfg = ctx.cfg.journal;
   const startedAt = Date.now();
   let step = 0;
-  const draft = { domain: null, due: null, text: '', outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5 };
+  const draft = { domain: null, due: null, text: '', flaggedEver: false, outsideView: { text: '', rate: 50 }, evidence: [], caseAgainst: { text: '', number: 0 }, tripwire: { text: '', number: 0 }, c: 0.5 };
 
   const title = h('span', { class: 'tt' }, 'Write a prediction');
   const count = h('span', { class: 'cnt num' });
@@ -118,6 +119,7 @@ function composeScreen(ctx) {
 
     function runChecker() {
       const flags = J.checkClaim(claimField.value, ctx.checkerRules);
+      if (flags.length && claimField.value.trim()) draft.flaggedEver = true; // an empty box always lacks a date: that is not the player's wording being flagged
       flagsBox.replaceChildren(...flags.map((f) => h('p', { class: 'msg err' }, f.message)));
       return flags;
     }
@@ -237,20 +239,6 @@ function numberField(label, value, min, max) {
   const input = h('input', { class: 'field', type: 'number', inputmode: 'numeric', min, max, value: String(value) });
   return { el: h('div', { class: 'stack', style: 'gap:6px' }, h('span', { class: 'cap' }, label), input), input };
 }
-function picker(options, selected, onPick) {
-  let value = selected;
-  const btns = options.map(([id, label]) => {
-    const b = h('button', { class: `pick${id === value ? ' on' : ''}`, type: 'button', 'aria-pressed': id === value ? 'true' : 'false' }, label);
-    b.addEventListener('click', () => {
-      value = id;
-      btns.forEach((x, i) => { const on = options[i][0] === value; x.className = `pick${on ? ' on' : ''}`; x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-      onPick(value);
-    });
-    return b;
-  });
-  return h('div', { class: 'picker' }, btns);
-}
-
 async function lockPrediction(ctx, draft, ms) {
   const { cfg, store } = ctx;
   const jcfg = cfg.journal;
@@ -265,6 +253,9 @@ async function lockPrediction(ctx, draft, ms) {
     text: draft.text, domain: draft.domain, dueOption: draft.due, due, horizon,
     chain: { outsideView: draft.outsideView, evidence: draft.evidence, caseAgainst: draft.caseAgainst, tripwire: draft.tripwire },
     c: draft.c, b, bSource: source, scored, ms,
+    // What the checker said when the card was locked, and whether the player ever saw it say something while writing:
+    // the case file and the lessons read these, so a rewrite that was never needed is told apart from one that was.
+    flags: J.checkClaim(draft.text, ctx.checkerRules).map((f) => f.flag), flagged: draft.flaggedEver,
   });
   await store.append(ev);
   ctx.nav(`#/journal/${ev.id}`);
@@ -281,21 +272,14 @@ function detailScreen(ctx, id) {
     const predictions = R.predictionsOf(ctx.store.events, today);
     const p = predictions.find((x) => x.id === id);
     if (!p) { ctx.nav('#/journal'); return; }
-    wrap.replaceChildren(detailBody(ctx, p, today, paint));
+    wrap.replaceChildren(detailBody(ctx, p, today, paint, predictions));
     window.scrollTo(0, 0);
   }
   paint();
   return wrap;
 }
 
-function detailBody(ctx, p, today, paint) {
-  const chainCard = h('section', { class: 'card stack' },
-    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your chain')),
-    chainLine('Outside view', `${p.chain.outsideView.text} (${Math.round(p.chain.outsideView.rate * 100)}%)`),
-    ...p.chain.evidence.map((ev, i) => chainLine(`Signal ${i + 1} (${ev.dir === 'up' ? 'supports' : 'against'})`, ev.text)),
-    chainLine('Case against', `${p.chain.caseAgainst.text} (${p.chain.caseAgainst.number})`),
-    chainLine('Tripwire', `${p.chain.tripwire.text} (to ${p.chain.tripwire.number})`));
-
+function detailBody(ctx, p, today, paint, predictions) {
   const header = h('section', null,
     h('div', { class: 'tags' }, h('span', { class: 'tag' }, domainLabel(p.domain)), h('span', { class: 'tag' }, p.scored ? 'Scored' : 'Logged, unscored')),
     h('p', { class: 'claim' }, p.text),
@@ -305,21 +289,13 @@ function detailBody(ctx, p, today, paint) {
 
   if (p.state === 'open') {
     return focusFrame({ title: 'Prediction', closeTo: '#/journal' },
-      header, baselineLine, chainCard);
+      header, baselineLine, chainCard(p));
   }
   if (p.state === 'due') {
     return focusFrame({ title: 'Resolve', closeTo: '#/journal' },
-      header, baselineLine, chainCard, resolveCard(ctx, p, paint));
+      header, baselineLine, chainCard(p), resolveCard(ctx, p, paint));
   }
-  return outcomeCard(ctx, p, header, chainCard);
-}
-
-function chainLine(label, text) {
-  return h('div', null, h('div', { class: 'eyebrow' }, label), h('p', null, text));
-}
-
-function baselineCaption(p) {
-  return p.bSource === 'own' ? `your own rate for ${domainLabel(p.domain)} · ${p.horizon}` : 'a starter guess, no history yet';
+  return caseFile(ctx, p, header, predictions);
 }
 
 function resolveCard(ctx, p, paint) {
@@ -340,25 +316,4 @@ function resolveCard(ctx, p, paint) {
   return h('section', { class: 'card stack' },
     h('div', { class: 'eyebrow' }, 'What happened?'), picked, note,
     h('div', { class: 'foot' }, goBtn));
-}
-
-function outcomeCard(ctx, p, header, chainCard) {
-  const outcomeYes = p.outcome === 'yes';
-  const table = p.outcome === 'void' ? [] : J.otherNumbers(ctx.S, p.b, outcomeYes, ctx.cfg.journal.edge_weight);
-  return focusFrame({ title: 'Outcome', closeTo: '#/journal' },
-    header,
-    h('section', { class: 'card stack' },
-      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Outcome'), h('span', { class: 'cap' }, OUTCOME_LABEL[p.outcome])),
-      p.note ? h('p', null, p.note) : null,
-      p.outcome === 'void'
-        ? h('p', { class: 'lede' }, 'Void: this one scores nothing.')
-        : h('div', { class: 'sumgrid' },
-          h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('b', { class: 'num' }, pct(p.b)), h('span', { class: 'cap' }, baselineCaption(p))),
-          h('div', { class: 'p' }, h('span', { class: 'eyebrow' }, 'Your edge'), h('b', { class: `num${!p.scored || p.edge < 0 ? ' bad' : ''}` }, p.scored ? signed(p.edge) : 'Unscored'), h('span', { class: 'cap' }, p.scored ? `raw ${signed(p.raw)}` : 'extra prediction')))),
-    table.length ? h('section', { class: 'card' },
-      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'If you had said…')),
-      h('table', { class: 'tbl' },
-        h('thead', null, h('tr', null, h('th', null, 'You said'), h('th', null, 'Edge'))),
-        h('tbody', null, table.map((row) => h('tr', { class: row.c === p.c ? 'mine' : '' }, h('td', null, pct(row.c)), h('td', { class: row.edge < 0 ? 'bad' : '' }, signed(row.edge))))))) : null,
-    chainCard);
 }

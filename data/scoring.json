@@ -81,7 +81,7 @@
     "streak_bonus_per_day": 6,
     "streak_bonus_cap_days": 10,
     "streak_cool_fraction": 0.5,
-    "note": "Flat habit points, never a multiplier on calls, so attendance can never make a bad call pay."
+    "note": "Flat habit points, never a multiplier on calls, so attendance can never make a bad call pay. A played day is a day with at least one call, locked prediction or resolve. It pays session_points plus streak_bonus_per_day for each streak day up to streak_bonus_cap_days, once per played day however many sessions it holds (at most 120 a day). A missed day keeps floor(streak * streak_cool_fraction) of the streak; today is never a miss while it is still going. Career points are a high-water mark of the running total of call points, journal edge points and habit points."
   },
   "gates": {
     "calibration_index_tolerance": 0.05,
@@ -245,7 +245,8 @@
     ],
     "thin_below": 10,
     "min_calls_for_curve": 20,
-    "note": "The first calibration curve: five bands of ten points, with the number of calls under every point. A band with fewer than thin_below calls is greyed, never hidden. Block 3 adds error bars."
+    "note": "The calibration curve: five bands of ten points, with the number of calls under every point and a 95% Wilson error bar on every hit rate (error_bar_z 1.96). A band with fewer than thin_below calls is greyed and its bar dashed, never hidden. The bias map splits the same calls by topic (gym), domain and horizon (journal); a split under thin_below calls says 'too few' and claims nothing. Block 3.",
+    "error_bar_z": 1.96
   },
   "record": {
     "export_nudge_days": 7,

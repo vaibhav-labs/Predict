@@ -3,12 +3,14 @@
 A 15-minute daily game that trains calibrated judgment: you stake a confidence on a claim, reality
 scores you, and patterns of misses become lessons.
 
-**Status:** Blocks 1 and 2 of 10 are built. Block 1, the Dial: the confidence call, the 240-question
+**Status:** Blocks 1 to 3 of 10 are built. Block 1, the Dial: the confidence call, the 240-question
 starter bank, the baseline and Unit 1 practice, saved history with Export and Import, the calibration
 curve, and the installable, offline-capable app shell. Block 2, the Journal: the prediction card with
-its six-link chain, an offline checker, lock, resolve, and edge score against a hidden baseline. The
-rest is designed and built one block at a time. `STATE.md` has the detail and the next step. The app is
-served by GitHub Pages at https://vaibhav-labs.github.io/Predict/.
+its six-link chain, an offline checker, lock, resolve, and edge score against a hidden baseline. Block 3,
+the Mirror: error bars and sample sizes on the calibration curve, the bias map by topic, domain and
+horizon, level, streak and the seven-day score, the journal-only record, and the case file's "your
+pattern" lens. `STATE.md` has the detail and the next step. The app is served by GitHub Pages at
+https://vaibhav-labs.github.io/Predict/.
 
 Everything personal stays off this repo. The code, tables and question bank are public; your calls,
 predictions and coach letters live on your phone, and later in a private repo of your own.
@@ -77,9 +79,9 @@ does not deploy.
 
 ## Next step
 
-The phone check for both blocks: install the app on a phone, play a session, write a real prediction
-with its full chain, and read the "This device" card on the Coach tab (`design/platform.md`, section
-10). Block 3, the Mirror, comes only when the player says so.
+The phone check: install the app on a phone, play a session, write a real prediction with its full
+chain, and read the "This device" card on the Coach tab (`design/platform.md`, section 10). Blocks 1 to
+3 (the dial, the journal, the Mirror) are built; `STATE.md` says what each later block adds.
 
 ## Licence
 

@@ -99,14 +99,21 @@ export function helpScreen(ctx) {
     section('How to play',
       p('The dial', 'pick a side, Yes or No, and how sure you are, from 50% (a toss-up) to 99% (near certain). Lock it in.'),
       p('Baseline', 'your first 60 gym calls, in 3 sessions of 20, with no feedback until a session ends: an honest first measurement.'),
-      p('Practice', 'reveals each gym call right away: whether you were right, the points, and the answer with its source.'),
+      p('Practice', 'reveals each gym call right away: whether you were right, the points, and the answer with its source. The mix of easy, medium and hard questions shifts to keep it challenging.'),
       p('The journal’s six links', 'claim, outside view (your own reference rate), up to three signals for or against, the case against, a tripwire for changing your mind, and a probability. Lock it, and none of it can change.'),
       p('The checker', 'reads your claim for common problems: no date, a vague word, not something a stranger could check, or fully in your own control. It only advises; Ask Predict copies a message to paste into a chat for a second opinion.')),
 
-    section('Points, gap and baseline',
+    section('Mirror and Path',
+      p('Calibration curve', 'plots how often you were actually right against how sure you said you were. A point on the dashed line means your X% calls were right about X% of the time; above it, too shy; below it, too sure. Every dot carries a bar for how far luck alone could move it, and the number of calls under it: a dot with few calls is drawn hollow and means little.'),
+      p('Bias map', 'your gap split by topic for the gym, and by domain and horizon for the journal. A group with fewer than 10 calls says “too few” and claims nothing; a verdict (too sure, too shy) appears only when the whole bar sits on one side of zero.'),
+      p('Level, streak, 7 days', 'Level comes from career points, which never go down. A streak counts days you played (a call, a locked prediction or a resolved one) and a missed day keeps half of it. 7 days is your average skill points on the days you played, so showing up cannot raise it.'),
+      p('Path', 'the units ahead, and the lesson cards you have read.')),
+
+    section('Points, gap and edge',
       p('Points', 'a proper scoring rule, so saying what you actually believe is always the best strategy: a confident miss costs more than a confident hit pays.'),
       p('Gap', 'your average stated confidence minus how often you were actually right. Positive means too sure of yourself; negative, too shy.'),
-      p('Baseline (journal)', 'revealed right after you lock: your own past rate for that kind of prediction, or a starter guess if you have none yet.')),
+      p('Baseline (journal)', 'revealed right after you lock: your own past rate for that kind of prediction, or a starter guess if you have none yet.'),
+      p('Edge', 'what your journal prediction scores against that baseline, not just whether you were right. Beating the baseline is the point; a confident guess that only matches it earns nothing.')),
 
     section('Add it to your phone',
       steps(
@@ -119,5 +126,5 @@ export function helpScreen(ctx) {
       p('This device', 'checks that the app is installed, works offline, is saving your calls, and whether it is online right now.')),
 
     section('Not built yet',
-      h('p', null, 'Belts, levels and a streak (on Path and Mirror), the units past the first, and the public arena are the road ahead, not built yet. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
+      h('p', null, 'Belts are listed on Mirror with your real progress, but none can be earned until the exams that unlock them are built. A weekly letter from Predict, and Predict answering inside the app, arrive later too: for now Ask Predict only copies a message for you to paste elsewhere.')));
 }

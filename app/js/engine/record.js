@@ -124,6 +124,12 @@ export function lastExport(events) {
 
 const dayIndex = (s) => { const [y, m, d] = s.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000); };
 export const daysBetween = (a, b) => dayIndex(b) - dayIndex(a);
+// A calendar day written as YYYY-MM-DD, moved by n days (n may be negative). Pure calendar arithmetic, no time zones.
+export function addDays(day, n) {
+  const [y, m, d] = day.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + n));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
 
 // Day 1 is the day of the first call. Before any call, today is Day 1.
 export function dayNumber(events, today) {
