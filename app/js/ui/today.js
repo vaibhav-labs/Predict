@@ -10,6 +10,8 @@ import { lessonState, gateState } from '../flags.js';
 import { flagName } from '../flagtext.js';
 import { patternRow } from './patterns.js';
 import { recheckCard } from './autopsy.js';
+import { rangesTodayCard } from './ranges.js';
+import { rangeGateState } from '../flags.js';
 
 // What needs the player before anything else: an autopsy that is due, the patterns in repair, the exam.
 function needsCard(ctx, ls, gate) {
@@ -28,6 +30,14 @@ function needsCard(ctx, ls, gate) {
       h('span', { class: 'tick', 'aria-hidden': 'true' }),
       h('span', { class: 't' }, h('b', null, 'Unit 1 exam'), h('em', null, text)),
       h('span', { class: 'cap' }, gate.running ? 'Continue' : gate.needsRepair ? 'Repair' : 'Ready')));
+  }
+  const rg = rangeGateState(ctx);
+  if (rg.running || rg.needsRepair || rg.eligible) {
+    const text = rg.running ? `${rg.done} of ${rg.total} ranges done` : rg.needsRepair ? 'Repair drill first' : `${rg.total} fresh ranges, judged once`;
+    rows.push(h('a', { class: 'lesson-link', href: '#/path', id: 'need-rexam' },
+      h('span', { class: 'tick', 'aria-hidden': 'true' }),
+      h('span', { class: 't' }, h('b', null, 'Unit 3 exam'), h('em', null, text)),
+      h('span', { class: 'cap' }, rg.running ? 'Continue' : rg.needsRepair ? 'Repair' : 'Ready')));
   }
   if (!rows.length) return null;
   return h('section', { class: 'card', id: 'needs' },
@@ -90,6 +100,7 @@ export function todayScreen(ctx) {
     habitCard(ctx, ls),
     letterNudge(ctx),
     needsCard(ctx, ls, gate),
+    rangesTodayCard(ctx),
     ...ls.rechecks.slice(0, 2).map((r) => recheckCard(ctx, r, () => ctx.refresh())),
     h('section', { class: 'card' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Today'), h('span', { class: 'cap' }, `Block ${BLOCKS_BUILT} of 10 built`)),

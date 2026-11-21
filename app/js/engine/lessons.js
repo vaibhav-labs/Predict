@@ -6,7 +6,7 @@
 // A flag's life: open -> lesson read -> drill done -> re-test 1 (3 or more days later) -> re-test 2 (10 or more days
 // after the drill) -> cleared. A failed re-test returns it to open and adds a fire; at escalate_after_fires fires it
 // goes to the weekly review. Each step is one `flag` event, so the state is a fold of the log.
-import { addDays, localDay, callsOf } from './record.js';
+import { addDays, localDay, callsOf, rangesOf } from './record.js';
 import { ledger } from './progress.js';
 
 const EPS = 1e-9;
@@ -14,6 +14,8 @@ const inBand = (c, [lo, hi]) => c.c >= lo - EPS && c.c <= hi + EPS;
 
 // The player's own calls, as the triggers read them. Calls of an exam not yet judged are sealed and read by nothing.
 export const naturalCalls = (events, cfg) => callsOf(events).filter((e) => cfg.lessons.natural_modes.includes(e.mode));
+// The player's own ranges (Unit 3), as L05 and L06 read them: practice and judged exams, never a drill. A range of an exam not yet judged is sealed.
+export const naturalRanges = (events) => rangesOf(events).filter((r) => r.mode === 'practice' || r.mode === 'exam');
 // A journal prediction the checker had something to say about: flagged while it was written, or on its final wording.
 export const rejected = (p) => p.flagged === true || (Array.isArray(p.flags) && p.flags.length > 0);
 
@@ -92,6 +94,43 @@ const soft = {
   },
 };
 
+// Ranges (Unit 3). L05: fewer than min_hits of the last window ranges held the truth (too narrow). L06: high_hits or more held it and
+// the average width was over width_ratio times the reference (padded). Both clear the same way: the next clear_window ranges, after
+// the re-test delay, with a number of hits inside clear_hits.
+const hitsOf = (w) => w.filter((r) => r.hit).length;
+const meanRatio = (w) => w.reduce((s, r) => s + r.ratio, 0) / w.length;
+const rangeRetest = {
+  retest({ ranges, t }, since, readyDay) {
+    const obs = after(ranges, since).filter((r) => r.d >= readyDay);
+    if (obs.length < t.clear_window) return null;
+    const w = obs.slice(0, t.clear_window);
+    const hits = hitsOf(w);
+    return { pass: hits >= t.clear_hits[0] && hits <= t.clear_hits[1], evidence: { n: w.length, hits, rate: hits / w.length, meanRatio: meanRatio(w) } };
+  },
+};
+const rangeNarrow = {
+  fire({ ranges, t }, since) {
+    const obs = after(ranges, since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const hits = hitsOf(w);
+    if (hits >= t.min_hits) return null;
+    return { evidence: { n: w.length, hits, rate: hits / w.length, meanRatio: meanRatio(w), from: w[0].t, to: w[w.length - 1].t }, strength: (0.9 * w.length - hits) / Math.sqrt(w.length * 0.9 * 0.1) };
+  },
+  ...rangeRetest,
+};
+const rangeWide = {
+  fire({ ranges, t }, since) {
+    const obs = after(ranges, since);
+    if (obs.length < t.window) return null;
+    const w = obs.slice(-t.window);
+    const hits = hitsOf(w), ratio = meanRatio(w);
+    if (hits < t.high_hits || !(ratio > t.width_ratio + 1e-12)) return null;
+    return { evidence: { n: w.length, hits, rate: hits / w.length, meanRatio: ratio, from: w[0].t, to: w[w.length - 1].t }, strength: (hits - 0.9 * w.length) / Math.sqrt(w.length * 0.9 * 0.1) + (ratio - t.width_ratio) };
+  },
+  ...rangeRetest,
+};
+
 // Missed days (L15) is a habit flag: no lesson, no re-test. It fires on missed days in the last window_days, and clears
 // after clear_days played days in a row that each hold the minimum session.
 function missedDays(ctx, sinceDay) {
@@ -137,6 +176,8 @@ export const TRIGGERS = {
   L02: bandTrigger(-1),
   L03: fence,
   L04: soft,
+  L05: rangeNarrow,
+  L06: rangeWide,
   L15: { habit: true },
 };
 export const PATTERN_IDS = Object.keys(TRIGGERS).filter((id) => !TRIGGERS[id].habit);
@@ -190,7 +231,9 @@ export function retestProgress(chain, events, { cfg, predictions, today }) {
   const t = cfg.lessons.triggers[chain.trigger];
   const calls = naturalCalls(events, cfg).filter((c) => (wait.since ? c.t > wait.since : true) && c.d >= wait.readyDay);
   const preds = (predictions || []).filter((p) => (wait.since ? p.t > wait.since : true) && p.d >= wait.readyDay);
-  const have = chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length : calls.filter((c) => inBand(c, t.band)).length;
+  const ranges = naturalRanges(events).filter((r) => (wait.since ? r.t > wait.since : true) && r.d >= wait.readyDay);
+  const have = chain.trigger === 'L04' ? preds.length : chain.trigger === 'L03' ? calls.length
+    : chain.trigger === 'L05' || chain.trigger === 'L06' ? ranges.length : calls.filter((c) => inBand(c, t.band)).length;
   return { step: wait.step, readyDay: wait.readyDay, need: t.clear_window, have: Math.min(have, t.clear_window), ready: today >= wait.readyDay };
 }
 
@@ -206,7 +249,7 @@ export function evaluate(events, { today = localDay(), cfg, predictions }) {
   const chains = flagsOf(events, cfg);
   const calls = naturalCalls(events, cfg);
   const preds = predictions.slice().sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.id < b.id ? -1 : 1));
-  const base = { events, calls, predictions: preds, today, cfg };
+  const base = { events, calls, ranges: naturalRanges(events), predictions: preds, today, cfg };
   const append = [];
 
   // 1. Re-tests that have enough observations, and the L15 run. `stays` is whether each chain is still in repair afterwards.

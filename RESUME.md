@@ -1,6 +1,6 @@
 # Predict: resume here
 
-Written 2026-11-15; refreshed after Block 4. Read this first, then `STATE.md`
+Written 2026-11-15; refreshed after Block 6 (2026-11-16). Read this first, then `STATE.md`
 (the full state, reports for the player, assumptions, decisions) and `design/mechanics.md` (the rules). Update the
 "Where it stands" section below every time you commit; it is what a fresh session reads.
 
@@ -40,20 +40,22 @@ Branches (`/home/claude/predict-build` in the cloud workspace; also in the bundl
 | `main` (= `origin/main`, `165f3c3`) | Blocks 1 and 2 plus the help screen, live |
 | `block-3` | Block 3, the Mirror |
 | `block-4` | the rebuilt question bank and Block 4, the Lesson Engine |
-| `block-5` | Block 5, the Coach: sync to the private repo, the weekly letter and its tools. **Done, all suites green** |
+| `block-5` | Block 5, the Coach: sync to the private repo, the weekly letter and its tools. Done, all suites green |
+| `block-6` | Block 6, Ranges (Unit 3): range questions, interval points, the sealed 60-range exam, L05/L06 and their drills. **Done, all suites green** |
 
-Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (95), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
-`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (238). Run the three browser suites in separate copies of the repo (tar without .git, site,
+Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (119), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
+`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (all phases incl. b6; b6 alone is 91 checks). Run the three browser suites in separate copies of the repo (tar without .git, site,
 node_modules) with different `PREDICT_PORT` values; they rebuild `site/`.
 
-Docs written for Blocks 4 and 5 (STATE.md reports and assumptions, mechanics 4.4/4.5/4.7/4.9 and the change log, balance report 4c, `design/coach.md`).
+Docs written for Blocks 4 to 6 (STATE.md reports and assumptions, mechanics 4.2/4.4/4.5/4.7/4.9 and the change log, balance report 4c and 5b, `design/coach.md`).
+Note: `sim/make_balance_report.py` regenerates the report but drops the hand-written 4c section; after running it, restore 4c from git and splice the generated 5b in.
 Open risks: L02's re-test fails a calibrated player about a third of the time (4c); the unattended weekly run is untested (needs the player's repo).
 
-Next: Block 6 (Ranges) on `block-6` chained on `block-5`, then 7 to 10.
+Next: Block 7 (Reasoning tools) on `block-7` chained on `block-6`, then 8 to 10.
 
 ### Blocks 6 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
 
-BL6 Ranges, BL7 Reasoning tools, BL8 Updating,
+BL6 Ranges (done), BL7 Reasoning tools, BL8 Updating,
 BL9 Know yourself, BL10 Compete. Specs are rows BL5 to BL10 of `data/build_blocks.csv` and the sections of
 `design/mechanics.md`.
 
@@ -74,7 +76,7 @@ git bundle create /mnt/user-data/outputs/predict-all.bundle --all
 # devicePath = /Users/jain/Documents/Predict/predict-all.bundle)
 ```
 
-To restore in a fresh workspace: `git clone predict-all.bundle predict-build && cd predict-build && git checkout block-5`
+To restore in a fresh workspace: `git clone predict-all.bundle predict-build && cd predict-build && git checkout block-6`
 (the bundle holds every branch). The project "VJ Games" also holds a text mirror of the key files under
 `predict/` (it is stale unless a note below says it was refreshed; the bundle is the complete copy).
 

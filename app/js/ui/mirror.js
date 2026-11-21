@@ -1,12 +1,15 @@
 // The Mirror: where the numbers live. A first calibration curve with an error bar on every band, the bias map split by
 // topic, domain and horizon, the journal-only record, level, streak, the seven-day score and the belts.
 // Every statistic shows its sample size, and a group too small to say anything says "too few".
-import { gateState } from '../flags.js';
+import { gateState, rangeGateState } from '../flags.js';
+import * as RG from '../engine/range.js';
+import { KIND_NAMES } from './ranges.js';
 import { h, s } from '../dom.js';
 import * as R from '../engine/record.js';
 import * as J from '../engine/journal.js';
 import * as ST from '../engine/stats.js';
 import * as P from '../engine/progress.js';
+import * as LE from '../engine/lessons.js';
 import { signed, pct, gapPts } from '../engine/scoring.js';
 import { tabFrame, unitRow, picker, cap1, DOMAIN_NAMES, HORIZON_NAMES } from './common.js';
 import { standingOf, standingTiles, weekStrip } from './standing.js';
@@ -161,10 +164,29 @@ export function mirrorScreen(ctx) {
       h('tbody', null, domains.map((d) => h('tr', { 'data-domain': d }, h('td', null, DOMAIN_NAMES[d] || d),
         horizons.map((hz) => { const c = (jrec.grid[d] || {})[hz]; return h('td', { 'data-horizon': hz, 'data-n': c ? c.n : 0 }, c ? `n=${c.n} ${signed(Math.round(c.edge / c.n))}` : 'n=0'); }))))));
 
+  // ---- ranges (Unit 3): how often your 90% ranges held the truth, and how wide they were ----
+  const natural = LE.naturalRanges(events);
+  const rd = RG.describeRanges(natural, { thinBelow: cfg.thin_below, coverage: ctx.cfg.interval.coverage });
+  const kinds = RG.rangesByKind(natural, { thinBelow: cfg.thin_below, coverage: ctx.cfg.interval.coverage });
+  const rangeCard = natural.length ? h('section', { class: 'card stack', id: 'range-record' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Ranges'), h('span', { class: 'cap num', id: 'rr-n' }, `n=${rd.n}`)),
+    h('table', { class: 'tbl', id: 'rr-table' }, h('tbody', null,
+      row('Held the truth', `${rd.hits} of ${rd.n} (${pct(rd.rate)})`, 'a true 90% range: 9 in 10'),
+      row('Error bar', `${pct(rd.ci.lo)} to ${pct(rd.ci.hi)}`, '95%'),
+      row('Reading', rd.verdict, rd.thin ? `under ${cfg.thin_below} ranges` : ''),
+      row('Width against reference', `${rd.meanRatio.toFixed(1)}×`, `middle ${rd.medianRatio.toFixed(1)}×`),
+      row('Points', signed(rd.points), `${signed(Math.round(rd.avgPoints))} a range`))),
+    h('div', { class: 'eyebrow', style: 'margin-top:4px' }, 'By kind of question'),
+    h('ul', { class: 'rows', id: 'rr-kinds' }, kinds.map((k) => h('li', { 'data-kind': k.kind },
+      h('div', { class: 't' }, h('span', null, KIND_NAMES[k.kind] || k.kind), h('em', null, k.thin ? `n=${k.n} · too few to say anything` : `n=${k.n} · held ${pct(k.rate)} · ${k.meanRatio.toFixed(1)}× the reference`)),
+      h('span', { class: `m num${k.points < 0 ? ' bad' : ''}` }, signed(k.points)),
+      h('span', { class: 'cap', style: 'min-width:74px;text-align:right' }, k.verdict)))),
+    h('p', { class: 'cap' }, 'Drills do not count here. The error bar is the range of true rates your ranges do not rule out; a group with fewer than ' + cfg.thin_below + ' ranges says "too few" and claims nothing.')) : null;
+
   // ---- belts ----
   const resolvedCounted = jrec.n;
   const monthResolved = jrec.calls.filter((c) => c.horizon === 'month').length;
-  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
+  const beltFacts = { gatesPassed: new Set([...(base.complete ? ['U0'] : []), ...(gateState(ctx).passed ? ['U1'] : []), ...(rangeGateState(ctx).passed ? ['U3'] : [])]), resolved: resolvedCounted, totalEdge: jrec.totalEdge || 0, monthResolved, gapPts: sum.n ? Math.round(sum.gap * 100) : null };
   const belts = P.beltRows(ctx.belts, beltFacts);
   const beltCard = h('section', { class: 'card stack', id: 'belts' },
     h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Belts'), h('span', { class: 'cap' }, 'feedback, not play')),
@@ -185,7 +207,7 @@ export function mirrorScreen(ctx) {
         row('Points', sum.n ? signed(sum.points) : '–', sum.n ? `${signed(Math.round(sum.avgPoints))} a call` : ''))));
 
   return tabFrame('mirror', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Mirror'), h('span', { class: 'date' }, base.complete ? 'Baseline done' : `Baseline ${base.done} of ${base.total}`)),
-    standingCard, curveCard, biasCard, jcard, beltCard, stats);
+    standingCard, curveCard, biasCard, rangeCard, jcard, beltCard, stats);
 }
 
 function row(label, value, note) {

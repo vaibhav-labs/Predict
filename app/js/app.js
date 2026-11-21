@@ -18,6 +18,7 @@ import { flagScreen } from './ui/flag.js';
 import { rewriteScreen } from './ui/rewrite.js';
 import { examScreen } from './ui/exam.js';
 import { autopsyScreen } from './ui/autopsy.js';
+import { rangeScreen, rangeSummaryScreen, rangeExamScreen } from './ui/ranges.js';
 import { runLessonEngine } from './flags.js';
 import * as SY from './sync.js';
 import { compileCheckerRules } from './engine/journal.js';
@@ -54,11 +55,14 @@ const routes = {
   rewrite: (c, arg) => rewriteScreen(c, arg),
   exam: (c, arg) => examScreen(c, arg),
   autopsy: (c, arg) => autopsyScreen(c, arg),
+  rsummary: (c, arg) => rangeSummaryScreen(c, arg),
+  rexam: (c, arg) => rangeExamScreen(c, arg),
+  range: async (c, arg, token) => { await rangeScreen(c, root, token, arg); return null; },
   gym: async (c, arg, token) => { await gymScreen(c, root, token, arg); return null; },
 };
 
 // The screens that show lessons ask the lesson engine to look at the record first. Asking again changes nothing.
-const READS_LESSONS = new Set(['today', 'journal', 'mirror', 'path', 'summary', 'flag', 'rewrite', 'exam', 'autopsy', 'lesson']);
+const READS_LESSONS = new Set(['today', 'journal', 'mirror', 'path', 'summary', 'flag', 'rewrite', 'exam', 'autopsy', 'lesson', 'rsummary', 'rexam']);
 
 async function route() {
   const token = ++routeId;
@@ -77,13 +81,14 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, topups, exam, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
       getOK('./content/questions/starter.json').then((r) => r.json()),
       getOK('./content/questions/topups.json').then((r) => r.json()),
       getOK('./content/questions/exam-u1.json').then((r) => r.json()),
+      getOK('./content/questions/ranges.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
       getOK('./data/belts.csv').then((r) => r.text()),
@@ -99,6 +104,7 @@ async function boot() {
     const practice = bank.questions.concat(Array.isArray(topups.questions) ? topups.questions : []);
     const bankById = new Map(practice.map((q) => [q.id, q]));
     const examById = new Map(exam.questions.map((q) => [q.id, q]));
+    const rangeById = new Map(ranges.questions.map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
@@ -110,6 +116,10 @@ async function boot() {
       examBank: exam.questions,
       examById,
       questionById: (id) => bankById.get(id) || examById.get(id),
+      // Range questions (Unit 3): practice and drills draw from one pool, the Unit 3 exam from the other.
+      rangeBank: ranges.questions.filter((q) => q.pool === 'practice'),
+      rangeExamBank: ranges.questions.filter((q) => q.pool === 'exam'),
+      rangeById: (id) => rangeById.get(id),
       triggers: parseTable(triggersText),
       vagueClaims: parseTable(vagueText),
       checkerRules: compileCheckerRules(parseTable(checkerText)),

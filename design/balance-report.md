@@ -193,6 +193,26 @@ Count-based exams (exact binomial):
 
 - **Result:** the score is lowest at 90.0% coverage. A hit-counting rule would reward absurdly wide ranges.
 
+## 5b. Ranges on the real bank (Block 6)
+
+Section 5 is the closed form. This is the same game on the real range bank (`app/content/questions/ranges.json`, 200 practice and 180 exam ranges from the committed records), with the real rules from `data/scoring.json`. `sim/range_sim.py` (20,000 runs a row): each player says the question's reference interval stretched by a factor around its middle, and is judged on questions drawn at random.
+
+| Player | Holds the truth | Width against reference | Points a range | Exam pass (50 to 58 of 60) | L05 fires | L06 fires | Re-test band met (33 to 38 of 40) |
+|---|---|---|---|---|---|---|---|
+| narrow 0.4x | 41.1% | 0.40x | -101.9 | 0.0% | 100.0% | 0.0% | 0.0% |
+| narrow 0.6x | 56.7% | 0.60x | -39.7 | 0.0% | 97.4% | 0.0% | 0.1% |
+| narrow 0.8x | 77.8% | 0.80x | -5.4 | 14.2% | 69.5% | 0.0% | 4.3% |
+| the record 1.0x | 91.1% | 1.00x | -2.3 | 98.5% | 0.1% | 0.0% | 90.6% |
+| a little wide 1.3x | 94.4% | 1.30x | -16.4 | 90.2% | 0.0% | 0.0% | 73.2% |
+| wide 2x | 98.3% | 2.00x | -79.1 | 25.5% | 0.0% | 0.0% | 10.2% |
+| padded 3x | 100.0% | 3.00x | -175.0 | 0.0% | 0.0% | 100.0% | 0.0% |
+
+- **The gate does its job.** A player who says the record's own middle 90% passes the exam 98.5% of the time; a player 20% too narrow 14.2%, 40% too narrow 0.0%; twice too wide 25.5%, three times 0.0%.
+- **L05 and L06 fire on the right people.** L05 fires on 97.4% of players at 0.6x and 0.1% of the record player; L06 only on the padded player (100.0% at 3x): a range 2x the reference is at the line, not over it.
+- **Points are flat near the best range, as a fair score is.** The record player earns -2.3 a range and a player at 0.8x -5.4: the points barely tell them apart, but the exam does (98.5% against 14.2%). Being worse on either side is charged steeply: -102 at 0.4x, -175 at 3x.
+- **The offset 1.25.** On bell-shaped outcomes the honest range's expected interval score is 1.254 reference widths (section 5); on the real bank, with the floor at -400, the record player averages -5.6 a range over all 380 questions, so knowing the record earns about 0. Some kinds (rain, life expectancy, child mortality) cost 2 to 3 reference widths on a miss-heavy average and others (income per person) 1.0, so points swing by kind; the Mirror shows the split.
+- **Open risk:** the reference interval is the record's, so a player with knowledge the record lacks can beat it. That is the intent: it is the outside view, and beating it is the skill.
+
 ## 6. Real predictions: raw points against edge
 
 - **Intent:** logging sure things must not pay.

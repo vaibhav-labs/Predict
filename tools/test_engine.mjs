@@ -376,3 +376,4 @@ test('the store saves each event before it returns, refuses overwrites, and impo
 import './engine_tests/b3.mjs';
 import './engine_tests/b4.mjs';
 import './engine_tests/b5.mjs';
+import './engine_tests/b6.mjs';

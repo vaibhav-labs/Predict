@@ -1,13 +1,13 @@
 // The rows that say where each pattern flag stands: shared by Today (the ones in repair) and the Path (all of them).
 import { h, icon } from '../dom.js';
-import { flagName } from '../flagtext.js';
+import { flagName, drillRoute } from '../flagtext.js';
 
 // What the player does next about a flag, and where that is.
 export function patternAction(ctx, chain, st) {
   const flag = `#/flag/${chain.id}`;
   switch (chain.state) {
     case 'open': return { text: chain.trigger === 'L15' ? 'Back to the minimum session' : 'Read the lesson', cap: chain.trigger === 'L15' ? 'Habit' : '1 min', href: flag };
-    case 'lesson': return { text: 'Lesson read: start the drill', cap: 'Drill', href: chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : `#/gym/drill-${chain.id}` };
+    case 'lesson': return { text: 'Lesson read: start the drill', cap: 'Drill', href: drillRoute(chain) };
     case 'drill':
     case 'retest2': {
       const p = st.progress(chain);

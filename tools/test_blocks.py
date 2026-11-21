@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 5 of 10 built)", "Block 5 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 6 of 10 built)", "Block 6 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 
@@ -1118,6 +1118,427 @@ def phase_b5(E):
     page.context.close()
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Block 6: ranges (Unit 3)
+# ---------------------------------------------------------------------------------------------------------------
+import ref_range  # noqa: E402  (an independent version of the range rules)
+
+RANGE_BANK = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "ranges.json"), encoding="utf-8"))["questions"]
+RANGE_PRACTICE = [q for q in RANGE_BANK if q["pool"] == "practice"]
+RANGE_EXAM = [q for q in RANGE_BANK if q["pool"] == "exam"]
+RANGE_BY_CLAIM = {f"{q['lead']} {q['ask']}": q for q in RANGE_BANK}
+RANGE_BY_ID = {q["id"]: q for q in RANGE_BANK}
+U1_EXAM = json.load(open(os.path.join(synth.ROOT, "app", "content", "questions", "exam-u1.json"), encoding="utf-8"))["questions"]
+
+
+def rnum(x):
+    """A number as typed into the app: full precision, so the app and the reference judge the same double."""
+    return repr(float(x))
+
+
+def centred(q, k, shift=0.0):
+    """low and high as typed for a range k reference widths wide, centred on the truth, moved up by `shift` reference widths."""
+    t = ref_range.to_scale(q, q["truth"])
+    w = ref_range.to_scale(q, q["ref_high"]) - ref_range.to_scale(q, q["ref_low"])
+    return ref_range.from_scale(q, t - w * k / 2 + w * shift), ref_range.from_scale(q, t + w * k / 2 + w * shift)
+
+
+def fill_range(page, low, high):
+    page.fill("#range-low", rnum(low))
+    if page.query_selector("#range-high"):
+        page.fill("#range-high", rnum(high))
+
+
+def range_question(page):
+    page.wait_for_selector("#claim")
+    return RANGE_BY_CLAIM[text(page, "#claim")]
+
+
+def play_ranges(page, n, chooser, reveal=True, checks=None):
+    """n ranges. chooser(i, q) -> (low, high). With reveal, each range is read on its reveal screen and `checks(q, low, high, expected)` may look at it."""
+    done = []
+    for i in range(n):
+        q = range_question(page)
+        claim = text(page, "#claim")
+        low, high = chooser(i, q)
+        low, high = float(rnum(low)), float(rnum(high))
+        fill_range(page, low, high)
+        stepwise = page.query_selector("#high-box") is None
+        if stepwise:  # the one-end-at-a-time drill: set the low end first, then the high end
+            F.settle(page)
+            page.click("#lock")
+            page.wait_for_selector("#high-box")
+            page.fill("#range-high", rnum(high))
+        F.settle(page)
+        page.click("#lock")
+        exp = ref_range.judge(q, low, high)
+        if reveal:
+            page.wait_for_selector("#verdict")
+            if checks:
+                checks(q, low, high, exp)
+            F.settle(page)
+            page.click("#next")
+        advance_to(page, claim, prefixes=("#/rsummary/", "#/rexam/"))
+        done.append((q, low, high, exp))
+    return done
+
+
+def ranges_of(page, **where):
+    return of_type(page, "range", **where)
+
+
+def phase_b6(E):
+    """Unit 3: the range screens, the points, the sealed exam, the drills and the range patterns, against ref_range.py."""
+    # -- Unit 3 stays closed until the Unit 1 exam is passed ---------------------------------------------------------
+    r0 = synth.eligible_player(start=START)
+    page = open_app(E, "2026-09-12", r0.write(os.path.join(E.tmp, "b6_closed.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#day")
+    check("before the Unit 1 exam is passed there is no ranges card on Today and no Unit 3 exam on the Path", page.query_selector("#ranges-card") is None and page.query_selector("#need-rexam") is None)
+    go(page, "#/path")
+    page.wait_for_selector("#gate-card")
+    u3 = [li for li in page.query_selector_all(".units li") if "Unit 3" in (li.text_content() or "")]
+    check("Unit 3 is Locked on the Path and has no exam card", page.query_selector("#rgate-card") is None and u3 and "Locked" in u3[0].text_content(), (u3[0].text_content() if u3 else "")[:60])
+    go(page, "#/range/practice")
+    page.wait_for_function("location.hash === '#/today'", timeout=5000)
+    check("opening the ranges address while closed sends you back to Today", page.evaluate("location.hash") == "#/today")
+    E.ctx.close()
+
+    # -- open: the card, the three lessons, the first practice session ------------------------------------------------
+    base = synth.u1_passed_player(U1_EXAM, start=START)
+    day = "2026-09-20"
+    page = open_app(E, day, base.write(os.path.join(E.tmp, "b6_open.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#ranges-card")
+    check("Unit 3 is open: Today offers ten ranges, none done", "10 ranges" in text(page, "#ranges-line") and "0 of 40" in text(page, "#ranges-line"), text(page, "#ranges-line"))
+    F.audit(E, "today with ranges")
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-card")
+    u3 = [li for li in page.query_selector_all(".units li") if "Unit 3" in (li.text_content() or "")]
+    check("the Path lists Unit 3 as Open, with its three lesson cards and a practice card", "Open" in u3[0].text_content() and len(page.query_selector_all("#range-lessons .lesson-link")) == 3 and page.is_visible("#range-practice"))
+    check("the exam card says it opens after 40 practice ranges", text(page, "#rgate-status") == "Not open yet" and "40 practice ranges" in text(page, "#rgate-card"), text(page, "#rgate-card")[:120])
+    F.audit(E, "path with Unit 3")
+    shot(E, "b6-path.png")
+    go(page, "#/lesson/ninety")
+    page.wait_for_selector("#lesson-title")
+    binom_pass = {c: ref_range.binom(60, c, 50, 58) for c in (0.9, 0.7, 0.99)}
+    body = text(page, "main")
+    check("the first card is 'What a 90% range means' and its pass chances are the exact binomial ones", "What a 90% range means" in text(page, "#lesson-title") and all(f"{js_round(v * 100)}%" in body for v in binom_pass.values()) and "Unit 3" in text(page, ".eyebrow"), body[-260:])
+    F.audit(E, "lesson ninety")
+    page.click("#lesson-done")
+    page.wait_for_function("() => { const t = document.querySelector('#lesson-title'); return t && t.textContent.includes('price of width'); }", timeout=10000)
+    check("Got it moves to the second card, 'The price of width', with its table", "price of width" in text(page, "#lesson-title") and page.query_selector(".tbl") is not None and "1.00" in text(page, ".tbl"), text(page, "#lesson-title"))
+    page.click("#lesson-done")
+    page.wait_for_function("() => { const t = document.querySelector('#lesson-title'); return t && t.textContent.includes('one end at a time'); }", timeout=10000)
+    page.click("#lesson-done")
+    page.wait_for_function("location.hash === '#/path'")
+    check("three cards read are three lesson events and the Path says so", len(of_type(page, "lesson")) >= 3 and {"ninety", "price", "ends"} <= {e["lesson"] for e in of_type(page, "lesson")})
+
+    n_calls_before = len([e for e in read_events(page) if e["type"] in ("call", "session")])
+    go(page, "#/range/practice")
+    page.wait_for_selector("#claim")
+    q = range_question(page)
+    check("a practice session opens: range 1 of 10, from the practice pool, nothing to lock yet", text(page, ".cnt") == "1 of 10" and q["pool"] == "practice" and "Unit 3 practice" in text(page, "#mode-tag") and page.is_disabled("#lock"), f"{text(page, '.cnt')} {q['id']}")
+    check("the screen asks for a low and a high in the question's unit", page.is_visible("#range-low") and page.is_visible("#range-high") and q["unit"] in text(page, "#range-entry"), q["unit"])
+    F.audit(E, "range question")
+    shot(E, "b6-question.png")
+    page.fill("#range-low", "abc"); page.fill("#range-high", "5")
+    check("letters are refused in words and the lock stays off", "numbers only" in text(page, "#range-msg").lower() and page.is_disabled("#lock"), text(page, "#range-msg"))
+    page.fill("#range-low", "9"); page.fill("#range-high", "3")
+    check("a low above the high is refused", "low end" in text(page, "#range-msg").lower() and page.is_disabled("#lock"), text(page, "#range-msg"))
+    page.fill("#range-low", ""); page.fill("#range-high", "")
+    check("empty fields lock nothing and say nothing yet", page.is_disabled("#lock") and text(page, "#range-msg") == "")
+    lo, hi = ref_range.stretched(q, 1.0)
+    page.fill("#range-low", rnum(lo)); page.fill("#range-high", rnum(hi))
+    check("a valid range turns the lock on and shows its width", not page.is_disabled("#lock") and text(page, "#range-info").startswith("Width"), text(page, "#range-info"))
+    seen_log = False
+
+    def log_check(q_):
+        nonlocal seen_log
+        if q_["scale"] == "log" and not seen_log:
+            seen_log = True
+            page.fill("#range-low", "0"); page.fill("#range-high", "5")
+            check("a log question refuses a zero", "above zero" in text(page, "#range-msg").lower() and page.is_disabled("#lock"), text(page, "#range-msg"))
+
+    factors = [1.0, 0.6, 1.5, 1.0, 0.4, 2.0, 1.0, 0.8, 1.2, 1.0]
+    sums = {"points": 0, "hits": 0, "ratio": 0.0}
+    revealed = []
+
+    def on_reveal(q_, low, high, exp):
+        got = text(page, "#points")
+        ok_pts = got == signed(exp["points"])
+        ok_verdict = text(page, "#verdict") == ("Inside" if exp["hit"] else "Outside")
+        revealed.append((ok_pts, ok_verdict, got, exp["points"]))
+        sums["points"] += exp["points"]; sums["hits"] += exp["hit"]; sums["ratio"] += exp["ratio"]
+
+    def chooser(i, q_):
+        return (lo, hi) if i == 0 else ref_range.stretched(q_, factors[i])
+
+    first = True
+    done = []
+    for i in range(10):
+        q_ = range_question(page)
+        claim = text(page, "#claim")
+        log_check(q_)
+        low, high = chooser(i, q_)
+        low, high = float(rnum(low)), float(rnum(high))
+        fill_range(page, low, high)
+        F.settle(page)
+        page.click("#lock")
+        exp = ref_range.judge(q_, low, high)
+        page.wait_for_selector("#verdict")
+        on_reveal(q_, low, high, exp)
+        if first:
+            first = False
+            check("the reveal draws the truth, your range and the reference interval, with the source", page.is_visible("#range-line") and "reference interval" in (page.get_attribute("#range-line", "aria-label") or "") and f"{q_['truth']:,.{q_['digits']}f}" in text(page, ".rl-key") and page.query_selector("a.link[href^='https://']") is not None, text(page, ".rl-key"))
+            check("the reveal says whether it held, the width against the reference and how the score works", "reference" in text(page, "#range-note") and ("held the truth" in text(page, "#range-note") or "below" in text(page, "#range-note") or "above" in text(page, "#range-note")), text(page, "#range-note")[:200])
+            F.audit(E, "range reveal")
+            shot(E, "b6-reveal.png")
+        F.settle(page)
+        page.click("#next")
+        advance_to(page, claim, prefixes=("#/rsummary/",))
+        done.append((q_, low, high, exp))
+    page.wait_for_selector("#rs-head")
+    check("every reveal showed the points and the verdict the independent rules give", all(a and b for a, b, _, _ in revealed), str([r for r in revealed if not (r[0] and r[1])][:2]))
+    check("the session ends on its summary: how many held, the points and the width against the reference", text(page, "#rs-head") == f"{sums['hits']} of 10 ranges held the truth." and text(page, "#sum-points") == signed(sums["points"]) and text(page, "#sum-inside") == f"{sums['hits']} of 10" and text(page, "#sum-width") == f"{sums['ratio'] / 10:.1f}×", f"{text(page, '#rs-head')} | {text(page, '#sum-points')} | {text(page, '#sum-width')} | {text(page, '#sum-inside')} want {sums} {signed(sums['points'])}")
+    check("the summary lists the ten ranges", len(page.query_selector_all("#rows li")) == 10)
+    F.audit(E, "range summary")
+    shot(E, "b6-summary.png")
+    ev = read_events(page)
+    rs = [e for e in ev if e["type"] == "range"]
+    check("ten ranges were saved with the numbers the independent rules give (hit, ratio, score, points)", len(rs) == 10 and all(r["mode"] == "practice" and r["unit"] == "U3" for r in rs) and all(
+        r["hit"] == d[3]["hit"] and r["points"] == d[3]["points"] and near(r["ratio"], d[3]["ratio"], 1e-9) and near(r["score"], d[3]["score"], 1e-9) and r["low"] == d[1] and r["high"] == d[2] for r, d in zip(rs, done)))
+    check("one range session and its end were written, and no gym call or gym session was added", len([e for e in ev if e["type"] == "rsession"]) == 1 and len([e for e in ev if e["type"] == "rsession_end"]) == 1 and len([e for e in ev if e["type"] in ("call", "session")]) == n_calls_before)
+    kinds = {}
+    for r in rs:
+        kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+    check("ten different practice questions, no kind more than three", len({r["q"] for r in rs}) == 10 and max(kinds.values()) <= 3, str(kinds))
+    go(page, "#/mirror")
+    page.wait_for_selector("#range-record")
+    check("the Mirror counts the ten ranges apart from the calls: n=10, the held count, the width and the points", text(page, "#rr-n") == "n=10" and f"{sums['hits']} of 10" in text(page, "#rr-table") and signed(sums["points"]) in text(page, "#rr-table"), text(page, "#rr-table")[:200])
+    rows = {tr.query_selector_all("td")[0].text_content().strip(): tr.query_selector_all("td")[1].text_content().strip() for tr in page.query_selector_all("#stats tr")}
+    check("the gym's numbers did not move: still 350 calls", rows["Calls"] == "350", str(rows))
+    F.audit(E, "mirror with ranges")
+    shot(E, "b6-mirror.png")
+    # -- stopping in the middle and coming back ----------------------------------------------------------------------
+    go(page, "#/range/practice")
+    page.wait_for_selector("#claim")
+    plan2 = [e for e in read_events(page) if e["type"] == "rsession"][-1]["plan"]
+    play_ranges(page, 3, lambda i, q_: ref_range.stretched(q_, 1.0))
+    go(page, "#/today")
+    page.wait_for_selector("#ranges-card")
+    check("closing a session in the middle leaves it to resume, and Today says where it stands", "Resume: 3 of 10" in text(page, "#ranges-line") and text(page, "#ranges-start") == "Resume ranges", text(page, "#ranges-line"))
+    page.click("#ranges-start")
+    page.wait_for_selector("#claim")
+    check("resuming shows the fourth planned range, 4 of 10", text(page, ".cnt") == "4 of 10" and range_question(page)["id"] == plan2[3], f"{text(page, '.cnt')}")
+    play_ranges(page, 7, lambda i, q_: ref_range.stretched(q_, 1.0))
+    page.wait_for_selector("#rs-head")
+    rs2 = ranges_of(page)
+    check("the second session's ten ranges are all new questions (twenty in all, none repeated)", len({r["q"] for r in rs2}) == 20 and len(rs2) == 20, str(len(rs2)))
+    E.ctx.close()
+
+    # -- a too-narrow player: L05 opens, and the one-bound-at-a-time drill ------------------------------------------
+    r = synth.u1_passed_player(U1_EXAM, start=START)
+    for k in range(4):
+        r.range_day(synth.add_days("2026-09-20", k), RANGE_PRACTICE[k * 10:(k + 1) * 10], synth.hit_miss_policy("1100110011"), minute=10)
+    page = open_app(E, "2026-09-25", r.write(os.path.join(E.tmp, "b6_narrow.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#needs")
+    check("24 of the last 40 ranges held: Today shows the pattern 'Ranges too narrow'", "Ranges too narrow" in text(page, "#needs"), text(page, "#needs")[:200])
+    page.click("#needs a[data-flag]")
+    page.wait_for_selector("#flag-title")
+    check("its screen names the pattern and says what the record shows", text(page, "#flag-title") == "Ranges too narrow" and "Only 24 of your last 40 ranges held the truth" in text(page, "#flag-evidence"), text(page, "#flag-evidence"))
+    check("it opens the card 'Build it one end at a time' and offers the drill", "Build it one end at a time" in text(page, "#flag-lesson") and "one end at a time" in text(page, "#flag-action"), text(page, "#flag-action")[:150])
+    F.audit(E, "flag L05")
+    page.click("#flag-drill")
+    page.wait_for_function("location.hash.startsWith('#/range/drill-')")
+    page.wait_for_selector("#claim")
+    check("the drill opens as a drill, 1 of 10, with only the low end to fill in", text(page, ".cnt") == "1 of 10" and text(page, "#mode-tag") == "Drill" and page.query_selector("#high-box") is None and text(page, "#lock") == "Set the low end" and "Step 1 of 2" in text(page, "#step-note"), text(page, "#step-note"))
+    F.audit(E, "stepwise drill, low end")
+    q = range_question(page)
+    claim = text(page, "#claim")
+    lo, hi = ref_range.stretched(q, 1.0)
+    page.fill("#range-low", rnum(lo))
+    F.settle(page)
+    page.click("#lock")
+    page.wait_for_selector("#high-box")
+    check("setting the low end freezes it and asks for the high end", page.get_attribute("#range-low", "readonly") is not None and "Step 2 of 2" in text(page, "#step-note") and page.is_disabled("#lock") and text(page, "#lock") == "Lock in", text(page, "#step-note"))
+    page.fill("#range-high", rnum(hi))
+    F.settle(page)
+    page.click("#lock")
+    page.wait_for_selector("#verdict")
+    check("then the range locks and reveals like any other, as a drill", "Drill" in text(page, ".tags"), text(page, ".tags"))
+    F.settle(page)
+    page.click("#next")
+    advance_to(page, claim, prefixes=("#/rsummary/",))
+    play_ranges(page, 9, lambda i, q_: ref_range.stretched(q_, 1.0))
+    page.wait_for_selector("#drill-next")
+    ev = read_events(page)
+    flag = [e for e in ev if e["type"] == "flag" and e.get("state") == "open" and e.get("trigger") == "L05"][0]
+    check("ten drill ranges later the flag is in 'drill', with its re-tests described", [e["state"] for e in ev if e["type"] == "flag" and e.get("flag") == flag["id"]] == ["lesson", "drill"] and "Two re-tests" in text(page, "#drill-next"), text(page, "#drill-next")[:200])
+    check("the drill's ranges are marked drill and the Mirror leaves them out (still n=40)", len([e for e in ev if e["type"] == "range" and e["mode"] == "drill"]) == 10, "")
+    go(page, "#/mirror")
+    page.wait_for_selector("#range-record")
+    check("the Mirror reads 'too narrow' on 24 of 40 and counts no drill range", text(page, "#rr-n") == "n=40" and "24 of 40" in text(page, "#rr-table") and "too narrow" in text(page, "#rr-table"), text(page, "#rr-table")[:200])
+    E.ctx.close()
+
+    # -- a too-wide player: L06, the width budget --------------------------------------------------------------------
+    r = synth.u1_passed_player(U1_EXAM, start=START)
+    for k in range(4):
+        r.range_day(synth.add_days("2026-09-20", k), RANGE_PRACTICE[k * 10:(k + 1) * 10], synth.centered_policy(3.0), minute=10)
+    page = open_app(E, "2026-09-25", r.write(os.path.join(E.tmp, "b6_wide.jsonl")))
+    go(page, "#/today")
+    page.wait_for_selector("#needs")
+    check("40 of 40 held at three times the reference width: Today shows 'Ranges too wide'", "Ranges too wide" in text(page, "#needs"), text(page, "#needs")[:200])
+    page.click("#needs a[data-flag]")
+    page.wait_for_selector("#flag-title")
+    check("its evidence says every range held and how much wider than the record they were", "40 of your last 40 ranges held the truth" in text(page, "#flag-evidence") and "3.0 times" in text(page, "#flag-evidence"), text(page, "#flag-evidence"))
+    check("it opens 'The price of width'", "The price of width" in text(page, "#flag-lesson"), text(page, "#flag-lesson")[:80])
+    page.click("#flag-drill")
+    page.wait_for_selector("#claim")
+    check("the drill shows a width budget", "Width budget" in text(page, "#budget-note") and page.is_visible("#range-high"), text(page, "#budget-note"))
+    F.audit(E, "budget drill")
+    q = range_question(page)
+    w = ref_range.to_scale(q, q["ref_high"]) - ref_range.to_scale(q, q["ref_low"])
+    t = ref_range.to_scale(q, q["truth"])
+    wide = (ref_range.from_scale(q, t - w * 3), ref_range.from_scale(q, t + w * 3))
+    page.fill("#range-low", rnum(wide[0])); page.fill("#range-high", rnum(wide[1]))
+    check("a range over the budget will not lock and says so", page.is_disabled("#lock") and "over the budget" in text(page, "#range-msg").lower(), text(page, "#range-msg"))
+    ok_lo, ok_hi = ref_range.stretched(q, 1.5)
+    page.fill("#range-low", rnum(ok_lo)); page.fill("#range-high", rnum(ok_hi))
+    check("1.5 reference widths is inside the 1.6 budget and locks", not page.is_disabled("#lock") and not text(page, "#range-msg"), text(page, "#range-msg"))
+    play_ranges(page, 10, lambda i, q_: ref_range.stretched(q_, 1.0))
+    page.wait_for_selector("#drill-next")
+    ev = read_events(page)
+    flag = [e for e in ev if e["type"] == "flag" and e.get("state") == "open" and e.get("trigger") == "L06"][0]
+    check("after the budget drill the flag is in 'drill'", [e["state"] for e in ev if e["type"] == "flag" and e.get("flag") == flag["id"]][-1] == "drill")
+    E.ctx.close()
+
+    # -- the Unit 3 exam: ready, sealed sittings, the verdict ----------------------------------------------------------
+    r = synth.u1_passed_player(U1_EXAM, start=START)
+    for k in range(4):
+        r.range_day(synth.add_days("2026-09-20", k), RANGE_PRACTICE[k * 10:(k + 1) * 10], synth.hit_miss_policy("1111111110"), minute=10)
+    page = open_app(E, "2026-09-25", r.write(os.path.join(E.tmp, "b6_ready.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-card")
+    check("with 40 practice ranges the exam is Ready: 60 fresh ranges in 3 sittings of 20", text(page, "#rgate-status") == "Ready" and "60 fresh ranges in 3 sittings of 20" in text(page, "#rgate-card") and "50 to 58" in text(page, "#rgate-card"), text(page, "#rgate-card")[:200])
+    go(page, "#/today")
+    page.wait_for_selector("#need-rexam")
+    check("Today has the Unit 3 exam in 'Needs you'", "Unit 3 exam" in text(page, "#need-rexam"))
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-start")
+    F.audit(E, "path with the range exam ready")
+    page.click("#rgate-start")
+    page.wait_for_selector("#claim")
+    q = range_question(page)
+    check("the exam opens: sitting 1 of 3, range 1 of 20, from the exam pool", text(page, ".cnt") == "1 of 20" and text(page, "#mode-tag") == "Exam · sitting 1 of 3" and q["pool"] == "exam", f"{text(page, '.cnt')} {text(page, '#mode-tag')} {q['pool']}")
+    check("the exam says the result is sealed", "Sealed" in text(page, ".foot"), text(page, ".foot"))
+    F.audit(E, "range exam sitting")
+    def exam_chooser(i, q_):
+        return centred(q_, 1.0) if i % 10 != 9 else centred(q_, 1.0, shift=3.0)
+
+    play_ranges(page, 20, exam_chooser, reveal=False)
+    page.wait_for_selector("#rexam-sealed")
+    attempt = [e for e in of_type(page, "exam", state="start") if e.get("unit") == "U3"][0]
+    check("after the sitting: the sealed screen, 20 of 60, no verdict anywhere", text(page, "#rexam-count") == "20 of 60" and page.query_selector("#rexam-verdict") is None and page.query_selector("#verdict") is None, text(page, "#rexam-count"))
+    F.audit(E, "range exam sealed")
+    ex = [e for e in ranges_of(page) if e.get("exam") == attempt["id"]]
+    check("20 exam ranges were saved, each carrying its attempt, all from the exam pool", len(ex) == 20 and all(e["mode"] == "exam" and RANGE_BY_ID[e["q"]]["pool"] == "exam" for e in ex), str(len(ex)))
+    check("the attempt is a Unit 3 attempt of 60", attempt["unit"] == "U3" and attempt["n"] == 60)
+    go(page, "#/mirror")
+    page.wait_for_selector("#range-record")
+    rows = {tr.query_selector_all("td")[0].text_content().strip(): tr.query_selector_all("td")[1].text_content().strip() for tr in page.query_selector_all("#stats tr")}
+    check("sealed: the Mirror counts the 40 practice ranges and none of the 20 exam ranges", text(page, "#rr-n") == "n=40", text(page, "#rr-n"))
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-card")
+    check("the Path says the exam is in progress and offers the next sitting of 20", text(page, "#rgate-status") == "In progress" and text(page, "#rgate-start") == "Next sitting: 20 ranges", f"{text(page, '#rgate-status')} / {text(page, '#rgate-start')}")
+    E.ctx.close()
+
+    # -- judged: pass, fail too narrow, fail too wide ------------------------------------------------------------------
+    for kind, first40, last20, want_pass, want_hits in (
+        ("pass", "1111111110", lambda i: i % 10 != 9, True, 54),
+        ("narrow", "1110000000", lambda i: i % 2 == 0, False, 22),
+        ("wide", "1", lambda i: True, False, 60),
+    ):
+        r = synth.u1_passed_player(U1_EXAM, start=START)
+        for k in range(4):
+            r.range_day(synth.add_days("2026-09-20", k), RANGE_PRACTICE[k * 10:(k + 1) * 10], synth.hit_miss_policy("1111111110"), minute=10)
+        att = r.range_exam_start("2026-09-25", 10)
+        pool = list(RANGE_EXAM)
+        random.Random(11).shuffle(pool)
+        policy = synth.centered_policy(3.0) if kind == "wide" else synth.hit_miss_policy(first40)
+        r.range_day("2026-09-25", pool[:20], policy, mode="exam", minute=20, exam=att, n=1, of=3)
+        r.range_day("2026-09-26", pool[20:40], policy, mode="exam", minute=20, exam=att, n=2, of=3)
+        page = open_app(E, "2026-09-27", r.write(os.path.join(E.tmp, f"b6_exam_{kind}.jsonl")))
+        go(page, "#/path")
+        page.wait_for_selector("#rgate-start")
+        page.click("#rgate-start")
+        page.wait_for_selector("#claim")
+        check(f"[{kind}] the last sitting is sitting 3 of 3 with 20 ranges to go", text(page, ".cnt") == "1 of 20" and text(page, "#mode-tag") == "Exam · sitting 3 of 3", f"{text(page, '.cnt')} {text(page, '#mode-tag')}")
+        used = {e["q"] for e in ranges_of(page, mode="exam")}
+
+        def chooser(i, q_):
+            if kind == "wide":
+                return centred(q_, 3.0)
+            return centred(q_, 1.0) if last20(i) else centred(q_, 1.0, shift=3.0)
+
+        play_ranges(page, 20, chooser, reveal=False)
+        page.wait_for_selector("#rexam-verdict")
+        new = [e for e in ranges_of(page, mode="exam") if e["q"] not in used]
+        check(f"[{kind}] the last sitting's ranges are fresh: none was asked before in this exam", len(new) == 20 and len({e["q"] for e in ranges_of(page, mode="exam")}) == 60)
+        res = [e for e in of_type(page, "exam", state="result") if e.get("unit") == "U3"][0]
+        exp_hits = sum(1 for e in ranges_of(page, mode="exam") if e["hit"])
+        check(f"[{kind}] judged once: {exp_hits} of 60 held the truth, {'passed' if want_pass else 'not passed'}", res["pass"] == want_pass and res["hits"] == exp_hits == want_hits and res["n"] == 60 and text(page, "#rexam-hits") == str(exp_hits) and text(page, "#rexam-verdict") == ("Passed" if want_pass else "Not passed this time"), f"{res['hits']} {text(page, '#rexam-verdict')}")
+        check(f"[{kind}] the verdict agrees with the gate's table: 50 to 58 passes", res["pass"] == (50 <= exp_hits <= 58))
+        F.audit(E, f"range exam verdict {kind}")
+        shot(E, f"b6-verdict-{kind}.png")
+        if not want_pass:
+            why = text(page, "#rexam-reasons")
+            check(f"[{kind}] it says why, in words", ("too narrow" in why) if kind == "narrow" else ("wider than they needed" in why), why[:200])
+            check(f"[{kind}] and names the repair", ("one end at a time" in why) if kind == "narrow" else ("width budget" in why), why[-200:])
+        go(page, "#/mirror")
+        page.wait_for_selector("#range-record")
+        check(f"[{kind}] judged: the exam ranges now join the Mirror (n=100)", text(page, "#rr-n") == "n=100", text(page, "#rr-n"))
+        go(page, "#/path")
+        page.wait_for_selector("#rgate-card")
+        if want_pass:
+            check("[pass] the Path says Passed and the Unit 3 row says Passed", text(page, "#rgate-status") == "Passed" and "Passed" in [li for li in page.query_selector_all(".units li") if "Unit 3" in li.text_content()][0].text_content())
+            go(page, "#/mirror")
+            page.wait_for_selector("#belts")
+            check("[pass] the belts count Unit 3's gate: Gates U0 to U3, 3 of 4", "Gates U0 to U3: 3 of 4" in text(page, "#belts"), text(page, "#belts")[:200])
+        else:
+            check(f"[{kind}] the Path says repair first, with the drill", text(page, "#rgate-status") == "Repair first" and page.is_visible("#rgate-start"), text(page, "#rgate-card")[:160])
+            page.click("#rgate-start")
+            page.wait_for_selector("#claim")
+            check(f"[{kind}] the repair drill is {'one end at a time' if kind == 'narrow' else 'under a width budget'}", (page.query_selector("#high-box") is None) if kind == "narrow" else (page.query_selector("#budget-note") is not None), text(page, "#mode-tag"))
+            check(f"[{kind}] it is called a repair drill", text(page, "#mode-tag") == "Repair drill", text(page, "#mode-tag"))
+            play_ranges(page, 10, lambda i, q_: ref_range.stretched(q_, 1.0))
+            page.wait_for_selector("#drill-next")
+            check(f"[{kind}] after it the next exam is open again", "repair drill is done" in text(page, "#drill-next") and len([e for e in read_events(page) if e["type"] == "exam" and e.get("state") == "repair"]) == 1)
+            go(page, "#/path")
+            page.wait_for_selector("#rgate-card")
+            check(f"[{kind}] the exam card says Ready again", text(page, "#rgate-status") == "Ready", text(page, "#rgate-status"))
+        E.ctx.close()
+
+    # -- rust: a passed Unit 3 reopens when a range pattern comes back ------------------------------------------------------
+    r = synth.u1_passed_player(U1_EXAM, start=START)
+    for k in range(4):
+        r.range_day(synth.add_days("2026-09-20", k), RANGE_PRACTICE[k * 10:(k + 1) * 10], synth.hit_miss_policy("1111111110"), minute=10)
+    att = r.range_exam_start("2026-09-25", 10)
+    pool = list(RANGE_EXAM)
+    random.Random(12).shuffle(pool)
+    for s in range(3):
+        r.range_day(synth.add_days("2026-09-25", s), pool[s * 20:(s + 1) * 20], synth.hit_miss_policy("1111111110"), mode="exam", minute=20, exam=att, n=s + 1, of=3)
+    r._add("exam", "2026-09-27", 400, state="result", exam=att, **{"pass": True}, n=60, hits=54, coverage=0.9, meanRatio=1.0, points=0, reasons=[], dir=None)
+    for k in range(4):
+        r.range_day(synth.add_days("2026-10-01", k), RANGE_PRACTICE[40 + k * 10:50 + k * 10], synth.hit_miss_policy("1100110011"), minute=10)
+    page = open_app(E, "2026-10-06", r.write(os.path.join(E.tmp, "b6_rust.jsonl")))
+    go(page, "#/path")
+    page.wait_for_selector("#rgate-rust")
+    check("a range pattern that returns after the pass shows Rust on the exam card", "Ranges too narrow" in text(page, "#rgate-rust") and text(page, "#rgate-status") == "Passed", text(page, "#rgate-rust"))
+    E.ctx.close()
+
+
 def has_meta(page, key):
     """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
     return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
@@ -1129,6 +1550,7 @@ PHASES = [
     ("b4e", "Block 4: the Unit 1 exam", phase_b4_exam),
     ("b4a", "Block 4: the autopsy and the case file", phase_b4_autopsy),
     ("b5", "Block 5: the Coach", phase_b5),
+    ("b6", "Block 6: ranges", phase_b6),
 ]
 
 

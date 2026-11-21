@@ -34,8 +34,9 @@ export function gateU1(calls, gates, edges) {
 
 // ---- the exams in the record ---------------------------------------------------------------------------------
 // Events: `exam` with state start (its id is the attempt id), result (flag: the attempt, the verdict) and repair (the
-// repair drill after a failed attempt was done). Exam calls carry `exam: <attempt id>` and mode 'exam'.
-export function examsOf(events, cfg) {
+// repair drill after a failed attempt was done). Exam calls carry `exam: <attempt id>` and mode 'exam'; so do the ranges of
+// Unit 3's exam (event type `range`). `unit` keeps one unit's attempts (a start without a unit is Unit 1's).
+export function examsOf(events, cfg, unit) {
   const attempts = new Map();
   const list = [];
   for (const e of events) {
@@ -53,17 +54,17 @@ export function examsOf(events, cfg) {
   for (const e of events) {
     const a = e.exam && attempts.get(e.exam);
     if (!a) continue;
-    if (e.type === 'call') a.calls.push(e);
-    else if (e.type === 'session') a.sessions.push(e);
+    if (e.type === 'call' || e.type === 'range') a.calls.push(e);
+    else if (e.type === 'session' || e.type === 'rsession') a.sessions.push(e);
   }
-  return list;
+  return unit ? list.filter((a) => a.unit === unit) : list;
 }
 
 // Where the player stands on the Unit 1 gate.
 // `progress` carries what the units table says: practiceCalls done, practiceRequired (units.csv, U1 practice_calls) and baselineDone.
 export function gateStatus(events, cfg, { practiceCalls = 0, practiceRequired = 0, baselineDone = true } = {}) {
   const g = cfg.gates;
-  const attempts = examsOf(events, cfg);
+  const attempts = examsOf(events, cfg, 'U1');
   const running = attempts.find((a) => !a.result) || null;
   const passedAttempt = attempts.find((a) => a.result && a.result.pass) || null;
   const lastFailed = [...attempts].reverse().find((a) => a.result && !a.result.pass) || null;

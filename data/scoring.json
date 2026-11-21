@@ -34,7 +34,18 @@
   "interval": {
     "coverage": 0.9,
     "miss_multiplier": 20,
-    "note": "Interval (Winkler) score on a log10 or linear scale chosen per question: width + miss_multiplier * distance outside the range. miss_multiplier = 2 / (1 - coverage). Lower is better."
+    "note": "Interval (Winkler) score on a log10 or linear scale chosen per question: width + miss_multiplier * distance outside the range. miss_multiplier = 2 / (1 - coverage). Lower is better.",
+    "points": {
+      "offset": 1.25,
+      "scale": 100,
+      "floor": -400,
+      "note": "Points for a range: round(scale * (offset - interval_score / reference_width)), never below floor. The reference width is the width, in the question's own scale (log10 for a log question), of the central 90% of the other cases like it in the record. offset 1.25 is the expected interval score of that reference interval over its own cases, in reference widths, for bell-shaped outcomes (sim/scoring_sim.py part E: 4.124 / 3.290 = 1.254). On the real bank, with the floor, a player who says exactly the reference interval on every question averages -6 points a range (tools/ref_range.py measures it), so knowing the record earns about 0, a narrower honest interval earns more, and a very wide or very narrow one loses."
+    },
+    "session_size": 10,
+    "exam_session_size": 20,
+    "reseen_days": 90,
+    "drill_calls": 10,
+    "input_note": "The range screen takes a low and a high. A log question needs both above zero. Nothing else is refused: a silly range simply scores badly."
   },
   "journal": {
     "scored_predictions_per_day": 1,
@@ -104,8 +115,13 @@
         "L01",
         "L02",
         "L03"
+      ],
+      "U3": [
+        "L05",
+        "L06"
       ]
-    }
+    },
+    "range_repair_calls": 10
   },
   "sim": {
     "seed": 20261114,
@@ -371,6 +387,36 @@
           "gym_calls": 5,
           "reveals": 1,
           "predictions": 1
+        }
+      },
+      "L05": {
+        "kind": "range_narrow",
+        "window": 40,
+        "min_hits": 30,
+        "clear_window": 40,
+        "clear_hits": [
+          33,
+          38
+        ],
+        "drill": {
+          "kind": "stepwise",
+          "calls": 10
+        }
+      },
+      "L06": {
+        "kind": "range_wide",
+        "window": 40,
+        "high_hits": 39,
+        "width_ratio": 2,
+        "clear_window": 40,
+        "clear_hits": [
+          33,
+          38
+        ],
+        "drill": {
+          "kind": "budget",
+          "calls": 10,
+          "budget_ratio": 1.6
         }
       }
     },
