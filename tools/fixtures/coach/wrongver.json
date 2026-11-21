@@ -1,0 +1,16 @@
+{
+ "version": 2,
+ "letter": {
+  "title": "A steadier week",
+  "paragraphs": [
+   "You made 90 calls and were close to calibrated at 70 to 80%.",
+   "Your 90% calls hit 78% of the time: that is the one to watch."
+  ],
+  "sources": [
+   {
+    "label": "BLS business survival",
+    "url": "https://www.bls.gov/bdm/us_age_naics_00_table7.txt"
+   }
+  ]
+ }
+}

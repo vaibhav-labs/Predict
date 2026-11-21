@@ -239,7 +239,7 @@ def phase_b3(E):
     go(page, "#/today")
     page.wait_for_selector("#standing-link")
     check_standing(E, ref, "Today", False, mirror=False)
-    check("Today's block count follows the build (Block 4 of 10 built)", "Block 4 of 10 built" in page.inner_text("body"))
+    check("Today's block count follows the build (Block 5 of 10 built)", "Block 5 of 10 built" in page.inner_text("body"))
     F.audit(E, "today with standing")
     shot(E, "b3-today.png")
 
@@ -877,11 +877,258 @@ def phase_b4_autopsy(E):
     E.ctx.close()
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Block 5: the Coach (a pretend GitHub, the weekly letter, ideas, Predict's numbers and source-linked checks)
+# ---------------------------------------------------------------------------------------------------------------
+class FakeGitHub:
+    """api.github.com as far as the app uses it: the repo, the contents API, a bearer token, CORS."""
+    HOST = "https://api.github.com"
+
+    def __init__(self, token="tok-test-123", private=True, push=True):
+        self.token, self.private, self.push = token, private, push
+        self.files, self.requests, self.sha = {}, [], 0
+        self.down = False
+
+    def put(self, path, text):
+        self.sha += 1
+        self.files[path] = {"text": text, "sha": f"s{self.sha}"}
+
+    def handle(self, route, request):
+        cors = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "GET,PUT,OPTIONS", "access-control-expose-headers": "*"}
+        if request.method == "OPTIONS":
+            return route.fulfill(status=204, headers=cors)
+        if self.down:
+            return route.abort("failed")
+        self.requests.append((request.method, request.url, request.headers.get("authorization")))
+        if request.headers.get("authorization") != f"Bearer {self.token}":
+            return route.fulfill(status=401, headers=cors, json={"message": "Bad credentials"})
+        path = request.url.split("api.github.com/repos/", 1)[1].split("?")[0]
+        repo = "/".join(path.split("/")[:2])
+        if repo != "me/Predict-data":
+            return route.fulfill(status=404, headers=cors, json={"message": "Not Found"})
+        rest = path[len(repo):]
+        if rest == "":
+            return route.fulfill(status=200, headers=cors, json={"full_name": repo, "private": self.private, "permissions": {"push": self.push}})
+        name = rest[len("/contents/"):]
+        if request.method == "GET":
+            f = self.files.get(name)
+            if not f:
+                return route.fulfill(status=404, headers=cors, json={"message": "Not Found"})
+            import base64
+            return route.fulfill(status=200, headers=cors, json={"content": base64.b64encode(f["text"].encode()).decode(), "sha": f["sha"]})
+        body = json.loads(request.post_data)
+        cur = self.files.get(name)
+        if cur and body.get("sha") != cur["sha"]:
+            return route.fulfill(status=409, headers=cors, json={"message": "conflict"})
+        import base64
+        self.put(name, base64.b64decode(body["content"]).decode())
+        return route.fulfill(status=200 if cur else 201, headers=cors, json={"content": {"sha": self.files[name]["sha"]}})
+
+
+def phase_b5(E):
+    today = "2026-09-08"
+    r = synth.Rec(31)
+    for k in range(5):
+        r.play_day(synth.add_days("2026-09-02", k), 6, synth.pol_calibrated)
+    p_open = r.prediction("2026-09-06", 400, 0.7, 0.5, domain="world", due_option="week", text="By 13 September 2026, the first named storm of the week will make landfall.")
+    p_due = r.prediction("2026-09-03", 400, 0.6, 0.5, domain="world", due_option="tomorrow", text="By 4 September 2026, the ferry strike will end.")
+    p_nosrc = r.prediction("2026-09-02", 400, 0.6, 0.5, domain="world", due_option="tomorrow", text="By 3 September 2026, the bridge will reopen to traffic.")
+    p_done = r.prediction("2026-09-02", 410, 0.65, 0.5, domain="life", due_option="tomorrow", text="By 3 September 2026, I will have run three times.")
+    r.resolve(p_done, "2026-09-04", 30, "yes")
+    path = r.write(os.path.join(E.tmp, "coach.jsonl"))
+    page = open_app(E, today, path)
+    gh = FakeGitHub()
+    E.ctx.route("https://api.github.com/**", gh.handle)
+    n_outside = len(E.outside)
+    go(page, "#/coach")
+    page.wait_for_selector("#sync-card")
+    page.clock.run_for(6000)
+    check("before anything is connected: the Coach tab shows the setup, no letter, and no request is made", page.query_selector("#coach-none") is not None and page.is_visible("#sync-form") and not gh.requests and len(E.outside) == n_outside, str(gh.requests[:1]))
+    check("it explains the private repository and the token", "private repository" in text(page, "#sync-intro").lower() and "token" in text(page, "#sync-intro").lower(), text(page, "#sync-intro"))
+    F.audit(E, "coach, not connected")
+    shot(E, "b5-coach-setup.png")
+
+    def connect(repo, token):
+        page.fill("#sync-repo", repo)
+        page.fill("#sync-token", token)
+        page.click("#sync-save")
+
+    connect("not a repo", "x")
+    page.wait_for_function("document.querySelector('#sync-status').textContent.includes('owner/name')")
+    check("a repository written wrongly is refused before any request", not gh.requests, text(page, "#sync-status"))
+    connect("me/Predict-data", "wrong-token")
+    page.wait_for_function("document.querySelector('#sync-status').textContent.includes('refused the token')")
+    check("a wrong token is refused in words, and nothing is saved", page.is_visible("#sync-form") and not has_meta(page, "sync"), text(page, "#sync-status"))
+    gh.private = False
+    connect("me/Predict-data", gh.token)
+    page.wait_for_function("document.querySelector('#sync-status').textContent.includes('public')")
+    check("a public repository is refused, because the record is personal", page.is_visible("#sync-form") and not gh.files, text(page, "#sync-status"))
+    gh.private = True
+    connect("me/Predict-data", gh.token)
+    page.wait_for_function("document.querySelector('#sync-status').textContent.startsWith('Synced')", timeout=20000)
+    events = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip() and json.loads(l).get("type") != "header"]
+    by_day = {}
+    for e in events:
+        by_day.setdefault(e["d"], []).append(e["id"])
+    got = {k[len("record/"):-len(".jsonl")]: [json.loads(x)["id"] for x in v["text"].splitlines()] for k, v in gh.files.items() if k.startswith("record/")}
+    check("connected: one file a day went to the repo, with exactly the events of that day", set(got) == set(by_day) and all(sorted(got[d]) == sorted(by_day[d]) for d in by_day), f"{sorted(got)} vs {sorted(by_day)}")
+    check("the status says how many events were sent", f"{len(events)} new events sent" in text(page, "#sync-status"), text(page, "#sync-status"))
+    check("the token is on this phone only: in no file of the repo, and every request went to api.github.com with it as a header",
+          all(gh.token not in v["text"] for v in gh.files.values()) and all(u.startswith("https://api.github.com/repos/me/Predict-data") and a == f"Bearer {gh.token}" for _, u, a in gh.requests if a == f"Bearer {gh.token}"), "")
+    check("the only requests off this site were to api.github.com, and only after connecting", all(u.startswith("https://api.github.com/") for u in E.outside[n_outside:]), str(E.outside[n_outside:][:2]))
+    E.outside[:] = E.outside[:n_outside]
+    check("the Coach tab now says where it is connected, with a sync button and a way to disconnect", "me/Predict-data" in text(page, "#sync-where") and page.is_visible("#sync-now") and page.is_visible("#sync-off") and not page.is_visible("#sync-form"))
+    writes = sum(1 for m, _, _ in gh.requests if m == "PUT")
+    page.click("#sync-now")
+    page.wait_for_function("document.querySelector('#sync-status').textContent.startsWith('Synced')")
+    check("a second sync writes nothing new", sum(1 for m, _, _ in gh.requests if m == "PUT") == writes, f"{writes} writes then {sum(1 for m, _, _ in gh.requests if m == 'PUT')}")
+    E.outside[:] = E.outside[:n_outside]
+    F.audit(E, "coach, connected")
+    shot(E, "b5-coach-connected.png")
+
+    # -- the weekly review has run: a letter, drills, three ideas, numbers, a check with its source, a read --
+    coach = {"version": 1, "week": "2026-W37", "written": "2026-09-07",
+             "letter": {"title": "A steadier week, and one number to watch", "paragraphs": ["You made 30 calls and sat close to the line at 70 to 80%.", "Your world predictions are all open: one resolves this week."],
+                        "sources": [{"label": "Weather service forecast office", "url": "https://www.weather.gov/sew/"}]},
+             "drills": [{"title": "Name the rate first", "text": "Before each journal card, write the usual rate for its reference class, then move."}],
+             "prompts": [{"day": today, "items": [{"text": "By 30 September 2026, the first snow will be recorded on a Cascade pass road camera.", "domain": "world", "due": "month"},
+                                                   {"text": "By Friday, my team will have merged the release branch.", "domain": "work", "due": "week"},
+                                                   {"text": "By tomorrow night, I will have read for an hour.", "domain": "life", "due": "tomorrow"}]}],
+             "baselines": {p_open["id"]: {"p": 0.35, "written": "2026-09-07", "ref": "named storms making landfall in a given week, 1990 to 2025"}},
+             "outcomes": {p_due["id"]: {"result": "yes", "source": "https://www.example.org/ferry-strike-ends", "checked": "2026-09-08", "note": "The union and the operator signed on 4 September."},
+                          p_nosrc["id"]: {"result": "yes", "checked": "2026-09-08"}},
+             "reads": {p_done["id"]: {"text": "Running three times needed a plan, and yours had one: the case against named the weather, which is what happened.", "written": "2026-09-07"}}}
+    gh.put("coach/latest.json", json.dumps(coach))
+    page.click("#sync-now")
+    page.wait_for_selector("#coach-letter", timeout=20000)
+    check("after a sync the letter is on the Coach tab: title, both paragraphs, its week", text(page, "#coach-letter h2") == coach["letter"]["title"] and all(t in text(page, "#coach-letter") for t in coach["letter"]["paragraphs"]) and "2026-W37" in text(page, "#coach-letter .eyebrow"), text(page, "#coach-letter")[:120])
+    link = attrs(page, "#coach-sources a", ["href", "rel", "target"])[0]
+    check("its source is a link to an https page that opens safely", link == {"href": "https://www.weather.gov/sew/", "rel": "noopener noreferrer", "target": "_blank"}, str(link))
+    check("the drill set is shown", "Name the rate first" in text(page, "#coach-drills"), text(page, "#coach-drills"))
+    check("the none-yet card is gone", page.query_selector("#coach-none") is None)
+    F.audit(E, "coach with a letter")
+    shot(E, "b5-coach-letter.png")
+    E.outside[:] = E.outside[:n_outside]
+    # -- Today shows a nudge until the letter is read --
+    go(page, "#/path"); go(page, "#/today")
+    page.wait_for_selector("#day")
+    check("a letter that was on screen on the Coach tab counts as read: Today has no 'From Predict' card for it", page.query_selector("#letter-card") is None)
+    # a new week's letter arrives while the player is on Today (the phone syncs by itself a few seconds after it comes online)
+    coach2 = dict(coach, week="2026-W38", letter=dict(coach["letter"], title="Two weeks of steady calls"))
+    gh.put("coach/latest.json", json.dumps(coach2))
+    page.evaluate("window.dispatchEvent(new Event('online'))")
+    page.clock.run_for(5000)
+    for _ in range(40):
+        if any(u.endswith('coach/latest.json') for _, u, _ in gh.requests[-6:]):
+            break
+        page.wait_for_timeout(100)
+    go(page, "#/path"); go(page, "#/today")
+    page.wait_for_selector("#letter-card", timeout=10000)
+    check("a letter that arrives by itself shows on Today as 'From Predict' with its title and a way to open it", "Two weeks of steady calls" in text(page, "#letter-card") and page.is_visible("#letter-open"), text(page, "#letter-card"))
+    page.click("#letter-open")
+    page.wait_for_selector("#coach-letter")
+    check("opening it shows the letter, and the card is gone from Today after", "Two weeks of steady calls" in text(page, "#coach-letter h2"))
+    go(page, "#/path"); go(page, "#/today")
+    page.wait_for_selector("#day")
+    check("Today's card for it is gone once it has been opened", page.query_selector("#letter-card") is None)
+    E.outside[:] = E.outside[:n_outside]
+    # -- ideas on the journal --
+    go(page, "#/journal/write")
+    page.wait_for_selector("#prompt-ideas")
+    chips = page.eval_on_selector_all(".prompt-chip", "els => els.map(e => e.textContent)")
+    check("the journal offers three ideas for today, exactly as written", chips == [i["text"] for i in coach["prompts"][0]["items"]], str(chips))
+    page.click(".prompt-chip[data-i='1']")
+    page.wait_for_selector("#claim-text")
+    on = page.eval_on_selector_all(".picker .pick.on", "els => els.map(e => e.dataset.value)")
+    check("tapping one fills the claim and sets its domain and due date, still editable", page.input_value("#claim-text") == coach["prompts"][0]["items"][1]["text"] and on == ["work", "week"], f"{page.input_value('#claim-text')!r} {on}")
+    # -- Predict's number replaced the baseline on the open card --
+    go(page, f"#/journal/{p_open['id']}")
+    page.wait_for_selector(".claim")
+    check("an open card shows Predict's number as its baseline with its reference class", "Baseline: 35%" in text(page, "main") and "Predict's outside view: named storms making landfall" in text(page, "main"), text(page, "main")[:200])
+    # -- a check with a source on a due card; one without a source is never shown --
+    go(page, f"#/journal/{p_nosrc['id']}")
+    page.wait_for_selector("#resolve")
+    check("a check that came without a source link is not shown at all", page.query_selector("#predict-check") is None)
+    go(page, f"#/journal/{p_due['id']}")
+    page.wait_for_selector("#predict-check")
+    check("a due card shows what Predict found, its date, a note and the source link", "2026-09-08" in text(page, "#predict-check") and "Happened." in text(page, "#predict-check") and attrs(page, "#predict-check-source", ["href"])[0]["href"] == "https://www.example.org/ferry-strike-ends", text(page, "#predict-check"))
+    check("nothing is picked for the player", page.eval_on_selector_all(".pick.on", "els => els.length") == 0)
+    F.settle(page)
+    page.click("#use-check")
+    on = page.eval_on_selector_all(".pick.on", "els => els.map(e => e.dataset.value)")
+    check("'Use this answer' picks it, and the player still presses Resolve", on == ["yes"] and page.is_enabled("#resolve"))
+    page.click("#resolve")
+    page.wait_for_selector("#lens-what")
+    check("the case file carries the source link of the check", attrs(page, "#what-source a", ["href"])[0]["href"] == "https://www.example.org/ferry-strike-ends" and "2026-09-08" in text(page, "#what-source"), text(page, "#what-source"))
+    # -- a resolve the player decided alone has no source --
+    go(page, f"#/journal/{p_nosrc['id']}")
+    page.wait_for_selector("#resolve")
+    page.click(".pick[data-value=no]")
+    F.settle(page)
+    page.click("#resolve")
+    page.wait_for_selector("#lens-what")
+    check("a card resolved without Predict's check has no source line", page.query_selector("#what-source") is None)
+    # -- Predict's read --
+    go(page, f"#/journal/{p_done['id']}")
+    page.wait_for_selector("#lens-next")
+    check("a resolved card shows Predict's read, dated, in the last lens", "Running three times needed a plan" in text(page, "#predict-read") and "2026-09-07" in text(page, "#predict-read"), text(page, "#predict-read"))
+    go(page, f"#/journal/{p_due['id']}")
+    page.wait_for_selector("#lens-next")
+    check("a card with no read shows none", page.query_selector("#predict-read") is None)
+    F.audit(E, "case file with a source")
+
+    # -- offline: the letter is still there, the sync says so --
+    go(page, "#/coach")
+    page.wait_for_selector("#coach-letter")
+    gh.down = True
+    page.click("#sync-now")
+    page.wait_for_function("document.querySelector('#sync-status').textContent.includes('No connection')", timeout=15000)
+    check("offline: sync says there is no connection, and the letter is still shown from the phone", page.query_selector("#coach-letter") is not None and "safe on this phone" in text(page, "#sync-status"), text(page, "#sync-status"))
+    gh.down = False
+    # -- Ask Predict --
+    page.click("#checkin-copy")
+    page.wait_for_timeout(200)
+    msg = page.evaluate("navigator.clipboard.readText()")
+    check("Ask Predict copies a message with this week's numbers and sends nothing", msg.startswith("Predict, here is my week.") and "Gym:" in msg and "Journal:" in msg and "claude" not in msg.lower(), msg[:160])
+    # -- disconnect --
+    gh.requests.clear()
+    page.click("#sync-off")
+    page.wait_for_selector("#sync-form:not([hidden])")
+    check("disconnecting forgets the token and brings the setup back", page.is_visible("#sync-form") and "token is gone" in text(page, "#sync-status"), text(page, "#sync-status"))
+    go(page, "#/path"); go(page, "#/today")
+    page.clock.run_for(8000)
+    check("after disconnecting, nothing more is sent", not gh.requests, str(gh.requests[:1]))
+    # -- erase takes the token and the cached letter --
+    go(page, "#/coach")
+    page.wait_for_selector("#sync-form:not([hidden])")
+    connect("me/Predict-data", gh.token)
+    page.wait_for_function("document.querySelector('#sync-status').textContent.startsWith('Synced')", timeout=20000)
+    E.outside[:] = E.outside[:n_outside]
+    page.click("#erase-btn")
+    page.fill("#erase-confirm", "ERASE")
+    page.click("#erase-go")
+    page.wait_for_function("document.querySelector('#record-msg').textContent.startsWith('Erased')")
+    page.reload()
+    page.wait_for_selector("#sync-card")
+    check("erasing the phone also forgets the repository token and the cached letter", page.is_visible("#sync-form") and page.query_selector("#coach-letter") is None and not has_meta(page, "sync") and not has_meta(page, "coach"), "")
+    # GitHub answers 401 to a wrong token and 404 to a file that does not exist yet: both are expected here and were checked above.
+    E.bad[:] = [x for x in E.bad if "api.github.com" not in x]
+    E.console[:] = [c for c in E.console if not (c[0] == "b5" and "Failed to load resource" in c[1])]
+    E.outside[:] = [u for u in E.outside if not u.startswith("https://api.github.com/repos/me/Predict-data")]
+    page.context.close()
+
+
+def has_meta(page, key):
+    """Whether the phone holds a saved value in the `meta` store under `key` (read straight from IndexedDB)."""
+    return page.evaluate("""(k) => new Promise((res) => { const r = indexedDB.open('predict-record'); r.onsuccess = () => { const q = r.result.transaction('meta').objectStore('meta').get(k); q.onsuccess = () => res(q.result !== undefined); }; r.onerror = () => res(false); })""", key)
+
+
 PHASES = [
     ("b3", "Block 3: the Mirror", phase_b3),
     ("b4f", "Block 4: flags, drills and the instant note", phase_b4_flags),
     ("b4e", "Block 4: the Unit 1 exam", phase_b4_exam),
     ("b4a", "Block 4: the autopsy and the case file", phase_b4_autopsy),
+    ("b5", "Block 5: the Coach", phase_b5),
 ]
 
 

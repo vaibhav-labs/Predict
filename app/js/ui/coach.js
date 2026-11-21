@@ -1,6 +1,11 @@
 import { h } from '../dom.js';
 import * as R from '../engine/record.js';
-import { tabFrame, soonCard } from './common.js';
+import { tabFrame, copyMessage } from './common.js';
+import * as SY from '../sync.js';
+import * as C from '../engine/coach.js';
+import { lessonState } from '../flags.js';
+import { flagName } from '../flagtext.js';
+import { pct } from '../engine/scoring.js';
 
 // Hand a file to the player: the share sheet where the phone has one (iPhone: Save to Files, Messages, AirDrop),
 // otherwise an ordinary download.
@@ -21,6 +26,114 @@ async function deliver(filename, text, mime) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
   return 'downloaded';
+}
+
+
+const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
+
+// The weekly letter and the drill set Predict wrote at the last review. Text only; links only if they are https with a source label.
+function letterCards(ctx) {
+  const coach = ctx.coach || C.emptyCoach();
+  if (!coach.letter) {
+    return [h('section', { class: 'card soft stack', id: 'coach-none' },
+      h('span', { class: 'eyebrow' }, 'Your weekly letter'),
+      h('p', null, 'Each week Predict reads your record, writes you a short letter and sets a drill. It arrives here once the private repository below is connected and the first review has run. Until then, Ask Predict copies a message with your numbers that you can paste into a chat.'))];
+  }
+  const L = coach.letter;
+  const cards = [h('section', { class: 'card stack prose', id: 'coach-letter' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, coach.week ? `Weekly letter · ${coach.week}` : 'Weekly letter'), h('span', { class: 'cap' }, coach.written || '')),
+    h('h2', { class: 'title', style: 'font-size:20px' }, L.title),
+    ...L.paragraphs.map((t) => h('p', null, t)),
+    L.sources.length ? h('div', { class: 'stack', id: 'coach-sources', style: 'gap:4px' }, h('span', { class: 'cap' }, 'Sources'), ...L.sources.map((x) => h('a', { class: 'srclink', href: x.url, rel: 'noopener noreferrer', target: '_blank' }, x.label))) : null)];
+  if (coach.drills.length) cards.push(h('section', { class: 'card stack', id: 'coach-drills' },
+    h('span', { class: 'eyebrow' }, 'This week’s drill set'),
+    ...coach.drills.map((d) => h('div', null, h('b', null, d.title), h('p', null, d.text)))));
+  return cards;
+}
+
+// A message with the player's own numbers, for a chat with Predict (the same hand-off as on a journal card).
+export function checkInMessage(ctx) {
+  const ev = ctx.store.events, today = R.localDay();
+  const week = R.callsOf(ev).filter((c) => c.d > R.addDays(today, -7));
+  const s = R.summarize(week);
+  const preds = R.predictionsOf(ev, today);
+  const resolved = preds.filter((p) => p.state === 'resolved' && p.d > R.addDays(today, -7));
+  const open = lessonState(ctx).patterns.map((c) => flagName(ctx, c.trigger));
+  return [
+    'Predict, here is my week. Please write my weekly letter and set a drill.',
+    s.n ? `Gym: ${s.n} calls this week, average confidence ${pct(s.meanConf)}, hit rate ${pct(s.hitRate)}.` : 'Gym: no calls this week.',
+    `Journal: ${resolved.length} predictions resolved this week, ${preds.filter((p) => p.state === 'due').length} due now, ${preds.filter((p) => p.state === 'open').length} open.`,
+    open.length ? `Patterns being worked on: ${open.join('; ')}.` : 'No pattern flags open.',
+  ].join('\n');
+}
+
+// The private repository: where it is, whether it works, and the button that sends and fetches.
+function syncCard(ctx) {
+  const repo = h('input', { class: 'field', id: 'sync-repo', type: 'text', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', placeholder: 'your-name/Predict-data', 'aria-label': 'Private repository, owner/name' });
+  const token = h('input', { class: 'field', id: 'sync-token', type: 'password', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', placeholder: 'Fine-grained token', 'aria-label': 'Token' });
+  const status = h('p', { class: 'msg', id: 'sync-status', role: 'status' });
+  const say = (text, kind) => { status.textContent = text; status.className = `msg${kind ? ' ' + kind : ''}`; };
+  const form = h('div', { class: 'stack', id: 'sync-form' }, repo, token);
+  const save = h('button', { class: 'btn', type: 'button', id: 'sync-save' }, 'Save and connect');
+  const now = h('button', { class: 'btn', type: 'button', id: 'sync-now' }, 'Sync now');
+  const off = h('button', { class: 'ghost danger', type: 'button', id: 'sync-off' }, 'Disconnect and forget the token');
+  const intro = h('p', { class: 'cap', id: 'sync-intro' });
+  const connected = h('div', { class: 'stack', id: 'sync-connected', hidden: true }, h('p', { id: 'sync-where' }), now, off);
+
+  async function show() {
+    const c = await SY.loadConfig(ctx.store);
+    form.hidden = !!c; save.hidden = !!c; connected.hidden = !c;
+    intro.textContent = c ? '' : 'Make a private repository on GitHub (call it Predict-data) and a fine-grained token for that one repository with Contents: read and write. Paste both here. The token stays on this phone.';
+    if (c) {
+      connected.querySelector('#sync-where').textContent = `Connected to ${c.repo}.`;
+      const st = await ctx.sync.status();
+      if (st) say(st.ok ? `Synced ${when(st.at)}: ${st.pushedEvents} new events sent${st.pulledEvents ? `, ${st.pulledEvents} brought in` : ''}${st.coachFetched ? '' : '. No letter from Predict yet'}.` : st.error, st.ok ? 'ok' : 'err');
+    }
+  }
+  save.addEventListener('click', async () => {
+    const r = repo.value.trim(), t = token.value.trim();
+    if (!C.REPO_NAME.test(r)) { say('Write the repository as owner/name, for example vaibhav-labs/Predict-data.', 'err'); return; }
+    if (!t) { say('Paste the token.', 'err'); return; }
+    save.disabled = true; say('Checking the repository…');
+    try {
+      const client = SY.githubClient({ repo: r, token: t, fetchFn: (...a) => ctx.sync.fetchFn(...a) });
+      const info = await client.check();
+      await ctx.store.setMeta('sync', { repo: r, token: t, savedAt: new Date().toISOString(), expires: info.expires || null });
+      token.value = '';
+      await show();
+      say(`Connected to ${info.name || r}. Sending your record…`);
+      const res = await ctx.sync.run();
+      await show();
+      if (!res.ok) say(res.error, 'err');
+    } catch (err) {
+      say(SY.message(err), 'err');
+    } finally { save.disabled = false; }
+  });
+  now.addEventListener('click', async () => {
+    now.disabled = true; say('Syncing…');
+    const res = await ctx.sync.run();
+    await show();
+    if (!res.ok) say(res.error, 'err');
+    now.disabled = false;
+    ctx.refresh();
+  });
+  off.addEventListener('click', async () => {
+    await ctx.store.setMeta('sync', undefined);
+    say('Disconnected. The token is gone from this phone. What was already sent stays in the repository; revoke the token on GitHub too.', 'ok');
+    await show();
+  });
+  show();
+  return h('section', { class: 'card stack', id: 'sync-card' },
+    h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Private repository'), h('span', { class: 'cap' }, 'optional')),
+    intro, form, save, connected, status);
+}
+
+function askCard(ctx) {
+  const box = h('textarea', { class: 'field', id: 'checkin-text', rows: 5, hidden: true, readonly: true });
+  const btn = h('button', { class: 'ghost', type: 'button', id: 'checkin-copy' }, 'Ask Predict about my week');
+  btn.addEventListener('click', () => copyMessage(ctx, checkInMessage(ctx), box));
+  return h('section', { class: 'card stack' }, h('span', { class: 'eyebrow' }, 'Ask Predict'),
+    h('p', { class: 'cap' }, 'Copies a short message with this week’s numbers. Paste it into your chat with Predict. Nothing is sent from here.'), btn, box);
 }
 
 export function coachScreen(ctx) {
@@ -78,11 +191,12 @@ export function coachScreen(ctx) {
   const confirm = h('input', { class: 'field', id: 'erase-confirm', type: 'text', autocomplete: 'off', autocapitalize: 'characters', 'aria-label': 'Type ERASE to confirm' });
   const eraseGo = h('button', { class: 'ghost danger', type: 'button', id: 'erase-go', disabled: true }, 'Erase everything on this phone');
   const erasePanel = h('div', { class: 'stack', id: 'erase-panel', hidden: true },
-    h('p', { class: 'msg' }, 'This removes every call, prediction, session and lesson from this phone. Export first. Type ERASE to confirm.'), confirm, eraseGo);
+    h('p', { class: 'msg' }, 'This removes every call, prediction, session and lesson from this phone, and the saved repository token. Export first. Type ERASE to confirm.'), confirm, eraseGo);
   confirm.addEventListener('input', () => { eraseGo.disabled = confirm.value.trim() !== 'ERASE'; });
   eraseGo.addEventListener('click', async () => {
     eraseGo.disabled = true;
     await store.erase();
+    ctx.coach = C.emptyCoach();
     confirm.value = '';
     erasePanel.hidden = true;
     say('Erased. This phone holds no record now.', 'ok');
@@ -111,8 +225,9 @@ export function coachScreen(ctx) {
     navigator.storage.persisted().then((p) => set(persist, p ? 'Yes' : 'Not granted', p)).catch(() => set(persist, 'Unknown'));
   } else set(persist, 'Unknown');
 
+  if (ctx.coach && ctx.coach.letter) { ctx.letterSeen = ctx.coach.week || ctx.coach.written || 'seen'; store.setMeta('letterSeen', ctx.letterSeen); }
   return tabFrame('coach', h('header', { class: 'top' }, h('span', { class: 'mark' }, 'Coach'), h('span', { class: 'date' }, 'Predict')),
-    soonCard(5, 'Each week Predict reads your record, writes you a short letter and sets a drill. A button on every card will copy a ready-made question and open the chat where Predict answers. Until then, Export your record below and share the file in a chat with Predict.'),
+    ...letterCards(ctx), askCard(ctx), syncCard(ctx),
     h('section', { class: 'card stack' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your record'), h('span', { class: 'cap' }, 'on this phone')),
       summary,

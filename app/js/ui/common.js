@@ -42,7 +42,7 @@ export function soonCard(block, what) {
 export const unitRow = (ctx, id) => ctx.units.find((u) => u.id === id);
 
 // How many of the ten build blocks are in this version (shown on Today).
-export const BLOCKS_BUILT = 4;
+export const BLOCKS_BUILT = 5;
 
 // A row of choice buttons where exactly one is on. Used for domain, due date, outcome and the Mirror's switches.
 export function picker(options, selected, onPick, attrs = {}) {
@@ -62,3 +62,17 @@ export function picker(options, selected, onPick, attrs = {}) {
 export const cap1 = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
 export const DOMAIN_NAMES = { work: 'Work', life: 'Life', world: 'World' };
 export const HORIZON_NAMES = { week: 'Up to a week', month: 'A month', longer: 'Longer' };
+
+// Ask Predict: the message goes to the clipboard, never over the network. Where the browser will not copy, it shows the text to select.
+export async function copyMessage(ctx, text, fallback) {
+  try {
+    await navigator.clipboard.writeText(text);
+    ctx.toast('Copied. Paste it into your chat with Predict.');
+  } catch {
+    fallback.hidden = false;
+    fallback.value = text;
+    fallback.focus();
+    fallback.select();
+    ctx.toast('Could not copy automatically. The message is below: select and copy it yourself.');
+  }
+}

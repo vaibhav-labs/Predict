@@ -33,29 +33,27 @@ repo with a token the player makes.
 
 ## Where it stands (update this)
 
-Branches in the repo (`/home/claude/predict-build` in the cloud workspace; also in the bundle, see "Saving"):
+Branches (`/home/claude/predict-build` in the cloud workspace; also in the bundle, see "Saving"), each chained on the one before:
 
 | Branch | What |
 |---|---|
 | `main` (= `origin/main`, `165f3c3`) | Blocks 1 and 2 plus the help screen, live |
-| `block-3` | Block 3, the Mirror: built, tested, not pushed or merged |
-| `block-4` | on top of block-3: the rebuilt question bank and **Block 4, the Lesson Engine: done, all suites green** |
+| `block-3` | Block 3, the Mirror |
+| `block-4` | the rebuilt question bank and Block 4, the Lesson Engine |
+| `block-5` | Block 5, the Coach: sync to the private repo, the weekly letter and its tools. **Done, all suites green** |
 
-Suites on the Block 4 tip: `python3 tools/check_data.py` (also rebuilds both question banks), `node --test
-tools/test_engine.mjs` (72), `python3 tools/test_pwa.py` (33), `python3 tools/test_flow.py` (166), `python3
-tools/test_blocks.py` (203). Run the three browser suites in separate copies of the repo (tar without .git, site,
+Suites on the tip: `python3 tools/check_data.py`, `node --test tools/test_engine.mjs` (95), `python3 tools/test_coach.py`, `python3 tools/test_pwa.py` (33),
+`python3 tools/test_flow.py` (166), `python3 tools/test_blocks.py` (238). Run the three browser suites in separate copies of the repo (tar without .git, site,
 node_modules) with different `PREDICT_PORT` values; they rebuild `site/`.
 
-Block 4 docs are written (STATE.md report and assumptions, mechanics 4.4/4.5/4.9 and the change log, balance report 4c
-with `sim/retest_sim.py`). Open risk: L02's re-test fails a calibrated player about a third of the time (4c).
+Docs written for Blocks 4 and 5 (STATE.md reports and assumptions, mechanics 4.4/4.5/4.7/4.9 and the change log, balance report 4c, `design/coach.md`).
+Open risks: L02's re-test fails a calibrated player about a third of the time (4c); the unattended weekly run is untested (needs the player's repo).
 
-Next: Block 5 on a new branch `block-5` chained on `block-4`, then 6 to 10.
+Next: Block 6 (Ranges) on `block-6` chained on `block-5`, then 7 to 10.
 
-### Blocks 5 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
+### Blocks 6 to 10 (each on its own chained branch: engine, UI, data, tests, docs)
 
-BL5 Coach (sync adapter to the private `Predict-data` repo over the GitHub API with a mock-tested token flow, weekly
-review inputs, world-outcome checks with sources, question top-ups, suggested prompts, the Ask Predict hand-off,
-Predict's read; amend "no requests to other sites" only for this), BL6 Ranges, BL7 Reasoning tools, BL8 Updating,
+BL6 Ranges, BL7 Reasoning tools, BL8 Updating,
 BL9 Know yourself, BL10 Compete. Specs are rows BL5 to BL10 of `data/build_blocks.csv` and the sections of
 `design/mechanics.md`.
 
@@ -76,8 +74,8 @@ git bundle create /mnt/user-data/outputs/predict-all.bundle --all
 # devicePath = /Users/jain/Documents/Predict/predict-all.bundle)
 ```
 
-To restore in a fresh workspace: `git clone predict-all.bundle predict-build && cd predict-build && git checkout block-4`
-(the bundle holds main, block-3 and block-4). The project "VJ Games" also holds a text mirror of the key files under
+To restore in a fresh workspace: `git clone predict-all.bundle predict-build && cd predict-build && git checkout block-5`
+(the bundle holds every branch). The project "VJ Games" also holds a text mirror of the key files under
 `predict/` (it is stale unless a note below says it was refreshed; the bundle is the complete copy).
 
 ## Still the player's to do

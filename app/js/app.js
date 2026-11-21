@@ -1,5 +1,6 @@
 // Predict, Block 1: the Dial. Boot, routes (kept in the hash, so every relative URL works under /Predict/),
-// and the few services every screen shares. No request leaves this site while the app runs.
+// and the few services every screen shares. No request leaves this site while the app runs, except the Coach tab's sync, which talks
+// to api.github.com only after the player has saved a repo and a token (sync.js).
 import { h } from './dom.js';
 import { makeScoring } from './engine/scoring.js';
 import { parseTable } from './engine/csv.js';
@@ -18,6 +19,7 @@ import { rewriteScreen } from './ui/rewrite.js';
 import { examScreen } from './ui/exam.js';
 import { autopsyScreen } from './ui/autopsy.js';
 import { runLessonEngine } from './flags.js';
+import * as SY from './sync.js';
 import { compileCheckerRules } from './engine/journal.js';
 
 const root = document.getElementById('app');
@@ -75,11 +77,12 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, exam, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, topups, exam, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
       getOK('./content/questions/starter.json').then((r) => r.json()),
+      getOK('./content/questions/topups.json').then((r) => r.json()),
       getOK('./content/questions/exam-u1.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
@@ -92,7 +95,9 @@ async function boot() {
     await store.setMeta('opens', opens);
 
     let persistAsked = false;
-    const bankById = new Map(bank.questions.map((q) => [q.id, q]));
+    // Practice draws from the starter bank plus whatever the weekly review has added since (content/questions/topups.json, checked at build).
+    const practice = bank.questions.concat(Array.isArray(topups.questions) ? topups.questions : []);
+    const bankById = new Map(practice.map((q) => [q.id, q]));
     const examById = new Map(exam.questions.map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
@@ -100,7 +105,7 @@ async function boot() {
       gymMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').gym_min),
       journalMinutes: Number(parseTable(budgetText).find((r) => r.arc === 'I').journal_min),
       // Two pools: practice (the starter bank) and the Unit 1 exam. The exam pool is never served in practice.
-      bank: bank.questions,
+      bank: practice,
       bankById,
       examBank: exam.questions,
       examById,
@@ -131,8 +136,45 @@ async function boot() {
       },
     };
     ctx.requestPersist();
+    ctx.coach = await SY.loadCoach(store);
+    ctx.letterSeen = (await store.getMeta('letterSeen')) || null;
+    // Sync: only when a repo and a token are saved, only when online, one round at a time. `fetchFn` can be swapped by tests.
+    let syncing = null, timer = null;
+    ctx.sync = {
+      fetchFn: (...a) => fetch(...a),
+      status: async () => (await store.getMeta('syncStatus')) || null,
+      configured: async () => !!(await SY.loadConfig(store)),
+      async run() {
+        if (syncing) return syncing;
+        const cfgSaved = await SY.loadConfig(store);
+        if (!cfgSaved) return { ok: false, off: true };
+        syncing = (async () => {
+          const at = new Date().toISOString();
+          try {
+            const client = SY.githubClient({ repo: cfgSaved.repo, token: cfgSaved.token, fetchFn: (...a) => ctx.sync.fetchFn(...a) });
+            const res = await SY.syncNow({ store, client });
+            ctx.coach = await SY.loadCoach(store);
+            await store.setMeta('syncStatus', { at, ok: true, ...res });
+            return { ok: true, ...res };
+          } catch (err) {
+            const out = { at, ok: false, error: SY.message(err), kind: err && err.kind };
+            await store.setMeta('syncStatus', out);
+            return out;
+          } finally { syncing = null; }
+        })();
+        return syncing;
+      },
+      // After a change: wait a few seconds (a session writes many events), then push once.
+      soon() {
+        if (!navigator.onLine) return;
+        clearTimeout(timer);
+        timer = setTimeout(async () => { if (await SY.loadConfig(store)) { await ctx.sync.run(); } }, 4000);
+      },
+    };
     addEventListener('hashchange', route);
-    store.onChange(() => { /* screens read the store when they are drawn */ });
+    store.onChange(() => ctx.sync.soon());
+    addEventListener('online', () => ctx.sync.soon());
+    ctx.sync.soon();
 
     if ('serviceWorker' in navigator) {
       const hadController = !!navigator.serviceWorker.controller;

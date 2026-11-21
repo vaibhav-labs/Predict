@@ -12,6 +12,7 @@ import { markLabel, luckRead, recheckCard, USED } from './autopsy.js';
 const OUTCOME_LABEL = { yes: 'Happened', no: "Didn't happen", void: 'Void' };
 
 export function baselineCaption(p) {
+  if (p.bSource === 'predict') return `Predict's outside view${p.bRef ? `: ${p.bRef}` : ''}`;
   return p.bSource === 'own' ? `your own rate for ${DOMAIN_NAMES[p.domain] || p.domain} · ${p.horizon}` : 'a starter guess, no history yet';
 }
 
@@ -45,6 +46,7 @@ function lensWhat(ctx, p) {
     lensHead(1, 'What happened', OUTCOME_LABEL[p.outcome]),
     h('p', null, `Locked ${p.d}, due ${p.due}, resolved ${p.resolvedAt ? R.localDay(new Date(p.resolvedAt)) : p.due}. You said ${pct(p.c)}.`),
     p.note ? h('p', null, p.note) : null,
+    p.source ? h('div', { class: 'stack', id: 'what-source', style: 'gap:2px' }, h('span', { class: 'cap' }, `Checked ${p.checkedDay || ''} by Predict. Source:`), h('a', { class: 'srclink', href: p.source, rel: 'noopener noreferrer', target: '_blank' }, p.source)) : null,
     p.outcome === 'void' ? h('p', { class: 'lede' }, 'Void: this one scores nothing.') : null);
 }
 
@@ -123,7 +125,9 @@ function lensNext(ctx, p, env) {
       h('thead', null, h('tr', null, h('th', null, 'You said'), h('th', null, 'Edge'))),
       h('tbody', null, table.map((row) => h('tr', { class: row.mine ? 'mine' : '' }, h('td', null, pct(row.c)), h('td', { class: row.edge < 0 ? 'bad' : '' }, signed(row.edge))))))
       : h('p', { class: 'cap' }, 'Nothing to compare on a void card.'),
-    env.autopsy && env.autopsy.rule ? ruleBlock(ctx, env.autopsy, env.repaint) : null);
+    env.autopsy && env.autopsy.rule ? ruleBlock(ctx, env.autopsy, env.repaint) : null,
+    // What Predict wrote about this card at a weekly review, when it did.
+    ctx.coach && ctx.coach.reads[p.id] ? h('div', { class: 'stack', id: 'predict-read' }, h('div', { class: 'eyebrow' }, `Predict’s read · ${ctx.coach.reads[p.id].written}`), h('p', null, ctx.coach.reads[p.id].text)) : null);
 }
 
 export function caseFile(ctx, p, header, predictions, repaint) {

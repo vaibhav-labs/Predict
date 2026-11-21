@@ -30,6 +30,7 @@ from collections import Counter, defaultdict
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BANK = os.path.join(ROOT, "app", "content", "questions", "starter.json")
 EXAM_BANK = os.path.join(ROOT, "app", "content", "questions", "exam-u1.json")
+TOPUPS = os.path.join(ROOT, "app", "content", "questions", "topups.json")
 TABLES = os.path.join(ROOT, "data", "question_tables")
 DOMAINS = {"weather", "travel", "money", "work", "world", "sport", "life"}
 FIELDS = ("id", "lead", "ask", "claim", "answer", "base", "n", "fact", "why", "domain", "diff", "verified", "source", "src_name", "checked")
@@ -752,7 +753,45 @@ def check():
             errors.append(f"the starter bank and the exam pool share claims: {sorted(shared_claims)[:2]}")
         if shared_cases:
             errors.append(f"the starter bank and the exam pool both use the same case, so a practice reveal could give an exam answer away: {sorted(map(str, shared_cases))[:3]}")
+    check_topups(errors, notes, banks)
     return errors, notes
+
+
+def check_topups(errors, notes, banks):
+    """Top-ups: questions the weekly review adds between releases (design/coach.md). They are read by the app beside the starter bank,
+    so they follow the same shape rules, must be `sourced` (a documented fact with a source page read on the `checked` date, never a
+    private or personal question), and must not repeat an id or claim of either bank. An empty list is the normal state."""
+    if not os.path.exists(TOPUPS):
+        errors.append("app/content/questions/topups.json is missing (it may hold an empty list)")
+        return
+    try:
+        with open(TOPUPS, encoding="utf-8") as f:
+            doc = json.load(f)
+    except ValueError as e:
+        errors.append(f"topups.json does not parse: {e}")
+        return
+    qs = doc.get("questions") if isinstance(doc, dict) else None
+    if doc.get("version") != 2 or not isinstance(qs, list):
+        errors.append("topups.json must be {\"version\": 2, \"questions\": [...]}")
+        return
+    before = len(errors)
+    if len(qs) > 500:
+        errors.append(f"topups.json: {len(qs)} questions is more than a top-up should hold")
+    check_shape(qs, "top-ups", errors)
+    others = [q for (bq, _) in banks.values() for q in bq]
+    ids, claims = {q["id"] for q in others}, {q["claim"] for q in others}
+    for q in qs:
+        where = q.get("id", "?")
+        if q.get("verified") != "sourced":
+            errors.append(f"{where}: a top-up must be sourced (a documented fact with its page and the date it was read)")
+        if not str(q.get("id", "")).startswith("top-"):
+            errors.append(f"{where}: a top-up id starts with top-")
+        if q.get("id") in ids:
+            errors.append(f"{where}: a top-up repeats an id of the starter bank or the exam pool")
+        if q.get("claim") in claims:
+            errors.append(f"{where}: a top-up repeats a claim of the starter bank or the exam pool")
+    if len(errors) == before:
+        notes.append(f"top-ups: {len(qs)} questions, shape and sources pass")
 
 
 def main():

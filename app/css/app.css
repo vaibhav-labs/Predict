@@ -255,3 +255,7 @@ textarea.field{min-height:64px;padding:12px 14px;line-height:1.4;font:400 15px/1
 .tbl td.bad{color:var(--seal);font-weight:600}
 #gate-attempts{margin-top:4px}
 #wheel-check{border-left:4px solid var(--ink)}
+
+/* Block 5: a link to a source page is a tap target of its own, and a long address wraps instead of widening the screen. */
+.srclink { display: inline-flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; word-break: break-word; }
+.prompt-chip { text-align: left; white-space: normal; height: auto; min-height: 44px; }

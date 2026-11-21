@@ -108,7 +108,7 @@ A bad push is rolled back by reverting the commit. A broken table, JSON file or 
 
 1. Relative URLs only, and routes live in the hash (`#/journal`). Pages has no server-side fallback, and
    every relative URL depends on the page being served from `/Predict/`.
-2. No requests to other sites while the app runs: fonts are self-hosted, no CDN, no analytics. This keeps
+2. No requests to other sites while the app runs, with one exception added in Block 5: api.github.com, only after the player has connected a private repository on the Coach tab (`app/js/sync.js`). Fonts are self-hosted, no CDN, no analytics. This keeps
    the app offline-safe and the record private.
 3. The engine (scoring, gates, statistics, lesson triggers) is pure functions in `app/js/engine/`, with
    no page and no storage in them. Node tests check them against the Python simulators.

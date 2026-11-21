@@ -88,6 +88,7 @@ export function todayScreen(ctx) {
       h('div', { class: 'stat' }, h('span', { class: 'eyebrow' }, 'Baseline'), h('span', { class: 'val num', id: 'stat-base' }, base.complete ? 'Done' : `${base.done} of ${base.total}`), h('span', { class: 'bar' }, h('i', { style: `width:${Math.round((base.done / base.total) * 100)}%` })), h('span', { class: 'cap' }, base.complete ? 'Curve in Mirror' : 'calls so far'))),
     h('a', { class: 'standing-link', href: '#/mirror', id: 'standing-link', 'aria-label': 'Level, streak and seven-day score. Open the Mirror.' }, standingTiles(standingOf(ctx))),
     habitCard(ctx, ls),
+    letterNudge(ctx),
     needsCard(ctx, ls, gate),
     ...ls.rechecks.slice(0, 2).map((r) => recheckCard(ctx, r, () => ctx.refresh())),
     h('section', { class: 'card' },
@@ -103,10 +104,20 @@ export function todayScreen(ctx) {
       ? h('section', { class: 'card nudge' },
         h('span', { class: 'eyebrow' }, 'Back up your record'),
         h('p', null, lastExport ? `Your last Export was ${daysSince} days ago.` : 'You have not exported your record yet.'),
-        h('p', { class: 'cap' }, 'Your calls live only on this phone until the private repository arrives in Block 5.'),
+        h('p', { class: 'cap' }, 'Your calls live only on this phone until you connect a private repository on the Coach tab.'),
         h('a', { class: 'ghost', href: '#/coach' }, 'Open Export'))
       : null,
     h('a', { class: 'btn', href: '#/gym', id: 'start', style: 'margin-top:auto' }, active ? 'Resume session' : 'Start session'));
+}
+
+// A weekly letter from Predict that has not been opened yet.
+function letterNudge(ctx) {
+  const L = ctx.coach && ctx.coach.letter;
+  if (!L || ctx.letterSeen === (ctx.coach.week || ctx.coach.written || 'seen')) return null;
+  return h('section', { class: 'card nudge stack', id: 'letter-card' },
+    h('span', { class: 'eyebrow' }, 'From Predict'),
+    h('p', null, L.title),
+    h('a', { class: 'ghost', href: '#/coach', id: 'letter-open' }, 'Read this week’s letter'));
 }
 
 // Missed days (L15): not a lesson, a smaller day until the habit is back. Says what today's minimum is and how far the run is.
