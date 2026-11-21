@@ -42,5 +42,8 @@ python3 $T/validate_tables.py data/*.csv \
   > sim/out/validation.txt
 cat sim/out/validation.txt
 
+echo "range game on the real bank (about 1 minute)"
+python3 sim/range_sim.py --runs 20000 --json sim/out/range_results.json > sim/out/range_report.txt
+
 echo "6/6 balance report"
 python3 sim/make_balance_report.py

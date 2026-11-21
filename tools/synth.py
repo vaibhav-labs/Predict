@@ -106,6 +106,36 @@ class Rec:
         self.end(sid, day, minute + len(rows) + 1)
         return sid
 
+    # ---- Unit 3 ranges (Block 6): range sessions, ranges, and the exam of 60 ----
+    def rsession(self, day, minute, mode="practice", size=10, plan=(), **extra):
+        return self._add("rsession", day, minute, mode=mode, unit="U3", size=size, plan=list(plan), **extra)["id"]
+
+    def range_(self, sid, day, minute, q, low, high, mode="practice", exam=None):
+        """One locked range on question `q` (a dict of app/content/questions/ranges.json); the judging is ref_range's, written separately from the app's."""
+        import ref_range
+        j = ref_range.judge(q, low, high)
+        return self._add("range", day, minute, session=sid, mode=mode, unit="U3", exam=exam, q=q["id"], kind=q["kind"], domain=q["domain"], claim=f"{q['lead']} {q['ask']}",
+                         scale=q["scale"], low=low, high=high, truth=q["truth"], refLow=q["ref_low"], refHigh=q["ref_high"], hit=j["hit"], width=j["width"], refWidth=j["ref_w"],
+                         ratio=j["ratio"], score=j["score"], points=j["points"], ms=9000)
+
+    def rend(self, sid, day, minute):
+        return self._add("rsession_end", day, minute, session=sid)
+
+    def range_day(self, day, questions, policy, mode="practice", minute=0, exam=None, n=None, of=None):
+        """One session of ranges. policy(i, rng, q) -> (low, high) for that question."""
+        extra = {}
+        if exam:
+            extra = {"exam": exam, "n": n, "of": of}
+        sid = self.rsession(day, minute, mode=mode, size=len(questions), plan=[q["id"] for q in questions], **extra)
+        for i, q in enumerate(questions):
+            low, high = policy(i, self.rng, q)
+            self.range_(sid, day, minute + 1 + i, q, low, high, mode=mode, exam=exam)
+        self.rend(sid, day, minute + len(questions) + 1)
+        return sid
+
+    def range_exam_start(self, day, minute, n=60):
+        return self._add("exam", day, minute, state="start", unit="U3", n=n)["id"]
+
     # ---- output ----
     def sorted(self):
         return sorted(self.events, key=lambda e: (e["t"], e["id"]))
@@ -326,6 +356,51 @@ def eligible_player(seed=17, start="2026-09-01"):
             r.play_day(day, 18, pol_calibrated)
         r.prediction(day, 400, 0.6, 0.5)
     return r
+
+
+def u1_passed_player(exam_bank, seed=19, start="2026-09-01"):
+    """The eligible player, who then sat and passed the Unit 1 exam (200 calls in 10 sittings, the verdict written): Unit 3 is open."""
+    r = eligible_player(seed, start)
+    day0 = add_days(start, 8)
+    rows = exam_rows(exam_bank, [(0.55, 40, 22), (0.65, 40, 26), (0.75, 40, 30), (0.85, 40, 34), (0.95, 40, 38)], random.Random(seed))
+    att = r.exam_start(day0, 10, n=200)
+    for i in range(10):
+        r.exam_sitting(att, add_days(day0, i), 20, rows[i * 20:(i + 1) * 20], n=i + 1)
+    r._add("exam", add_days(day0, 9), 300, state="result", exam=att, **{"pass": True}, n=200, index=0.0, meanConf=0.75, hitRate=0.75, reasons=[], worst=None, bands=[])
+    return r
+
+
+def range_policy(f):
+    """A range player who says the reference interval stretched by f (1 = exactly the record's middle 90%)."""
+    import ref_range
+
+    def policy(i, rng, q):
+        return ref_range.stretched(q, f)
+    return policy
+
+
+def hit_miss_policy(pattern):
+    """A range player whose i-th range holds the truth when pattern[i % len] is '1' and misses it (well above) otherwise; each is the reference width."""
+    import ref_range
+
+    def policy(i, rng, q):
+        t = ref_range.to_scale(q, q["truth"])
+        w = ref_range.to_scale(q, q["ref_high"]) - ref_range.to_scale(q, q["ref_low"])
+        if pattern[i % len(pattern)] == "1":
+            return ref_range.from_scale(q, t - w * 0.5), ref_range.from_scale(q, t + w * 0.5)
+        return ref_range.from_scale(q, t + w * 0.2), ref_range.from_scale(q, t + w * 1.2)
+    return policy
+
+
+def centered_policy(k):
+    """A range player who always holds the truth: centred on it, k reference widths wide (k = 1 is as wide as the record's middle 90%)."""
+    import ref_range
+
+    def policy(i, rng, q):
+        t = ref_range.to_scale(q, q["truth"])
+        w = ref_range.to_scale(q, q["ref_high"]) - ref_range.to_scale(q, q["ref_low"])
+        return ref_range.from_scale(q, t - w * k / 2), ref_range.from_scale(q, t + w * k / 2)
+    return policy
 
 
 def exam_rows(bank, groups, rng):

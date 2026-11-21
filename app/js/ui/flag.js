@@ -7,7 +7,7 @@ import { flagCard } from '../lessons.js';
 import { focusFrame } from './common.js';
 import { renderBlocks } from './lesson.js';
 import { lessonState } from '../flags.js';
-import { evidenceText, retestText, drillText, firesText, flagName } from '../flagtext.js';
+import { evidenceText, retestText, drillText, firesText, flagName, drillRoute } from '../flagtext.js';
 
 const bar = (have, need) => h('span', { class: 'bar' }, h('i', { style: `width:${Math.round((have / need) * 100)}%` }));
 
@@ -27,7 +27,7 @@ export function flagScreen(ctx, id) {
     chain.fires > 1 ? h('p', { class: 'muted' }, firesText(chain)) : null);
 
   const lesson = card
-    ? h('section', { class: 'card prose stack', id: 'flag-lesson' }, h('span', { class: 'eyebrow' }, card.title), renderBlocks(card.blocks(ctx.S)))
+    ? h('section', { class: 'card prose stack', id: 'flag-lesson' }, h('span', { class: 'eyebrow' }, card.title), renderBlocks(card.blocks(ctx.S, ctx.cfg)))
     : null;
 
   const minimum = cfg.lessons.triggers.L15.minimum;
@@ -45,7 +45,7 @@ export function flagScreen(ctx, id) {
     go.addEventListener('click', async () => {
       go.disabled = true;
       if (chain.state === 'open') await ctx.store.append(R.makeEvent('flag', { state: 'lesson', flag: chain.id }));
-      ctx.nav(chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : `#/gym/drill-${chain.id}`);
+      ctx.nav(drillRoute(chain));
     });
     action = h('section', { class: 'card stack', id: 'flag-action' }, h('span', { class: 'eyebrow' }, 'The drill'), h('p', null, drillText(chain, cfg)), go);
   } else if (chain.state === 'drill' || chain.state === 'retest2') {

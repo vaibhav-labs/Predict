@@ -74,13 +74,28 @@ for tid, t in cfg["lessons"]["triggers"].items():
     if str(window) != row["min_sample"]:
         errors.append(f"{tid}: scoring.json looks at {window} observations, data/lesson_triggers.csv says min_sample {row['min_sample']}")
     drill = t.get("drill")
-    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite"}:
+    if drill and drill["kind"] not in {"wheel", "forced", "zone_locked", "rewrite", "stepwise", "budget"}:
         errors.append(f"{tid}: unknown drill kind {drill['kind']!r}")
 with open(os.path.join(ROOT, "data", "vague_claims.csv"), encoding="utf-8", newline="") as f:
     vague = list(csv.DictReader(f))
 need = cfg["lessons"]["triggers"]["L04"]["drill"]["items"]
 if len(vague) < 2 * need:
     errors.append(f"data/vague_claims.csv has {len(vague)} rows; the rewrite drill needs at least {2 * need} so a second drill brings new ones")
+# The two range triggers (Block 6): their windows, the clearing band and the drill's settings must agree with the gate's table.
+for tid in ("L05", "L06"):
+    t = cfg["lessons"]["triggers"].get(tid)
+    if not t:
+        errors.append(f"scoring.json lessons.triggers has no {tid}")
+        continue
+    lo, hi = t["clear_hits"]
+    if not (0 < lo <= hi <= t["clear_window"]):
+        errors.append(f"{tid}: clear_hits {t['clear_hits']} is not a band inside {t['clear_window']} ranges")
+    if tid not in cfg["gates"]["rust_triggers"].get("U3", []):
+        errors.append(f"{tid} is not among gates.rust_triggers.U3")
+if cfg["lessons"]["triggers"]["L06"]["drill"]["budget_ratio"] <= 1:
+    errors.append("L06: the width budget must allow more than the reference width")
+if cfg["interval"]["exam_session_size"] * 3 != cfg["gates"]["range_exam_calls"]:
+    errors.append("interval.exam_session_size times 3 sittings must equal gates.range_exam_calls")
 for r in vague:
     if not (r["vague"].strip() and r["hint"].strip() and r["sharp_example"].strip()):
         errors.append(f"data/vague_claims.csv: {r['id']} has an empty cell")
@@ -99,6 +114,13 @@ import check_questions  # noqa: E402
 
 bank_errors, bank_notes = check_questions.check()
 errors += [f"question bank: {e}" for e in bank_errors]
+
+# 7. The range bank (Block 6): every reference interval worked out again with SQL, the pools disjoint, the interval fair.
+import check_ranges  # noqa: E402
+
+range_errors, range_notes = check_ranges.check()
+errors += [f"range bank: {e}" for e in range_errors]
+bank_notes += [f"range bank: {n}" for n in range_notes]
 
 if errors:
     print("DATA CHECK FAILED")

@@ -1,10 +1,11 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS } from '../lessons.js';
+import { LESSONS, RANGE_LESSONS } from '../lessons.js';
 import { tabFrame, unitRow } from './common.js';
-import { lessonState, gateState } from '../flags.js';
+import { lessonState, gateState, rangeGateState } from '../flags.js';
 import { patternRow } from './patterns.js';
 import { examCard } from './exam.js';
+import { rangeExamCard } from './ranges.js';
 
 export function pathScreen(ctx) {
   const events = ctx.store.events;
@@ -13,10 +14,13 @@ export function pathScreen(ctx) {
   const practice = R.callsOf(events).filter((c) => c.mode === 'practice').length;
 
   const gate = gateState(ctx);
+  const rgate = rangeGateState(ctx);
+  const rangesDone = R.rangesOf(events).filter((r) => r.mode === 'practice').length;
   const ls = lessonState(ctx);
   const status = (u) => {
     if (u.id === 'U0') return base.complete ? { text: 'Done', on: true } : { text: `${base.done} of ${base.total}`, on: true };
     if (u.id === 'U1') return gate.passed ? { text: 'Passed', on: true } : { text: practice ? `${practice} calls` : 'Practice', on: true };
+    if (u.id === 'U3') return rgate.passed ? { text: 'Passed', on: true } : rgate.open ? { text: rangesDone ? `${rangesDone} ranges` : 'Open', on: true } : { text: 'Locked', on: false };
     return { text: 'Locked', on: false };
   };
   const patterns = ls.chains.slice().reverse().slice(0, 8);
@@ -30,6 +34,17 @@ export function pathScreen(ctx) {
         h('span', { class: 't' }, h('b', null, l.title), h('em', null, l.blurb)),
         h('span', { class: 'cap' }, read.has(l.id) ? 'Read' : 'Open'))))),
     examCard(ctx),
+    rgate.open ? h('section', { class: 'card', id: 'range-lessons-card' },
+      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Unit 3 lessons'), h('span', { class: 'cap' }, 'under a minute each')),
+      h('div', { id: 'range-lessons' }, RANGE_LESSONS.map((l) => h('a', { class: 'lesson-link', href: `#/lesson/${l.id}` },
+        h('span', { class: `tick${read.has(l.id) ? ' on' : ''}`, 'aria-hidden': 'true' }, read.has(l.id) ? icon('check', 14, 2.4) : null),
+        h('span', { class: 't' }, h('b', null, l.title), h('em', null, l.blurb)),
+        h('span', { class: 'cap' }, read.has(l.id) ? 'Read' : 'Open'))))) : null,
+    rgate.open ? h('section', { class: 'card stack', id: 'range-practice-card' },
+      h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Unit 3 practice'), h('span', { class: 'cap num' }, `${rangesDone} ranges so far`)),
+      h('p', null, 'Ten ranges a session: a low and a high you are 90% sure of, scored against what the record says a 90% range needs.'),
+      h('a', { class: 'ghost', href: '#/range/practice', id: 'range-practice' }, 'Start ranges')) : null,
+    rangeExamCard(ctx),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,
