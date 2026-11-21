@@ -134,6 +134,12 @@ export function helpScreen(ctx) {
       p('In the journal', 'with Unit 5 open, a prediction’s outside-view rate is graded against the base rate recorded when you locked it. A card can be tagged as your own task; chain cards take the steps with a probability each, and the app shows their product.'),
       p('Patterns', 'chains that you multiply too generously, your own plans running too sure, forecasts far from the base rate with no evidence, and a domain where your edge is below zero each get a lesson, a drill and re-tests.')),
 
+    section('Updating (Unit 6)',
+      p('What it is', 'news arrives and you change your number, but by how much? Each step shows the rate before the news, the news, and you type the new percent. It counts when it lands within 7 points of the real rate for the narrower group. It opens when you have passed Unit 5.'),
+      p('The exam', '40 fresh steps in two sittings of 20. At least 32 must land within 7 points, and on average your moves must not end further from the truth than staying at the prior would have. A fail says which, then a repair drill.'),
+      p('On a journal card', 'while a card is open you can change its number with a reason of a line or two. The locked number stays on the record, and each day the card was open is scored at the number in force that day. One update a day: a second replaces the first. The Mirror adds up what your updates were worth.'),
+      p('Patterns', 'open predictions that had news waiting and no update for a week, and big moves you reverse within two weeks, each get a lesson, a drill and re-tests.')),
+
     section('The autopsy and the case file',
       p('Autopsy', 'a real prediction that missed at 85% or more, and one in five confident hits, gets a short autopsy before your next journal step: mark each link of your chain held up, weak or missed it, then say what you knew, what you missed, whether it was luck or judgment, and one rule for next time.'),
       p('The rule', 'sits above your next five journal cards and is checked at 3 and 10 days: did you use it?'),

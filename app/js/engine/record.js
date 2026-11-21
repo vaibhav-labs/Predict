@@ -169,6 +169,9 @@ export function dayNumber(events, today) {
 // pure function of the log and the clock, like dayNumber above.
 export function predictionsOf(events, today = localDay()) {
   const resolves = new Map(events.filter((e) => e.type === 'resolve').map((e) => [e.prediction, e]));
+  // The player's updates of an open card (Block 8), oldest first: each carries the probability it set and the one it replaced.
+  const updates = new Map();
+  for (const e of events) if (e.type === 'update') { if (!updates.has(e.prediction)) updates.set(e.prediction, []); updates.get(e.prediction).push(e); }
   // Predict's own number for a card (a `baseline` event, written when it arrived before the due day) replaces the locked baseline for
   // scoring and shows as its source. The first one wins; the number locked with the card stays on it as `b0`.
   const adopted = new Map();
@@ -179,7 +182,8 @@ export function predictionsOf(events, today = localDay()) {
     const p = a ? { ...p0, b: a.b, bSource: 'predict', b0: p0.b, bRef: a.ref } : p0;
     const r = resolves.get(p.id);
     const state = r ? 'resolved' : p.due <= today ? 'due' : 'open';
-    return { ...p, state, ...(r && r.source ? { source: r.source, checkedDay: r.checked } : {}), outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, resolvedAt: r ? r.t : undefined };
+    const ups = (updates.get(p.id) || []).slice().sort(byTime);
+    return { ...p, updates: ups, cNow: ups.length ? ups[ups.length - 1].c : p.c, state, ...(r && r.source ? { source: r.source, checkedDay: r.checked } : {}), outcome: r ? r.outcome : null, note: r ? r.note : undefined, raw: r ? r.raw : null, edge: r ? r.edge : null, ...(r && typeof r.edge0 === 'number' ? { raw0: r.raw0, edge0: r.edge0, days: r.days } : {}), resolvedAt: r ? r.t : undefined };
   }).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : byTime(a, b)));
 }
 export const dueList = (predictions) => predictions.filter((p) => p.state === 'due');

@@ -1,6 +1,6 @@
 import { h, icon } from '../dom.js';
 import * as R from '../engine/record.js';
-import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS } from '../lessons.js';
+import { LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS } from '../lessons.js';
 import { tabFrame, unitRow } from './common.js';
 import { lessonState, gateState, rangeGateState, problemGateState } from '../flags.js';
 import { patternRow } from './patterns.js';
@@ -19,7 +19,8 @@ export function pathScreen(ctx) {
   const rangesDone = R.rangesOf(events).filter((r) => r.mode === 'practice').length;
   const g4 = problemGateState(ctx, 'U4');
   const g5 = problemGateState(ctx, 'U5');
-  const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (unit === 'U4' ? p.family === 'fermi' : p.family === 'rate' || p.family === 'class')).length;
+  const g6 = problemGateState(ctx, 'U6');
+  const probsDone = (unit) => R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && (unit === 'U4' ? p.family === 'fermi' : unit === 'U6' ? p.family === 'update' : p.family === 'rate' || p.family === 'class')).length;
   const ls = lessonState(ctx);
   const status = (u) => {
     if (u.id === 'U0') return base.complete ? { text: 'Done', on: true } : { text: `${base.done} of ${base.total}`, on: true };
@@ -27,6 +28,7 @@ export function pathScreen(ctx) {
     if (u.id === 'U3') return rgate.passed ? { text: 'Passed', on: true } : rgate.open ? { text: rangesDone ? `${rangesDone} ranges` : 'Open', on: true } : { text: 'Locked', on: false };
     if (u.id === 'U4') return g4.passed ? { text: 'Passed', on: true } : g4.open ? { text: probsDone('U4') ? `${probsDone('U4')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
     if (u.id === 'U5') return g5.passed ? { text: 'Passed', on: true } : g5.open ? { text: probsDone('U5') ? `${probsDone('U5')} problems` : 'Open', on: true } : { text: 'Locked', on: false };
+    if (u.id === 'U6') return g6.passed ? { text: 'Passed', on: true } : g6.open ? { text: probsDone('U6') ? `${probsDone('U6')} steps` : 'Open', on: true } : { text: 'Locked', on: false };
     return { text: 'Locked', on: false };
   };
   const lessonCard = (id, unitName, list, open) => open ? h('section', { class: 'card', id }, h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, `${unitName} lessons`), h('span', { class: 'cap' }, 'under a minute each')),
@@ -66,6 +68,10 @@ export function pathScreen(ctx) {
     g5.open ? practiceCard('rate-practice-card', 'Unit 5', 'Twelve problems a session: start outside. How often does this happen to cases like this one, and which group do you start from?', [
       h('a', { class: 'ghost', href: '#/prob/rate', id: 'rate-practice' }, 'Start base rates')], probsDone('U5')) : null,
     problemExamCard(ctx, 'U5'),
+    lessonCard('update-lessons-card', 'Unit 6', UPDATE_LESSONS, g6.open),
+    g6.open ? practiceCard('update-practice-card', 'Unit 6', 'Six steps a session: the rate before the news, a piece of news, and your new number. Some news is worth a big move and some is worth none. Updates on your real journal cards, with a reason, count toward this unit.', [
+      h('a', { class: 'ghost', href: '#/prob/update', id: 'update-practice' }, 'Start updating')], probsDone('U6')) : null,
+    problemExamCard(ctx, 'U6'),
     patterns.length ? h('section', { class: 'card', id: 'patterns' },
       h('div', { class: 'shead' }, h('span', { class: 'eyebrow' }, 'Your patterns'), h('span', { class: 'cap' }, 'from your own record')),
       h('div', null, patterns.map((c) => patternRow(ctx, c, ls)))) : null,

@@ -11,7 +11,7 @@ import { unitRow } from './ui/common.js';
 export async function runLessonEngine(ctx) {
   const today = R.localDay();
   const events = ctx.store.events;
-  const { append } = LE.evaluate(events, { today, cfg: ctx.cfg, predictions: R.predictionsOf(events, today) });
+  const { append } = LE.evaluate(events, { today, cfg: ctx.cfg, predictions: R.predictionsOf(events, today), news: (ctx.coach && ctx.coach.news) || {} });
   for (const f of append) {
     const { type, ...fields } = f;
     await ctx.store.append(R.makeEvent('flag', fields));
@@ -26,7 +26,7 @@ export function lessonState(ctx) {
   const chains = LE.flagsOf(events, cfg);
   const habit = chains.find((c) => c.trigger === 'L15' && c.state === 'open') || null;
   const patterns = chains.filter((c) => c.trigger !== 'L15' && LE.ACTIVE.has(c.state));
-  const progress = (c) => LE.retestProgress(c, events, { cfg, predictions, today });
+  const progress = (c) => LE.retestProgress(c, events, { cfg, predictions, today, news: (ctx.coach && ctx.coach.news) || {} });
   return {
     today, predictions, chains, habit, patterns, progress,
     escalated: chains.filter((c) => c.trigger !== 'L15' && c.state === 'escalated'),
@@ -79,18 +79,18 @@ export async function judgeRangeExam(ctx, attemptId) {
 // is the unit's own: Fermi problems for Unit 4, base-rate and reference-class problems for Unit 5 (chain problems are lesson-slot practice).
 export function problemGateState(ctx, unit) {
   const events = ctx.store.events;
-  const open = unit === 'U4' ? rangeGateState(ctx).passed : problemGateState(ctx, 'U4').passed;
-  const families = unit === 'U4' ? ['fermi'] : ['rate', 'class'];
+  const open = unit === 'U4' ? rangeGateState(ctx).passed : unit === 'U5' ? problemGateState(ctx, 'U4').passed : problemGateState(ctx, 'U5').passed;
+  const families = unit === 'U4' ? ['fermi'] : unit === 'U5' ? ['rate', 'class'] : ['update'];
   const practice = R.probsOf(events).filter((p) => p.mode === 'practice' && p.unit === unit && families.includes(p.family)).length;
   return PB.problemGateStatus(events, ctx.cfg, unit, { open, practice, practiceRequired: Number(unitRow(ctx, unit).practice_calls) });
 }
 
 // A Unit 4 or Unit 5 exam is judged once, when its last problem is in. Safe to call again: an exam that has its verdict is left alone.
 export async function judgeProblemExam(ctx, attemptId) {
-  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === attemptId && (a.unit === 'U4' || a.unit === 'U5'));
+  const attempt = G.examsOf(ctx.store.events, ctx.cfg).find((a) => a.id === attemptId && (a.unit === 'U4' || a.unit === 'U5' || a.unit === 'U6'));
   if (!attempt || attempt.result || attempt.calls.length < attempt.total) return false;
   const v = PB.gateOf(attempt.unit)(attempt.calls, ctx.cfg.gates);
-  const extra = attempt.unit === 'U4' ? { medianMiss: v.medianMiss, meanRatio: v.meanRatio } : { meanMiss: v.meanMiss, bias: v.bias, within: v.within };
+  const extra = attempt.unit === 'U4' ? { medianMiss: v.medianMiss, meanRatio: v.meanRatio } : attempt.unit === 'U6' ? { meanMiss: v.meanMiss, bias: v.bias, within: v.within, meanGain: v.meanGain } : { meanMiss: v.meanMiss, bias: v.bias, within: v.within };
   await ctx.store.append(R.makeEvent('exam', { state: 'result', exam: attempt.id, unit: attempt.unit, pass: v.pass, n: v.n, hits: v.hits, coverage: attempt.unit === 'U4' ? v.coverage : v.hits / v.n, points: v.points, reasons: v.reasons, dir: v.dir, ...extra }));
   return true;
 }

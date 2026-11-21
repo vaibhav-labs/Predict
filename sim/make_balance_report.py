@@ -235,6 +235,25 @@ if os.path.exists(_prb):
     add(f"- **The Unit 5 gate asks for a real outside view:** a player within 3 points on average passes {pct(rp['knows the record (sd 3)']['exam_pass'])}, within 5 {pct(rp['close (sd 5)']['exam_pass'])}, "
         f"within 8 {pct(rp['rough (sd 8)']['exam_pass'])}; a lean of 6 points high with that noise {pct(rp['rough, leans high (sd 8, +6)']['exam_pass'])}.")
 
+# 5d (Block 8): the updating game on the real evidence-stream bank, from sim/update_sim.py ----------------------------
+_upr = os.path.join(OUT, "update_results.json")
+if os.path.exists(_upr):
+    US = json.load(open(_upr))
+    UB = US["_bank"]
+    add("\n## 5d. Updating on the real evidence-stream bank (Block 8)\n")
+    add("`sim/update_sim.py` plays the Unit 6 exam on the real exam pool (60 streams of two steps, `updates.json`), 20 streams a sitting pair as the app draws them, with the real rules from "
+        "`data/scoring.json`. A player answers each step with prior + k x (truth - prior) + noise: k is the share of the deserved move taken (0 never moves, 1 exactly as far as the news "
+        "is worth, above 1 too far), noise is a normal error in points. The gate needs 32 of 40 steps within 7 points and a mean gain of zero or more over staying at the prior.\n")
+    add(table(["Player", "Within 7 of 40", "Mean gain", "Points a step", "Within half passes", "Gain half passes", "Exam pass"],
+              [[name, f"{r['mean_within']:.1f}", f"{r['mean_gain']:+.1f}", f"{r['points_per_step']:+.0f}", pct(r["within_half"]), pct(r["gain_half"]), pct(r["exam_pass"])] for name, r in US.items() if not name.startswith("_")]))
+    add(f"\n- **The bank is balanced on purpose:** news is worth 8 or more points on {pct(UB['strong_share'])} of exam steps, 3 to 8 on {pct(UB['medium_share'])} and under 3 on {pct(UB['weak_share'])}. "
+        f"Staying at the prior is within 7 on {pct(UB['stay_within_7_share'])} of steps, so a player who never moves earns {US['never moves (k 0)']['points_per_step']:+.0f} a step and passes {pct(US['never moves (k 0)']['exam_pass'])}.")
+    add(f"- **The within-7 half does the work.** A calibrated player with typical noise passes {pct(US['calibrated, typical (k 1, noise 5)']['exam_pass'])}, a rough one {pct(US['calibrated, rough (k 1, noise 8)']['exam_pass'])}; "
+        f"an over-reactor (k 1.6) passes {pct(US['over-reacts (k 1.6, noise 3)']['exam_pass'])} and a whiplash player (k 2.5) never. The gain half is nearly always met by anyone who moves the right way "
+        f"({pct(US['calibrated, rough (k 1, noise 8)']['gain_half'])} even for the rough player), so it mostly catches whiplash and chasing noise.")
+    add(f"- **Open risk: a half-hearted mover passes.** A player who takes only 60% of every deserved move (k 0.6, noise 3) passes {pct(US['under-reacts (k 0.6, noise 3)']['exam_pass'])}: with a tolerance of 7 and "
+        "streams that are mostly small moves, under-reaction is forgiven. If real players do this, tighten `update_pass_within` or add a floor on the share of a big move taken (the Mirror already shows that share).")
+
 # 6 ------------------------------------------------------------------
 add("\n## 6. Real predictions: raw points against edge\n")
 add("- **Intent:** logging sure things must not pay.")

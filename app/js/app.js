@@ -19,6 +19,7 @@ import { rewriteScreen } from './ui/rewrite.js';
 import { examScreen } from './ui/exam.js';
 import { autopsyScreen } from './ui/autopsy.js';
 import { rangeScreen, rangeSummaryScreen, rangeExamScreen } from './ui/ranges.js';
+import { stepsOf } from './engine/update.js';
 import { problemScreen, problemSummaryScreen, problemExamScreen } from './ui/problems.js';
 import { runLessonEngine } from './flags.js';
 import * as SY from './sync.js';
@@ -85,7 +86,7 @@ async function route() {
 
 async function boot() {
   try {
-    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
+    const [cfg, unitsText, budgetText, bank, topups, exam, ranges, fermi, rates, updates, checkerText, journalBaselinesText, beltsText, triggersText, vagueText] = await Promise.all([
       getOK('./data/scoring.json').then((r) => r.json()),
       getOK('./data/units.csv').then((r) => r.text()),
       getOK('./data/session_budget.csv').then((r) => r.text()),
@@ -95,6 +96,7 @@ async function boot() {
       getOK('./content/questions/ranges.json').then((r) => r.json()),
       getOK('./content/questions/fermi.json').then((r) => r.json()),
       getOK('./content/questions/rates.json').then((r) => r.json()),
+      getOK('./content/questions/updates.json').then((r) => r.json()),
       getOK('./data/checker_rules.csv').then((r) => r.text()),
       getOK('./data/journal_baselines.csv').then((r) => r.text()),
       getOK('./data/belts.csv').then((r) => r.text()),
@@ -111,7 +113,7 @@ async function boot() {
     const bankById = new Map(practice.map((q) => [q.id, q]));
     const examById = new Map(exam.questions.map((q) => [q.id, q]));
     const rangeById = new Map(ranges.questions.map((q) => [q.id, q]));
-    const problemMap = new Map(fermi.questions.concat(rates.questions).map((q) => [q.id, q]));
+    const problemMap = new Map(fermi.questions.concat(rates.questions, updates.questions.flatMap(stepsOf)).map((q) => [q.id, q]));
     ctx = {
       cfg, S: makeScoring(cfg), store, build: BUILD, opens,
       units: parseTable(unitsText),
@@ -135,6 +137,9 @@ async function boot() {
       rateExamBank: rates.questions.filter((q) => q.type === 'rate' && q.pool === 'exam'),
       classBank: rates.questions.filter((q) => q.type === 'class'),
       chainBank: rates.questions.filter((q) => q.type === 'chain'),
+      // Unit 6 (updating): streams of two steps; the problem screen asks one step at a time, and `problemById` answers for a step id ('upd-…#1').
+      updateBank: updates.questions.filter((q) => q.pool === 'practice'),
+      updateExamBank: updates.questions.filter((q) => q.pool === 'exam'),
       problemById: (id) => problemMap.get(id),
       triggers: parseTable(triggersText),
       vagueClaims: parseTable(vagueText),

@@ -203,7 +203,7 @@ export const RATE_LESSONS = [
 ];
 
 // The lesson a pattern flag opens: the Unit 1 card that teaches the pattern (L01 to L03), one more card for soft questions, and a Unit 3 card for each range pattern.
-export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L13: 'blind' };
+export const FLAG_CARD = { L01: 'price99', L02: 'knowmore', L03: 'fifty', L04: 'stranger', L05: 'ends', L06: 'price', L07: 'multiply', L08: 'record', L09: 'outside', L10: 'steps', L11: 'worth', L13: 'blind' };
 export const STRANGER = {
   id: 'stranger',
   title: 'Could a stranger score this?',
@@ -215,7 +215,39 @@ export const STRANGER = {
     { p: ['The checker catches the common ones: no date, a vague word such as better or soon, a feeling in place of an event. When it flags a claim, rewrite it until the clairvoyant could answer.'] },
   ],
 };
-export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
+export const UPDATE_LESSONS = [
+  {
+    id: 'steps',
+    title: 'Move in measured steps',
+    blurb: 'News is worth a move, not a leap',
+    blocks: (S, cfg) => [
+      { p: ['New information should change a forecast, and by how much matters as much as which way. The two mistakes mirror each other: ', { b: 'anchoring' }, ' (barely moving when the news is big) and ', { b: 'whiplash' }, ' (swinging hard on every headline).'] },
+      { p: ['The yardstick is the record. When news narrows a case to a smaller group, the right new number is that group\'s own share. Sometimes that is a long way from where you started. Sometimes it is nowhere at all.'] },
+      { p: [`In Unit 6 you see the rate before the news, the news, and you type the new percent. It counts when it lands within ${cfg.problems.update.tolerance} points of the group's real rate. The exam is ${cfg.gates.update_exam_calls} fresh steps: ${cfg.gates.update_pass_within} within that distance, and on average your moves must not end further from the truth than staying put would have.`] },
+    ],
+  },
+  {
+    id: 'worth',
+    title: 'How much is news worth',
+    blurb: 'A detail can feel big and be worth nothing',
+    blocks: () => [
+      { p: ['Take a flight from Baltimore: 23.2% of the 921 in the record landed 15 or more minutes late. Add that it left before 10 in the morning and the share falls to 8.5% (246 flights): a big move. Add instead that it flew on a weekday and it stays at 23.0% (691 flights): no move at all, though both details felt like they should matter.'] },
+      { p: ['Ask two things of any piece of news: ', { b: 'does it separate the cases that end one way from those that end the other?' }, ' and ', { b: 'is it new, or already inside the rate you started from?' }, ' News that does neither is worth about nothing, however vivid.'] },
+      { p: ['A good habit: say the move before you make it. "This is worth about five points up." Then check, after the fact, whether it was.'] },
+    ],
+  },
+  {
+    id: 'reason',
+    title: 'Update with a reason',
+    blurb: 'Change the number, write down why',
+    blocks: (S, cfg) => [
+      { p: ['On a journal card that is still open you can change your number. The original stays on the record. Each day the card was open is scored at the number in force that day, so a good update earns its share and a bad one costs it.'] },
+      { p: ['Every update needs a reason of a line or two: what happened that you did not know. The reason is what lets you judge, later, whether your updates are worth making: the Mirror adds them up as the value of your updates.'] },
+      { p: [`Two patterns watch for the failures. Frozen forecasts: open cards with news in the weekly review but no update in a week. Whiplash: big moves that you reversed within ${cfg.problems.update.update_rule.reverse_days} days.`] },
+    ],
+  },
+];
+export const flagCard = (trigger) => (trigger === 'L04' ? STRANGER : LESSONS.concat(RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS).find((l) => l.id === FLAG_CARD[trigger]) || null);
 // Every card the Path can open, with the list it belongs to.
-export const cardList = (id) => [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS].find((list) => list.some((l) => l.id === id)) || null;
-export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : 'Unit 5 · Outside view');
+export const cardList = (id) => [LESSONS, RANGE_LESSONS, FERMI_LESSONS, RATE_LESSONS, UPDATE_LESSONS].find((list) => list.some((l) => l.id === id)) || null;
+export const cardUnit = (id) => (LESSONS.some((l) => l.id === id) ? 'Unit 1 · Calibration' : RANGE_LESSONS.some((l) => l.id === id) ? 'Unit 3 · Ranges' : FERMI_LESSONS.some((l) => l.id === id) ? 'Unit 4 · Fermi' : RATE_LESSONS.some((l) => l.id === id) ? 'Unit 5 · Outside view' : 'Unit 6 · Updating');

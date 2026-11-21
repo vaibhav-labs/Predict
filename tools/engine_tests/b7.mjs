@@ -53,7 +53,7 @@ test('the Block 7 settings are in the table: the gates, the problem scoring, the
   assert.equal(G.rate_pass_within, 32);
   assert.equal(cfg.problems.rate.tolerance, 7);
   assert.equal(cfg.problems.rate.class_min_cases, 30);
-  assert.deepEqual(G.opens_after, { U4: 'U3', U5: 'U4' });
+  assert.deepEqual(G.opens_after, { U4: 'U3', U5: 'U4', U6: 'U5' });
   assert.deepEqual(G.rust_triggers.U4, ['L07']);
   assert.deepEqual(G.rust_triggers.U5, ['L08', 'L09']);
   assert.deepEqual([L.L07.window, L.L07.gap, L.L07.clear_gap, L.L07.drill.kind, L.L07.drill.calls], [15, 0.15, 0.10, 'chain', 10]);

@@ -21,6 +21,8 @@ export function evidenceText(chain, cfg) {
     case 'L07': return `Your last ${e.n} resolved chain cards (predictions that needed several things to all happen) were stated at ${pct(e.meanStated)} on average, and ${pct(e.rate)} of them happened: ${whole(e.gap)} points too sure. Each step looked likely; the chain is the product.`;
     case 'L08': return `Your last ${e.n} resolved predictions about your own tasks and deadlines were stated at ${pct(e.meanStated)} on average, and ${pct(e.rate)} of them happened: ${whole(e.gap)} points too sure. Your own record is the base rate to start from.`;
     case 'L09': return `In your last ${e.n} resolved forecasts that sat ${whole(t.distance)} points or more from the recorded base rate with no evidence logged, you earned ${Math.round(e.meanEdge)} edge points a card on average: worse than the base rate alone. Start outside, then adjust, and log why.`;
+    case 'L10': return `${e.n} of your open predictions have waited ${t.news_days} days or more with news in the weekly review and no update: the longest has waited ${e.longest} days. News that nobody acts on is not information, it is a note.`;
+    case 'L11': return `${e.reversed} of your last ${e.n} large updates (${whole(t.large)} points or more) were reversed within ${t.reverse_days} days. Each swing felt justified by the news. Together they say the news was worth less than the move.`;
     case 'L13': return `In ${e.domain} you earned ${Math.round(e.meanEdge * 10) / 10} edge points a card over your last ${e.n} resolved predictions: a forecast that just said the baseline would have done better there.`;
     case 'L15': return `You missed ${(e.missed || []).length} of the last ${e.days} days.`;
     default: return '';
@@ -39,6 +41,8 @@ export function retestText(chain, cfg) {
     return `Two re-tests clear this flag, on your next ${t.clear_window} ${chain.trigger === 'L07' ? 'chain cards' : 'own-task predictions'} to resolve: how sure you said you were must be within ${whole(t.clear_gap)} points of how often they happened. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal journal: nothing extra to do.`;
   }
   if (chain.trigger === 'L09') return `Two re-tests clear this flag, on your next ${t.clear_window} forecasts that sit ${whole(t.distance)} points or more from the recorded base rate: every one has to carry logged evidence. The first starts ${d1} days after the drill, the second ${d2} days after it.`;
+  if (chain.trigger === 'L10') return `Two re-tests clear this flag: update the open predictions that have news waiting (with a line on why), so that none has waited ${t.clear_stale_days} days or more. The first check is ${d1} days after the drill, the second ${d2} days after it.`;
+  if (chain.trigger === 'L11') return `Two re-tests clear this flag, on your next ${t.clear_window} large updates (${whole(t.large)} points or more): fewer than ${t.clear_reversed_below} of them may be reversed within ${t.reverse_days} days. The first starts ${d1} days after the drill, the second ${d2} days after it. They come from your normal journal: nothing extra to do.`;
   if (chain.trigger === 'L13') return `Two re-tests clear this flag, on your next ${t.clear_window} resolved predictions in ${(chain.evidence || {}).domain || 'that domain'}: their average edge must be zero or better. The first starts ${d1} days after the drill, the second ${d2} days after it.`;
   const what = chain.trigger === 'L03' ? `your next ${t.clear_window} calls, with fewer than ${whole(t.clear_share)}% of them at ${bandText(t.zone)}`
     : chain.trigger === 'L04' ? `your next ${t.clear_window} journal predictions, every one accepted first time`
@@ -62,10 +66,12 @@ export function drillText(chain, cfg) {
     case 'plan': return `${d.calls} base-rate problems about plans and schedules: how often do projects, budgets and flight times turn out as planned? Start from the record, not the story.`;
     case 'classpick': return `${d.calls} reference-class problems: a case and a ladder of groups from everything down to a handful. Pick the narrowest group that still holds ${cfg.problems.rate.class_min_cases} cases.`;
     case 'domain': return `${d.calls} base-rate problems in ${(chain.evidence || {}).domain || 'your weak domain'}: practice at the part you skip, starting from how often it happens.`;
+    case 'stream': return `${d.calls} evidence-stream steps: the rate before the news, the news, and your new number. Learn to move as far as the news is worth.`;
+    case 'move': return `${d.calls} how-far-should-this-move steps, each one with news worth a big move (${cfg.problems.update.drill_move_min} points or more). See how far the record says to go.`;
     case 'rewrite': return `Rewrite ${d.items} vague predictions until each one passes the checker.`;
     default: return '';
   }
 }
 
 // Where a flag's drill happens.
-export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : ['L07', 'L08', 'L09', 'L13'].includes(chain.trigger) ? `#/prob/drill-${chain.id}` : `#/gym/drill-${chain.id}`);
+export const drillRoute = (chain) => (chain.trigger === 'L04' ? `#/rewrite/${chain.id}` : chain.trigger === 'L05' || chain.trigger === 'L06' ? `#/range/drill-${chain.id}` : ['L07', 'L08', 'L09', 'L10', 'L11', 'L13'].includes(chain.trigger) ? `#/prob/drill-${chain.id}` : `#/gym/drill-${chain.id}`);

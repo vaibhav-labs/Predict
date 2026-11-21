@@ -8,6 +8,7 @@ import { examsOf } from './gate.js';
 import { ACTIVE, flagsOf } from './lessons.js';
 import { shuffle, availablePool } from './draw.js';
 import { scoreRange, checkInput } from './range.js';
+import { gateU6, streamOf, stepsOf } from './update.js';
 
 // ---- the worksheet: combine the parts' ranges into a range for the whole -------------------------------------------------
 // Each part is a (low, high) the player would bet 19 to 1 on. In log space a product is a sum: the centres add, and the
@@ -106,9 +107,9 @@ export function gateU5(probs, gates) {
   if (n > 0 && within < gates.rate_pass_within) reasons.push('within');
   return { n, hits: within, within, meanMiss: n ? probs.reduce((s, p) => s + p.miss, 0) / n : null, bias, points: probs.reduce((s, p) => s + p.points, 0), pass: n > 0 && reasons.length === 0, reasons, dir: reasons.length ? (bias > 0 ? 'too high' : 'too low') : null, need: gates.rate_pass_within };
 }
-export const gateOf = (unit) => (unit === 'U4' ? gateU4 : gateU5);
-export const examTotal = (unit, gates) => (unit === 'U4' ? gates.fermi_exam_calls : gates.rate_exam_calls);
-export const examSitting = (unit, cfg) => (unit === 'U4' ? cfg.problems.fermi.exam_session_size : cfg.problems.rate.exam_session_size);
+export const gateOf = (unit) => (unit === 'U4' ? gateU4 : unit === 'U6' ? gateU6 : gateU5);
+export const examTotal = (unit, gates) => (unit === 'U4' ? gates.fermi_exam_calls : unit === 'U6' ? gates.update_exam_calls : gates.rate_exam_calls);
+export const examSitting = (unit, cfg) => (unit === 'U4' ? cfg.problems.fermi.exam_session_size : unit === 'U6' ? cfg.problems.update.exam_session_size : cfg.problems.rate.exam_session_size);
 
 // Where the player stands on a Unit 4 or 5 gate. `open` says the unit before it is passed.
 export function problemGateStatus(events, cfg, unit, { open = false, practice = 0, practiceRequired = 0 } = {}) {
@@ -130,7 +131,7 @@ export const sittingSize = (status, cfg) => Math.min(examSitting(status.unit, cf
 
 // The repair drill after a failed exam: more Fermi problems when the worksheet ranges were off; more base-rate problems otherwise.
 export function problemRepairOf(unit, cfg) {
-  return unit === 'U4' ? { kind: 'fermi', calls: cfg.gates.fermi_repair_calls } : { kind: 'rate', calls: cfg.gates.rate_repair_calls };
+  return unit === 'U4' ? { kind: 'fermi', calls: cfg.gates.fermi_repair_calls } : unit === 'U6' ? { kind: 'update', calls: cfg.gates.update_repair_calls } : { kind: 'rate', calls: cfg.gates.rate_repair_calls };
 }
 
 // ---- problem sessions in the record ------------------------------------------------------------------------------------------
@@ -157,11 +158,11 @@ export const naturalProbs = (probs) => probs.filter((p) => p.mode === 'practice'
 // ---- drawing a session --------------------------------------------------------------------------------------------------------
 // `size` problem ids from `bank`: not answered in the last reseen_days days, not disputed, no family more than about half a session
 // (a quarter for Fermi, which has four), and when the pool runs short the longest-ago ones come back.
-export function planProblems({ bank, events, today = localDay(), size, reseenDays, rng, exclude = new Set(), capShare = 0.25 }) {
+export function planProblems({ bank, events, today = localDay(), size, reseenDays, rng, exclude = new Set(), capShare = 0.25, idOf = (x) => x }) {
   const all = allProbsOf(events);
-  const recent = new Set(all.filter((r) => daysBetween(r.d, today) < reseenDays).map((r) => r.q));
-  const disputed = new Set(events.filter((e) => e.type === 'dispute').map((e) => e.q));
-  const lastUsed = new Map(all.map((r, i) => [r.q, i]));
+  const recent = new Set(all.filter((r) => daysBetween(r.d, today) < reseenDays).map((r) => idOf(r.q)));
+  const disputed = new Set(events.filter((e) => e.type === 'dispute').map((e) => idOf(e.q)));
+  const lastUsed = new Map(all.map((r, i) => [idOf(r.q), i]));
   const open = bank.filter((q) => !exclude.has(q.id));
   const { pool } = availablePool(open, recent, disputed, size, lastUsed);
   const cap = Math.max(1, Math.ceil(size * capShare));
@@ -185,11 +186,11 @@ export function planMix({ rateBank, classBank, events, today, size, classCount, 
 
 // The sittings of an exam are drawn when it starts from the exam pool, never repeating a problem within the attempt and preferring problems
 // no earlier attempt used. Returns the id lists per sitting and how many problems had to be reused.
-export function planProblemExam({ bank, events, unit, size, total, rng }) {
+export function planProblemExam({ bank, events, unit, size, total, rng, idOf = (x) => x }) {
   const all = allProbsOf(events);
-  const used = new Set(all.filter((r) => r.mode === 'exam' && r.unit === unit).map((r) => r.q));
-  const disputed = new Set(events.filter((e) => e.type === 'dispute').map((e) => e.q));
-  const lastUsed = new Map(all.map((r, i) => [r.q, i]));
+  const used = new Set(all.filter((r) => r.mode === 'exam' && r.unit === unit).map((r) => idOf(r.q)));
+  const disputed = new Set(events.filter((e) => e.type === 'dispute').map((e) => idOf(e.q)));
+  const lastUsed = new Map(all.map((r, i) => [idOf(r.q), i]));
   const { pool, reused } = availablePool(bank, used, disputed, total, lastUsed);
   const order = shuffle(pool, rng);
   const sittings = [];
@@ -205,6 +206,28 @@ export function planProblemExam({ bank, events, unit, size, total, rng }) {
     sittings.push(mine.map((q) => q.id));
   }
   return { sittings, reused: reused ? Math.max(0, total - bank.filter((q) => !used.has(q.id) && !disputed.has(q.id)).length) : 0 };
+}
+
+// Unit 6: a stream is two steps (the second starts from what the first revealed), so a session is drawn in streams and asked in steps.
+// `steps` is how many steps the session holds; an odd number leaves the last stream with only its first step.
+export function planStreams({ bank, events, today, steps, reseenDays, rng, capShare = 0.5 }) {
+  const streams = planProblems({ bank, events, today, size: Math.ceil(steps / 2), reseenDays, rng, capShare, idOf: streamOf });
+  return streams.flatMap((id) => [`${id}#0`, `${id}#1`]).slice(0, steps);
+}
+// A 'move' drill: single steps where the news was worth a big move, from streams the player has not seen lately, in a random order.
+export function planMoves({ bank, events, today, steps, reseenDays, rng, minMove }) {
+  const all = allProbsOf(events);
+  const recent = new Set(all.filter((r) => daysBetween(r.d, today) < reseenDays).map((r) => r.q));
+  const big = bank.flatMap(stepsOf).filter((q) => Math.abs(q.truth - q.prior) >= minMove - 1e-9);
+  const fresh = big.filter((q) => !recent.has(q.id));
+  const pool = fresh.length >= steps ? fresh : big;
+  return shuffle(pool, rng).slice(0, steps).map((q) => q.id);
+}
+// The sittings of a Unit 6 exam: whole streams, `size` steps to a sitting, no stream used by an earlier sitting or attempt when avoidable.
+export function planUpdateExam({ bank, events, size, total, rng }) {
+  const perStream = 2;
+  const drawn = planProblemExam({ bank, events, unit: 'U6', size: Math.ceil(size / perStream), total: Math.ceil(total / perStream), rng, idOf: streamOf });
+  return { sittings: drawn.sittings.map((ids) => ids.flatMap((id) => [`${id}#0`, `${id}#1`]).slice(0, size)), reused: drawn.reused };
 }
 
 // ---- reading the problems: the Mirror -------------------------------------------------------------------------------------------

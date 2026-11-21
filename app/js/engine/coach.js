@@ -26,7 +26,7 @@ const httpsUrl = (v) => {
 };
 
 export function emptyCoach() {
-  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, dropped: 0 };
+  return { version: COACH_VERSION, week: null, written: null, letter: null, drills: [], prompts: [], baselines: {}, outcomes: {}, reads: {}, news: {}, dropped: 0 };
 }
 
 // Cut `raw` (parsed JSON of coach/latest.json, or anything) down to what is valid. `dropped` counts what was refused.
@@ -80,6 +80,12 @@ export function parseCoach(raw) {
   for (const [id, r] of entries(raw.reads)) {
     const body = text(r && r.text, LIMITS.read), written = dayOf(r && r.written);
     if (body && written && /^[\w-]+$/.test(id)) out.reads[id] = { text: body, written }; else drop();
+  }
+  // News the weekly review found for an open prediction (Block 8): the card, a one-line note with its source, and the day it was written. Pattern L10
+  // (frozen forecasts) counts the cards that had such news and were not updated afterwards. A note without a source link is not kept.
+  for (const [id, n] of entries(raw.news)) {
+    const body = text(n && n.text, LIMITS.read), written = dayOf(n && n.written), url = httpsUrl(n && n.source);
+    if (body && written && url && /^[\w-]+$/.test(id)) out.news[id] = { text: body, written, source: url }; else drop();
   }
   return out;
 }

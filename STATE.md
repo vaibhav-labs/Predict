@@ -1,10 +1,33 @@
 # Predict: build state
 
-Last updated: 2026-11-16 · Stage (Block 6 built on `block-6`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
+Last updated: 2026-11-17 · Stage (Block 8 built on `block-8`; older text follows): Blocks 1 (The Dial) and 2 (The Journal) are on `main`, merged and live
 at https://vaibhav-labs.github.io/Predict/ (commit `fa252f5`). Block 3 (The Mirror) is built and tested on
 branch `block-3`, and the rebuilt question bank (judgment and prediction, not trivia) is on `block-4`, both
 waiting to be pushed and merged. Nothing has been tried on a phone yet · Next: the phone checks (below); the
 later blocks are built one after another on their own branches (see "Build log")
+
+## Report for the player (Block 8, Updating, 2026-11-17)
+
+Unit 6 and the update action are built and tested. Unit 6 opens when you pass the Unit 5 exam.
+
+**Updating a real prediction.** Once Unit 6 is open, an open journal card has an Update box: move the slider, write a line on what changed (at least 3 characters), and the new number is saved as an `update` beside the card.
+The card's tripwire is shown as a prompt ("Has that happened?"), and any note the weekly review wrote about the card shows with its source link. Your locked number is never changed. When the card resolves, each day it was open
+is scored at the number in force that day and the card's points are the average, so a good update earns its share and a bad one costs it. The case file lists the updates and says how many points they added or cost,
+and the Mirror adds up what your updates were worth. One update a day counts (a later one the same day replaces the first).
+
+**Unit 6, evidence streams.** A step shows the rate before the news, a piece of news that narrows the case ("it left before 10"), and you type the new percent; within 7 points of the real rate for the narrower group counts. Each stream has two steps and the
+second starts from what the first revealed. About 37% of steps are news worth a big move (8 points or more), 30% a modest one, 33% almost nothing, so always moving and never moving both lose. The gate: 40 fresh steps, two sealed sittings of 20;
+32 or more within 7 and, on average, your moves must not end further from the truth than staying put (the "gain"). A fail says which half failed, then a repair drill of 10. Practice is six steps a session (30 to open the exam).
+
+**Two new patterns.** L10 frozen forecasts (5 or more open cards older than a week with news from the weekly review and no update) and L11 whiplash (half of your last 10 large updates reversed within 14 days). Each has a lesson card, a drill (five stream steps; eight big-move steps), and re-tests.
+"12 open predictions updated with a reason" is tracked on the Mirror and does not block.
+
+**Where you see it.** Today gets a Unit 6 card and an exam row in "Needs you"; the Path has Unit 6 with three lesson cards ("Move in measured steps", "How much is news worth", "Update with a reason"), practice and the exam card; the Mirror has update steps within 7, the gain over staying put, the share of a big move you took, and what your updates added; Help has an Updating section.
+
+**Tests:** engine 165 (18 new: the time-weighted score against `tools/ref_update.py` on eight hand-worked cards, large-move reversal and frozen-card rules on sixteen cases, every step of every stream at six guesses, the gate, both new triggers through their whole lifecycle, the planners); browser phase `b8` (49 checks: closed until Unit 5 is passed, the lesson's worked example against the flight record, a session against the independent points, the sealed exam, a failed exam and its repair drill, updating a card, a card scored over its life); every older suite still green.
+Bank: 144 streams (84 practice, 60 exam) built by `tools/make_updates.py` and re-counted with SQL by `tools/check_updates.py`. Simulation (balance report 5d): a calibrated player with typical noise passes 83%, a rough one 1%, a player who never moves 0.1%, an over-reactor 33%, whiplash never; **open risk:** a player who takes 60% of every deserved move passes 92%.
+
+**Assumptions I made (see Block 8 assumptions below).**
 
 ## Report for the player (Block 7, Reasoning tools, 2026-11-16)
 
@@ -478,6 +501,19 @@ Where the docs left a choice, the simplest option that fit them was taken. None 
 - **Journal additions:** `steps` (>= 2 steps with probabilities = a chain card) and `own` are optional fields; L07/L08 read them. An outside-view rate is "accepted" when within 10 points of the baseline recorded at lock (b0 if present, else b).
 - **L13 reads per journal domain** (work, life, world) with a non-trivial card meaning scored and not 'trivial' per the journal rules.
 - **Fermi reference intervals** hold 86.8% (practice) and 89.6% (exam); the exam pool uses seed 12 of the generator, chosen because seed 1 gave z=-2.5 (documented in `tools/make_fermi.py`).
+
+## Block 8 assumptions
+
+- **Opens in a chain:** Unit 6 after the Unit 5 exam (`gates.opens_after.U6`). The update action on a journal card appears only once Unit 6 is open, so before then a lock is final (the earlier screens and tests say so).
+- **Only an open card can be updated** (not yet due, not resolved). The new number must differ from the one in force by half a point or more, stay inside 1 to 99 and carry a reason of 3 or more characters. A reason is not checked for quality.
+- **One update a day counts.** Two updates on one calendar day: the later replaces the earlier in the timeline (both stay in the record). An update on the lock day replaces the locked number for scoring.
+- **Time-weighted scoring runs from the lock day to the resolve day, both counted,** so a card resolved after its due date keeps accruing days at the number in force. Void cards score nothing. `p.c` stays the locked number; `cNow` is the number in force; an autopsy reads `cNow`.
+- **The Unit 6 gate** is 32 of 40 steps within 7 and a mean gain of zero or more. The design table said "your updates must not lower your time-weighted score"; real updates are too few to gate on, so that rule is tracked (the Mirror's "what your updates added") and the gate uses the stream gain. Simulation shows the gain half rarely bites (balance report 5d).
+- **Streams are counted from the records** (flights, Seattle weather): each group needs 60 or more cases; a step's truth is the share in the cumulative group. The same starting group and first news never appear in both pools.
+- **L10 frozen forecasts** needs the weekly review's `news` notes (the unattended weekly run is still untested); with none, it cannot fire. Re-test 1 (three days after the drill) is easy to pass on timing alone, re-test 2 (ten days) needs the waiting cards updated.
+- **L11 whiplash:** a large update is 25 points or more; it is reversed when a later update within 14 days crosses back past the middle of the move; judged once reversed, after 14 days or when the card resolves.
+- **Drill steps never count** toward a gate, a trigger or the Mirror; exam steps are sealed until the verdict.
+- **Display:** time-weighted edges are fractions; `signed()` rounds them for display (events keep the exact numbers).
 
 ## Decisions
 
