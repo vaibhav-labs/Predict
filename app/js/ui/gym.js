@@ -143,7 +143,8 @@ export async function gymScreen(ctx, root, token, arg) {
       return { q: ctx.questionById(active.q), shownAt: active.shownAt };
     }
     let id = null;
-    if (sess.plan) id = sess.plan.find((x) => !answered.has(x) && !skipped.has(x)) || null;
+    // A session planned against an older question bank can name questions that no longer exist: skip those and draw fresh ones.
+    if (sess.plan) id = sess.plan.find((x) => !answered.has(x) && !skipped.has(x) && ctx.questionById(x)) || null;
     if (!id) {
       const events = store.events;
       const recent = R.callsOf(events).map((c) => c.hit);
